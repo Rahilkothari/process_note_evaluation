@@ -1,0 +1,128 @@
+sections:
+  - id: "1.1"
+    name: "Approval Matrix"
+    type: "table"
+    fields: ["Name", "Role", "Function", "Sign", "Date"]
+    help_text: "List the key individuals responsible for reviewing and approving this process note. This ensures accountability. You must include the Process Owner, Process Reviewer, and Process Approver."
+  
+  - id: "1.2"
+    name: "Document Change History"
+    type: "table"
+    fields: ["Version No.", "Effective Date", "Change Date", "Change Request By", "Change Made By", "Amendment"]
+    help_text: "Track the versions of this document. If this is the first version, enter '1.0'. For future updates, briefly describe what changed in the 'Amendment' column."
+
+  - id: "1.3"
+    name: "Document Review Cycle"
+    type: "table"
+    fields: ["Sr. No.", "Effective Date", "Next Review Date", "Process Owner", "Name", "Sign"]
+    help_text: "Specify how often this process needs to be reviewed (e.g., annually) to ensure it stays up-to-date. Ensure the 'Next Review Date' is logically after the 'Effective Date'."
+
+  - id: "1.4"
+    name: "Related Documents"
+    type: "table"
+    fields: ["Process / Policy ID", "Document Name"]
+    help_text: "List any other organizational policies, guidelines, or process notes that are relevant to this one. Do not use generic descriptions; provide the actual Document Name."
+
+  - id: "1.5"
+    name: "Process Performance Parameters / KPIs"
+    type: "table"
+    fields: ["Sr. No.", "Description", "Owner", "Target", "Maker", "Checker", "Data Source", "Report Name", "Report Frequency", "Review Frequency"]
+    help_text: "Define the Key Performance Indicators (KPIs) that measure the success of this process. A good KPI must be measurable (e.g., 'Turnaround time under 24 hours') rather than vague (e.g., 'Improve efficiency')."
+
+  - id: "1.6"
+    name: "Process Coverage / Scope"
+    type: "text"
+    help_text: "Clearly define what is INCLUDED and EXCLUDED in this process. Who does it apply to? Which departments? Do not include generic company background here; keep it specific to the boundaries of this process."
+
+  - id: "1.7"
+    name: "Start Point"
+    type: "table"
+    fields: ["Activity", "Entry Criteria"]
+    help_text: "Identify the exact trigger that starts this process. What activity happens first, and what must be true (Entry Criteria) before you can start?"
+
+  - id: "1.8"
+    name: "End Point"
+    type: "table"
+    fields: ["Activity", "Exit Criteria"]
+    help_text: "Identify how the process officially concludes. What is the final activity, and what is the required condition (Exit Criteria) to consider the process complete?"
+
+  - id: "1.9"
+    name: "Introduction"
+    type: "text"
+    help_text: "Provide a brief context or background for why this process exists. Avoid repetitive filler words. This should set the stage, but the specific goals should go in the 'Objective' section."
+
+  - id: "1.10"
+    name: "Objective"
+    type: "text"
+    help_text: "State the primary purpose or goal of this process. What is it trying to achieve? Keep it concise and specific. Do not simply repeat the Introduction."
+
+  - id: "1.11"
+    name: "Process Flowchart"
+    type: "file"
+    help_text: "Upload a visual flowchart representing the steps of the process. Ensure the major steps in the chart match the steps you will write in the Process Description."
+
+  - id: "1.12"
+    name: "Process Description"
+    type: "table"
+    fields: ["Sr. No.", "Activity", "Description", "Owner/Role", "TAT"]
+    help_text: "This is the most critical section. List the step-by-step activities of the process in logical order. Be specific, assign an owner to each step, and define the Turn-Around Time (TAT). Do not use generic filler."
+
+  - id: "1.13"
+    name: "RACI Matrix"
+    type: "table"
+    fields: ["Roles", "Responsible (R)", "Accountable (A)", "Consulted (C)", "Informed (I)", "TAT"]
+    help_text: "Define who is Responsible (does the work), Accountable (owns the result), Consulted (provides input), and Informed (kept in the loop). Every process must have at least one Accountable role."
+
+  - id: "1.14"
+    name: "Business Rules"
+    type: "table"
+    fields: ["Sr. No.", "Business Rule"]
+    help_text: "List the strict rules or policies that govern this process (e.g., 'Approvals over $500 require VP sign-off'). Do not put general descriptions here; these must be actual rules."
+
+  - id: "1.15"
+    name: "Exception and Change Management"
+    type: "table"
+    fields: ["Sr. No.", "Area of Exception", "Exception Description", "Exception Mitigation", "Proposed By", "Recommended By", "Approved By", "Informed To", "Remarks"]
+    help_text: "Identify what happens when the standard process cannot be followed. Describe the exception and how it is mitigated. If there are truly no exceptions, state 'No known exceptions identified'."
+
+  - id: "1.16"
+    name: "Risk Management"
+    type: "table"
+    fields: ["Sub Process", "Risk Description", "Root Cause", "Type of Risk", "Risk Impact", "Level of Risk", "Control Description", "Control Frequency"]
+    help_text: "Identify potential risks in this process. What could go wrong? What is the root cause? Most importantly, define a Control (a mitigation strategy) that logically addresses that specific risk."
+
+  - id: "1.17"
+    name: "Compliance Management"
+    type: "table"
+    fields: ["Sub Process", "Compliance Particulars", "Target Date"]
+    help_text: "List any specific regulatory, legal, or organizational compliance requirements this process must adhere to. Be specific."
+
+  - id: "1.18"
+    name: "Data Archival"
+    type: "table"
+    fields: ["Sub Process", "Financial Year", "Document Title", "Criticality", "Storage Type", "Cut-off Period", "Retention Period", "Location - hard copy", "Folder link - soft copy"]
+    help_text: "Describe how and where data generated by this process is stored, and for how long it must be retained."
+
+  - id: "1.19"
+    name: "Abbreviations & Acronyms"
+    type: "table"
+    fields: ["Abbreviation", "Definition"]
+    help_text: "Define any acronyms or technical jargon used in this process note to ensure clarity for all readers."
+
+  - id: "1.20"
+    name: "Best Practices Summary"
+    type: "table"
+    fields: ["Best Practice Followed", "Envisaged/Planned", "Tentative Timelines"]
+    help_text: "Highlight current or planned best practices (e.g., 'Automation of data entry'). Distinguish clearly between what you are doing now and what is planned for the future."
+
+  - id: "1.21"
+    name: "Innovations"
+    type: "table"
+    fields: ["Innovations Implemented", "Envisaged/Planned", "Tentative Timelines"]
+    help_text: "List any specific innovations or improvements introduced to make this process better. Ensure these are actual improvements, not just normal daily activities."
+
+  - id: "1.22"
+    name: "SIPOC"
+    type: "table"
+    fields: ["Supplier (Dept)", "Input", "Key Process Step", "Output", "Customer (Dept)"]
+    help_text: "Define the Suppliers, Inputs, Process Steps, Outputs, and Customers. Ensure that the 'Key Process Steps' mentioned here align with what you wrote in the 'Process Description' section."

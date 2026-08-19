@@ -1,0 +1,100 @@
+rules:
+  - section_id: "1.5"
+    name: "Process Performance Parameters / KPIs"
+    criteria: 
+      - "KPI should be measurable where applicable."
+      - "Must have a clear description and identifiable owner."
+      - "Must have a target where applicable."
+      - "Must have a data source and appropriate reporting/review frequency."
+    flag_generic: true
+
+  - section_id: "1.6"
+    name: "Process Coverage / Scope"
+    criteria:
+      - "Clearly describes what the process covers and its boundaries."
+      - "Is specific to the process."
+      - "Does not contain unrelated organizational background."
+      - "Is concise and not unnecessarily verbose."
+    flag_generic: true
+
+  - section_id: "1.7"
+    name: "Start Point"
+    criteria:
+      - "Identifies where the process begins."
+      - "Explains what must be true before the activity begins (Entry Criteria)."
+      - "Activity and Entry Criteria logically relate."
+
+  - section_id: "1.8"
+    name: "End Point"
+    criteria:
+      - "Clearly identifies how the process ends and what constitutes completion."
+
+  - section_id: "1.9"
+    name: "Introduction"
+    criteria:
+      - "Provides appropriate context about the process."
+      - "Avoids excessive background or generic corporate language."
+      - "Does not merely repeat the Objective."
+      - "Does not contain information that belongs in Scope or Process Description."
+
+  - section_id: "1.10"
+    name: "Objective"
+    criteria:
+      - "Describes the purpose of the process."
+      - "Is specific and concise."
+      - "Does not merely repeat the Introduction."
+      - "Does not contain unrelated background or recommendations."
+
+  - section_id: "1.12"
+    name: "Process Description"
+    criteria:
+      - "Steps are in a logical sequence."
+      - "Is complete and avoids duplication."
+      - "Avoids unnecessary system explanations and generic filler."
+      - "Clearly distinguishes activities from descriptions."
+
+  - section_id: "1.13"
+    name: "RACI Matrix"
+    criteria:
+      - "Has an accountable role."
+      - "Roles are not incorrectly duplicated across everything."
+      - "Roles appear relevant to the process."
+
+  - section_id: "1.14"
+    name: "Business Rules"
+    criteria:
+      - "Entries are actual business rules, not process descriptions, recommendations, or general statements."
+
+  - section_id: "1.15"
+    name: "Exception and Change Management"
+    criteria:
+      - "Logical completeness (Exception exists -> Description -> Mitigation)."
+
+  - section_id: "1.16"
+    name: "Risk Management"
+    criteria:
+      - "Logical relationships between Risk, Root Cause, Impact, and Control."
+      - "Controls should actually address the risk."
+
+  - section_id: "1.17"
+    name: "Compliance Management"
+    criteria:
+      - "Compliance items are specific."
+      - "Target dates are valid where applicable."
+      - "Entries are actual compliance requirements, not generic statements."
+
+  - section_id: "1.19"
+    name: "Abbreviations & Acronyms"
+    criteria:
+      - "Definitions are plausible and clear."
+      - "Same abbreviation is defined consistently."
+
+  - section_id: "1.20"
+    name: "Best Practices Summary"
+    criteria:
+      - "Distinguishes between existing practices, planned practices, and generic claims."
+
+  - section_id: "1.21"
+    name: "Innovations"
+    criteria:
+      - "Entry actually represents an innovation/improvement rather than normal process activity."
