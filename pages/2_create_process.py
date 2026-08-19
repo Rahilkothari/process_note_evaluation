@@ -154,7 +154,7 @@ if current_note:
                 content = st.text_area("Provide your detailed response below:", value=val, height=250)
                 if st.form_submit_button("Save Section", type="primary"):
                     if not existing_sec:
-                        new_sec = ProcessSection(process_note_id=current_note.id, section_id=sec_id, content=content)
+                        new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=content)
                         db.add(new_sec)
                     else:
                         existing_sec.content = content
@@ -199,7 +199,7 @@ if current_note:
                 if st.form_submit_button("Save Section", type="primary"):
                     json_data = edited_df.to_dict(orient="records")
                     if not existing_sec:
-                        new_sec = ProcessSection(process_note_id=current_note.id, section_id=sec_id, structured_data=json_data)
+                        new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=json_data)
                         db.add(new_sec)
                     else:
                         existing_sec.structured_data = json_data

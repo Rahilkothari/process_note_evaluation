@@ -74,9 +74,10 @@ if st.button("Run AI Validation", type="primary"):
         
         v_run = ValidationRun(
             process_note_id=current_note.id,
+            process_name=current_note.process_name,
             overall_score=result.overall_score,
             status=result.overall_status,
-            model_used="mock"
+            model_used=os.getenv("LLM_MODEL", "gemini-3.5-flash")
         )
         db.add(v_run)
         db.commit()
@@ -85,18 +86,21 @@ if st.button("Run AI Validation", type="primary"):
         for sec_res in result.section_results:
             vf = ValidationFinding(
                 validation_id=v_run.id,
+                process_name=current_note.process_name,
                 section_id=sec_res.section,
                 severity=sec_res.severity,
                 status=sec_res.status,
                 score=sec_res.score,
                 issue="\n".join(sec_res.issues),
-                recommendation="\n".join(sec_res.recommendations)
+                recommendation="\n".join(sec_res.recommendations),
+                is_cross_section=0
             )
             db.add(vf)
             
         for cr in result.cross_section_issues:
             vf = ValidationFinding(
                 validation_id=v_run.id,
+                process_name=current_note.process_name,
                 severity=cr.get("severity", "MEDIUM"),
                 status="WARNING",
                 issue=cr.get("issue", ""),

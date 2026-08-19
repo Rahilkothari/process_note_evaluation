@@ -65,7 +65,7 @@ def create_note(admin_id, name, quality):
     else:
         obj = "To establish a standardized, compliant, and efficient onboarding process for all new hires, ensuring they receive necessary IT assets, compliance training, and HR orientation within their first 48 hours, thereby minimizing time-to-productivity."
 
-    sections.append(ProcessSection(process_note_id=note.id, section_id="1.10", content=obj))
+    sections.append(ProcessSection(process_note_id=note.id, process_name=note.process_name, section_id="1.10", content=obj))
 
     # 1.12 Process Description
     if quality == "Bad":
@@ -85,7 +85,7 @@ def create_note(admin_id, name, quality):
             {"Sr. No.": 3, "Activity": "Compliance Orientation", "Description": "Conduct mandatory 2-hour orientation covering InfoSec and Code of Conduct policies.", "Owner/Role": "Compliance Officer", "TAT": 72}
         ]
     
-    sections.append(ProcessSection(process_note_id=note.id, section_id="1.12", structured_data=desc))
+    sections.append(ProcessSection(process_note_id=note.id, process_name=note.process_name, section_id="1.12", structured_data=desc))
 
     # 1.13 RACI Matrix
     if quality == "Bad":
@@ -104,7 +104,7 @@ def create_note(admin_id, name, quality):
             {"Roles": "IT Helpdesk", "Responsible (R)": "Yes", "Accountable (A)": "No", "Consulted (C)": "Yes", "Informed (I)": "No", "TAT": 48}
         ]
         
-    sections.append(ProcessSection(process_note_id=note.id, section_id="1.13", structured_data=raci))
+    sections.append(ProcessSection(process_note_id=note.id, process_name=note.process_name, section_id="1.13", structured_data=raci))
 
     db.add_all(sections)
     db.commit()

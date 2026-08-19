@@ -22,10 +22,10 @@ def fill_excellent_note():
     sections = []
     
     def add_text(sec_id, text):
-        sections.append(ProcessSection(process_note_id=note.id, section_id=sec_id, content=text))
+        sections.append(ProcessSection(process_note_id=note.id, process_name=note.process_name, section_id=sec_id, content=text))
         
     def add_table(sec_id, data):
-        sections.append(ProcessSection(process_note_id=note.id, section_id=sec_id, structured_data=data))
+        sections.append(ProcessSection(process_note_id=note.id, process_name=note.process_name, section_id=sec_id, structured_data=data))
 
     # 1.1 Approval Matrix
     add_table("1.1", [

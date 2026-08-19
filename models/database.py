@@ -55,6 +55,7 @@ class ProcessSection(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     process_note_id = Column(Integer, ForeignKey("process_notes.id"))
+    process_name = Column(String)  # Denormalized for easier querying
     section_id = Column(String)  # e.g. "1.1", "1.10"
     content = Column(Text, nullable=True)  # For large text areas
     structured_data = Column(JSON, nullable=True)  # For tables and structured input
@@ -66,6 +67,7 @@ class ValidationRun(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     process_note_id = Column(Integer, ForeignKey("process_notes.id"))
+    process_name = Column(String)  # Denormalized for easier querying
     timestamp = Column(DateTime, default=datetime.utcnow)
     overall_score = Column(Float, nullable=True)
     status = Column(String)  # PASS, NEEDS_REVISION
@@ -79,6 +81,7 @@ class ValidationFinding(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     validation_id = Column(Integer, ForeignKey("validation_runs.id"))
+    process_name = Column(String)  # Denormalized for easier querying
     section_id = Column(String, nullable=True)  # Can be None if it's a cross-section finding
     severity = Column(String)  # LOW, MEDIUM, HIGH
     status = Column(String)  # PASS, WARNING, NEEDS_REVISION
@@ -94,6 +97,7 @@ class ReviewHistory(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     process_note_id = Column(Integer, ForeignKey("process_notes.id"))
+    process_name = Column(String)  # Denormalized for easier querying
     reviewer = Column(String)
     action = Column(String)  # SUBMITTED, APPROVED, SENT_BACK
     comments = Column(Text, nullable=True)
