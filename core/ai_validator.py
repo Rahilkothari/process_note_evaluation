@@ -7,7 +7,7 @@ class AIValidator:
     def __init__(self):
         self.llm_provider = get_llm_provider()
 
-    def validate(self, section: ProcessSectionSchema, config: Dict[str, Any]) -> SectionValidationResult:
+    def validate(self, section: ProcessSectionSchema, config: Dict[str, Any], rules_config: Dict[str, Any] = None) -> SectionValidationResult:
         section_config = next((s for s in config.get("sections", []) if s["id"] == section.section_id), None)
         if not section_config:
              return SectionValidationResult(
@@ -33,4 +33,4 @@ class AIValidator:
                 severity="LOW"
             )
 
-        return self.llm_provider.validate_section(content_to_validate, section_config)
+        return self.llm_provider.validate_section(content_to_validate, section_config, rules_config)

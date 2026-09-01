@@ -1,0 +1,80 @@
+sections:
+- id: A
+  name: 'SECTION A: GENERAL INFORMATION'
+  type: table
+  fields:
+  - Sr. No.
+  - Particulars
+  - Description
+  help_text: Provide general information including Title, Vertical, Program, and Type
+    of initiative.
+- id: B
+  name: 'SECTION B: STRATEGIC ALIGNMENT'
+  type: table
+  fields:
+  - Sr. No.
+  - Particulars
+  - Description
+  help_text: Provide context, justification, and alignment with KEF Vision, Mission,
+    and NEP/SDGs.
+- id: C
+  name: 'SECTION C: PROJECT DESIGN & DELIVERY MODEL'
+  type: table
+  fields:
+  - Sr. No.
+  - Particulars
+  - Description
+  help_text: Outline SMART goals, activities, implementation model, and stakeholders.
+- id: D
+  name: 'SECTION D: MONITORING, IMPACT, & LEARNING'
+  type: table
+  fields:
+  - Sr. No.
+  - Particulars
+  - Description
+  help_text: Define success indicators, monitoring framework, and evaluation design.
+- id: E
+  name: 'SECTION E: FINANCIALS & RESOURCE PLAN'
+  type: table
+  fields:
+  - Sr. No.
+  - Particulars
+  - Description
+  help_text: Detail the budget estimate, cost per beneficiary, source of funds, and
+    resource requirements.
+- id: F
+  name: 'SECTION F: RISK MANAGEMENT & COMPLIANCE'
+  type: table
+  fields:
+  - Sr. No.
+  - Particulars
+  - Description
+  help_text: Identify key risks, mitigation plans, required approvals, and child protection/data
+    privacy measures.
+- id: G
+  name: 'SECTION G: EXIT & SUSTAINABILITY STRATEGY'
+  type: table
+  fields:
+  - Sr. No.
+  - Particulars
+  - Description
+  help_text: Describe scalability, sustainability, and community ownership plans.
+- id: H
+  name: 'SECTION H: VERTICAL-SPECIFIC POINTS'
+  type: table
+  fields:
+  - Sr. No.
+  - Particulars
+  - Description
+  help_text: Include points specific to School Education, Scholarships, or Vocational
+    Education.
+- id: I
+  name: 'SECTION I: SUGGESTED ANNEXURES'
+  type: table
+  fields:
+  - Annx. Sr No
+  - Annexure
+  - Description/Purpose
+  - Suggestive Formats to be used
+  help_text: List mandatory annexures such as Budget Sheets, Gantt Charts, and Baseline
+    Data.

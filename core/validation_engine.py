@@ -29,8 +29,9 @@ class ValidationEngine:
     def run_validation(self, note: ProcessNoteSchema) -> ValidationResponse:
         section_results: List[SectionValidationResult] = []
         
-        # 1. Run individual section validations (Rule -> AI)
-        for section in note.sections:
+        import concurrent.futures
+
+        def validate_single_section(section):
             section_config = next((s for s in self.sections_config.get("sections", []) if s["id"] == section.section_id), {})
             section_name = section_config.get("name", section.section_id)
             
@@ -39,19 +40,30 @@ class ValidationEngine:
             
             if rule_issues:
                 # If deterministic fails, don't even send to AI
-                section_results.append(SectionValidationResult(
+                return SectionValidationResult(
                     section=section_name,
                     status="NEEDS_REVISION",
                     score=0.0,
                     issues=rule_issues,
                     recommendations=["Please fill in the required fields correctly before AI validation."],
                     severity="HIGH"
-                ))
+                )
             else:
                 # Layer 2: AI
-                ai_result = self.ai_validator.validate(section, self.sections_config)
+                ai_result = self.ai_validator.validate(section, self.sections_config, self.rules_config)
                 ai_result.section = section_name # Ensure name is set
-                section_results.append(ai_result)
+                # Enforce strict score thresholds instead of relying on LLM subjective status
+                if ai_result.score >= 70:
+                    ai_result.status = "PASS"
+                    ai_result.severity = "LOW"
+                else:
+                    ai_result.status = "NEEDS_REVISION"
+                    ai_result.severity = "HIGH"
+                return ai_result
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            results = list(executor.map(validate_single_section, note.sections))
+            section_results.extend(results)
 
         # 2. Run Cross-section validation
         all_sections_dict = []

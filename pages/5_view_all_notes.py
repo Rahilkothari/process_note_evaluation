@@ -5,9 +5,8 @@ import pandas as pd
 
 st.set_page_config(page_title="View All Notes", layout="wide")
 from core.ui_utils import inject_custom_css
-from core.auth import require_login
-inject_custom_css()
-require_login()
+from core.ui_utils import inject_custom_css
+
 
 st.title("View All Process Notes")
 st.markdown("Read-only access to all process notes in the system.")

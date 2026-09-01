@@ -1,100 +1,161 @@
 rules:
-  - section_id: "1.5"
-    name: "Process Performance Parameters / KPIs"
-    criteria: 
-      - "KPI should be measurable where applicable."
-      - "Must have a clear description and identifiable owner."
-      - "Must have a target where applicable."
-      - "Must have a data source and appropriate reporting/review frequency."
-    flag_generic: true
-
-  - section_id: "1.6"
-    name: "Process Coverage / Scope"
-    criteria:
-      - "Clearly describes what the process covers and its boundaries."
-      - "Is specific to the process."
-      - "Does not contain unrelated organizational background."
-      - "Is concise and not unnecessarily verbose."
-    flag_generic: true
-
-  - section_id: "1.7"
-    name: "Start Point"
-    criteria:
-      - "Identifies where the process begins."
-      - "Explains what must be true before the activity begins (Entry Criteria)."
-      - "Activity and Entry Criteria logically relate."
-
-  - section_id: "1.8"
-    name: "End Point"
-    criteria:
-      - "Clearly identifies how the process ends and what constitutes completion."
-
-  - section_id: "1.9"
-    name: "Introduction"
-    criteria:
-      - "Provides appropriate context about the process."
-      - "Avoids excessive background or generic corporate language."
-      - "Does not merely repeat the Objective."
-      - "Does not contain information that belongs in Scope or Process Description."
-
-  - section_id: "1.10"
-    name: "Objective"
-    criteria:
-      - "Describes the purpose of the process."
-      - "Is specific and concise."
-      - "Does not merely repeat the Introduction."
-      - "Does not contain unrelated background or recommendations."
-
-  - section_id: "1.12"
-    name: "Process Description"
-    criteria:
-      - "Steps are in a logical sequence."
-      - "Is complete and avoids duplication."
-      - "Avoids unnecessary system explanations and generic filler."
-      - "Clearly distinguishes activities from descriptions."
-
-  - section_id: "1.13"
-    name: "RACI Matrix"
-    criteria:
-      - "Has an accountable role."
-      - "Roles are not incorrectly duplicated across everything."
-      - "Roles appear relevant to the process."
-
-  - section_id: "1.14"
-    name: "Business Rules"
-    criteria:
-      - "Entries are actual business rules, not process descriptions, recommendations, or general statements."
-
-  - section_id: "1.15"
-    name: "Exception and Change Management"
-    criteria:
-      - "Logical completeness (Exception exists -> Description -> Mitigation)."
-
-  - section_id: "1.16"
-    name: "Risk Management"
-    criteria:
-      - "Logical relationships between Risk, Root Cause, Impact, and Control."
-      - "Controls should actually address the risk."
-
-  - section_id: "1.17"
-    name: "Compliance Management"
-    criteria:
-      - "Compliance items are specific."
-      - "Target dates are valid where applicable."
-      - "Entries are actual compliance requirements, not generic statements."
-
-  - section_id: "1.19"
-    name: "Abbreviations & Acronyms"
-    criteria:
-      - "Definitions are plausible and clear."
-      - "Same abbreviation is defined consistently."
-
-  - section_id: "1.20"
-    name: "Best Practices Summary"
-    criteria:
-      - "Distinguishes between existing practices, planned practices, and generic claims."
-
-  - section_id: "1.21"
-    name: "Innovations"
-    criteria:
-      - "Entry actually represents an innovation/improvement rather than normal process activity."
+- section_id: '1.1'
+  name: Approval Matrix
+  criteria:
+  - Must define the stakeholders responsible for reviewing and approving the Process
+    Note at different levels.
+  - Must include the Process Owner, Process Reviewer, and Process Approver.
+  - Names, Roles, Functions, and Dates must be clearly stated.
+- section_id: '1.2'
+  name: Document Change History
+  criteria:
+  - Must record the changes made to the Process Note, including version, date, description
+    of change, and person responsible.
+  - If this is the first version (1.0), it should be noted appropriately.
+  - Amendment descriptions should be clear and not generic.
+- section_id: '1.3'
+  name: Document Review Cycle
+  criteria:
+  - Must specify how frequently the Process Note should be reviewed and updated.
+  - Next Review Date must logically be after the Effective Date.
+  - Responsible stakeholders (Process Owner) must be listed.
+- section_id: '1.4'
+  name: Related Documents
+  criteria:
+  - Must list other documents, policies, guidelines, SOPs, or references related to
+    the process.
+  - Avoid generic descriptions; provide the actual Document Name and ID.
+- section_id: '1.5'
+  name: Process Performance Parameters / KPIs
+  criteria:
+  - Defines the key metrics/KPIs used to measure the effectiveness and performance
+    of the process.
+  - KPI should be measurable (e.g., 'Turnaround time under 24 hours') where applicable.
+  - Must have a clear description and identifiable owner.
+  - Must have a target where applicable.
+  - Must have a data source and appropriate reporting/review frequency.
+  flag_generic: true
+- section_id: '1.6'
+  name: Process Coverage / Scope
+  criteria:
+  - Specifies what is included and excluded from the process and the areas, teams,
+    or activities covered.
+  - Clearly describes boundaries. Who does it apply to? Which departments?
+  - Is specific to the process.
+  - Does not contain unrelated organizational background.
+  - Is concise and not unnecessarily verbose.
+  flag_generic: true
+- section_id: '1.7'
+  name: Start Point
+  criteria:
+  - Defines the event, request, or activity that triggers the beginning of the process.
+  - Explains what must be true before the activity begins (Entry Criteria).
+  - Activity and Entry Criteria logically relate.
+- section_id: '1.8'
+  name: End Point
+  criteria:
+  - Defines the event or outcome that indicates the completion of the process.
+  - Identifies the required condition (Exit Criteria) to consider the process complete.
+- section_id: '1.9'
+  name: Introduction
+  criteria:
+  - Provides a brief overview and background of the process and explains why the process
+    is required.
+  - Avoids excessive background or generic corporate language.
+  - Does not merely repeat the Objective.
+  - Does not contain information that belongs in Scope or Process Description.
+- section_id: '1.10'
+  name: Objective
+  criteria:
+  - States the purpose of the process and the intended outcome or goal to be achieved.
+  - Is specific and concise.
+  - Does not merely repeat the Introduction.
+  - Does not contain unrelated background or recommendations.
+- section_id: '1.11'
+  name: Process Flowchart
+  criteria:
+  - Provides a visual representation of the process steps, sequence, decision points,
+    and flow.
+  - The major steps in the chart must logically match the steps detailed in the Process
+    Description.
+- section_id: '1.12'
+  name: Process Description
+  criteria:
+  - Provides a detailed description of each step in the process, including activities,
+    responsibilities, inputs, and outputs.
+  - Steps are in a logical sequence.
+  - Is complete and avoids duplication.
+  - Avoids unnecessary system explanations and generic filler.
+  - Clearly distinguishes activities from descriptions.
+  - Each step must have an owner/role assigned and a defined Turn-Around Time (TAT).
+- section_id: '1.13'
+  name: RACI Matrix
+  criteria:
+  - Defines the roles and responsibilities of stakeholders using Responsible, Accountable,
+    Consulted, and Informed categories.
+  - Has an accountable role for the process.
+  - Roles are not incorrectly duplicated across everything.
+  - Roles appear relevant to the process.
+- section_id: '1.14'
+  name: Business Rules
+  criteria:
+  - Lists the strict rules, conditions, or guidelines that must be followed while
+    carrying out the process.
+  - Entries are actual business rules, not process descriptions, recommendations,
+    or general statements.
+- section_id: '1.15'
+  name: Exception and Change Management
+  criteria:
+  - Describes how exceptions, deviations, and changes to the standard process should
+    be identified, handled, and documented.
+  - Logical completeness (Exception exists -> Description -> Mitigation).
+  - If there are no exceptions, it should explicitly state 'No known exceptions identified'.
+- section_id: '1.16'
+  name: Risk Management
+  criteria:
+  - Identifies potential risks associated with the process and defines measures to
+    prevent, mitigate, or manage them.
+  - Logical relationships between Risk, Root Cause, Impact, and Control.
+  - Controls should actually address the specific risk.
+- section_id: '1.17'
+  name: Compliance Management
+  criteria:
+  - Specifies the applicable laws, regulations, policies, standards, and internal
+    requirements that the process must comply with.
+  - Compliance items are specific.
+  - Target dates are valid where applicable.
+  - Entries are actual compliance requirements, not generic statements.
+- section_id: '1.18'
+  name: Data Archival
+  criteria:
+  - Defines the data/documents that need to be retained, the retention period, storage
+    location, and archival method.
+  - Must specify the Storage Type (hard copy or soft copy) and Cut-off Period.
+- section_id: '1.19'
+  name: Abbreviations & Acronyms
+  criteria:
+  - Provides the full forms and meanings of abbreviations and acronyms used in the
+    Process Note.
+  - Definitions are plausible and clear.
+  - Same abbreviation is defined consistently.
+- section_id: '1.20'
+  name: Best Practices Summary
+  criteria:
+  - Highlights recommended practices that help ensure the process is performed efficiently
+    and consistently.
+  - Distinguishes clearly between what is existing/followed, and what is envisaged/planned
+    for the future.
+- section_id: '1.21'
+  name: Innovations
+  criteria:
+  - Captures new ideas, improvements, technology, or innovative approaches introduced
+    or suggested for the process.
+  - Entry actually represents an innovation/improvement rather than normal process
+    activity.
+- section_id: '1.22'
+  name: SIPOC
+  criteria:
+  - Provides a high-level overview of the process by identifying Suppliers, Inputs,
+    Process Steps, Outputs, and Customers.
+  - The 'Key Process Steps' mentioned here must align with the 'Process Description'
+    section.

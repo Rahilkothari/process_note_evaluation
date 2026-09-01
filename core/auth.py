@@ -10,9 +10,15 @@ load_dotenv()
 supabase_url = os.getenv("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_KEY")
 
+from supabase.client import ClientOptions
+import httpx
+
 @st.cache_resource
 def init_supabase() -> Client:
-    return create_client(supabase_url, supabase_key)
+    options = ClientOptions(
+        httpx_client=httpx.Client(timeout=60.0)
+    )
+    return create_client(supabase_url, supabase_key, options=options)
 
 supabase: Client = init_supabase()
 
@@ -31,18 +37,18 @@ def get_role_for_email(email: str) -> str:
     # Default roles
     return "creator"
 
-def sync_user_to_db(email: str, name: str = None):
+def sync_user_to_db(email: str, name: str = None, requested_role: str = None):
     db = next(get_db())
     user = db.query(User).filter(User.email == email).first()
-    role = get_role_for_email(email)
     
     if not user:
+        role = requested_role if requested_role else get_role_for_email(email)
         user = User(name=name or email.split("@")[0], email=email, role=role)
         db.add(user)
         db.commit()
-    elif user.role != role:
-        # Update role if it changed (e.g. they became admin)
-        user.role = role
+    elif requested_role and user.role != requested_role:
+        # Update role for MVP demo purposes
+        user.role = requested_role
         db.commit()
     
     st.session_state.current_user_id = user.id
@@ -53,13 +59,40 @@ def require_login():
     if "user" not in st.session_state:
         st.session_state.user = None
 
+    # Auto-login workaround for page refreshes
+    if st.session_state.user is None and "session_email" in st.query_params:
+        cached_email = st.query_params["session_email"]
+        if is_authorized_email(cached_email):
+            class MockUser:
+                def __init__(self, e):
+                    self.email = e
+            st.session_state.user = MockUser(cached_email)
+
     if st.session_state.user is not None and "current_user_name" not in st.session_state:
         try:
             sync_user_to_db(st.session_state.user.email)
         except Exception:
             st.session_state.user = None
 
+    if st.session_state.user is not None:
+        # Render the logout button on the sidebar for EVERY page
+        with st.sidebar:
+            st.markdown("---")
+            display_name = st.session_state.current_user_name.title() if "current_user_name" in st.session_state and st.session_state.current_user_name else ""
+            st.markdown(f"Logged in as: **{display_name}**")
+            if st.button("Log Out", key="global_logout"):
+                logout()
+            st.markdown("---")
+
     if st.session_state.user is None:
+        st.markdown("""
+        <style>
+            [data-testid="stSidebarNav"] {
+                display: none;
+            }
+        </style>
+        """, unsafe_allow_html=True)
+        
         st.markdown("<h2 style='text-align: center; margin-top: 50px;'>Login Required</h2>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; color: #64748B;'>Please sign in to access the Process Note Validator.</p>", unsafe_allow_html=True)
         
@@ -69,6 +102,7 @@ def require_login():
                 with st.form("login_form"):
                     email = st.text_input("Email")
                     password = st.text_input("Password", type="password")
+                    login_role = st.selectbox("Log in as", ["Normal User", "Reviewer"], help="Select your role for this session.")
                     
                     submit = st.form_submit_button("Sign In", type="primary", use_container_width=True)
                     
@@ -79,7 +113,9 @@ def require_login():
                             try:
                                 response = supabase.auth.sign_in_with_password({"email": email, "password": password})
                                 st.session_state.user = response.user
-                                sync_user_to_db(response.user.email)
+                                st.query_params["session_email"] = response.user.email
+                                db_role = "admin" if login_role == "Reviewer" else "creator"
+                                sync_user_to_db(response.user.email, requested_role=db_role)
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Login failed: {str(e)}")
@@ -110,4 +146,5 @@ def logout():
     st.session_state.user = None
     if "current_user_id" in st.session_state:
         del st.session_state.current_user_id
+    st.query_params.clear()
     st.rerun()

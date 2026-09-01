@@ -1,0 +1,41 @@
+rules:
+- section_id: A
+  criteria:
+  - Must clearly state the Title and Vertical.
+  - Must specify the Proposal submitter details.
+  - Must indicate the Type of initiative.
+- section_id: B
+  criteria:
+  - Must include data-backed justification or need assessment.
+  - Must describe alignment with KEF core values.
+  - Must specify alignment with NEP 2020 or SDGs if applicable.
+- section_id: C
+  criteria:
+  - Must define SMART goals (Specific, Measurable, Achievable, Relevant, Time-bound).
+  - Must list key activities and interventions with timelines.
+  - Must delineate internal vs external stakeholders.
+- section_id: D
+  criteria:
+  - Must specify short-term outputs and long-term impact metrics.
+  - Must detail the monitoring framework (baseline-endline).
+- section_id: E
+  criteria:
+  - Must provide a line-item wise budget estimate.
+  - Must state the Total Estimated Cost and Cost per Beneficiary.
+- section_id: F
+  criteria:
+  - Must explicitly identify operational, legal, reputational, and funding risks.
+  - Must include a Risk Mitigation Plan for each risk.
+  - Must specify measures for child protection and data privacy (POSCO, DPDP).
+- section_id: G
+  criteria:
+  - Must describe how the initiative can be scaled or replicated.
+  - Must provide a sustainability or exit plan.
+- section_id: H
+  criteria:
+  - Must include details relevant to the specific vertical (e.g., Curriculum, Teacher
+    Training, Placement Strategy, Eligibility Criteria).
+- section_id: I
+  criteria:
+  - Must properly number and label all annexures.
+  - Must include a Detailed Budget Sheet and Gantt Chart/Timeline.

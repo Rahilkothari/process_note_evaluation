@@ -6,7 +6,7 @@ from models.schemas import SectionValidationResult
 
 class LLMProvider(ABC):
     @abstractmethod
-    def validate_section(self, section_content: str, section_rules: Dict[str, Any]) -> SectionValidationResult:
+    def validate_section(self, section_content: str, section_rules: Dict[str, Any], global_rules: Dict[str, Any] = None) -> SectionValidationResult:
         pass
 
     @abstractmethod
@@ -14,7 +14,7 @@ class LLMProvider(ABC):
         pass
 
 class MockProvider(LLMProvider):
-    def validate_section(self, section_content: str, section_rules: Dict[str, Any]) -> SectionValidationResult:
+    def validate_section(self, section_content: str, section_rules: Dict[str, Any], global_rules: Dict[str, Any] = None) -> SectionValidationResult:
         content_lower = section_content.lower()
         issues = []
         recommendations = []
@@ -70,16 +70,30 @@ class GeminiProvider(LLMProvider):
         genai.configure(api_key=api_key)
         self.model = genai.GenerativeModel(os.getenv("LLM_MODEL", "gemini-1.5-pro"))
 
-    def validate_section(self, section_content: str, section_rules: Dict[str, Any]) -> SectionValidationResult:
+    def validate_section(self, section_content: str, section_rules: Dict[str, Any], global_rules: Dict[str, Any] = None) -> SectionValidationResult:
+        criteria = ""
+        if global_rules:
+            for rule in global_rules.get("rules", []):
+                if rule.get("section_id") == section_rules.get("id"):
+                    criteria = "\n".join([f"- {c}" for c in rule.get("criteria", [])])
+                    break
+                    
         prompt = f"""
 You are an expert Process Auditor. Validate the following process section.
 Section Name: {section_rules.get('name')}
-Rules/Help Text: {section_rules.get('help_text')}
+General Guidelines: {section_rules.get('help_text')}
+Strict Evaluation Criteria:
+{criteria}
 
 Content to validate:
 {section_content}
 
 Evaluate the content strictly against the rules. Be very critical and catch intentional mistakes (e.g. missing approvers, vague metrics, no accountability).
+
+CRITICAL INSTRUCTIONS FOR OUTPUT:
+1. If the evaluation results in a "PASS", you MUST leave the "issues" and "recommendations" lists COMPLETELY EMPTY. Do not invent reasons or explain the pass.
+2. If the evaluation results in "WARNING" or "NEEDS_REVISION", you must provide issues and recommendations, but keep them CRISP and CONCISE (maximum 1-2 short sentences per point). Do not write long paragraphs.
+
 Return your evaluation as a valid JSON object matching this schema exactly:
 {{
     "status": "PASS" | "WARNING" | "NEEDS_REVISION",
@@ -93,13 +107,14 @@ Do NOT wrap the JSON in markdown code blocks. Just return the raw JSON string.
         try:
             response = self.model.generate_content(prompt)
             text = response.text.strip()
-            if text.startswith("```json"):
-                text = text[7:]
-            if text.startswith("```"):
-                text = text[3:]
-            if text.endswith("```"):
-                text = text[:-3]
-            data = json.loads(text.strip())
+            
+            # Extract JSON block even if there is surrounding text
+            import re
+            match = re.search(r'\{.*\}', text, re.DOTALL)
+            if match:
+                text = match.group(0)
+                
+            data = json.loads(text)
 
             return SectionValidationResult(
                 section=section_rules.get("name", "Unknown Section"),

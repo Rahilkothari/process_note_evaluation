@@ -20,24 +20,24 @@ def main():
     require_login()
 
     st.sidebar.title("Process Validator")
-    st.sidebar.markdown(f"Logged in as: **{st.session_state.current_user_name}**")
-    if st.sidebar.button("Log Out"):
-        logout()
-        
-    st.sidebar.markdown("---")
 
-    st.title("Process Note Validator")
-    st.markdown("""
-    This application acts as an AI-assisted quality gate before manual review.
-    
-    Please select a module from the sidebar to begin:
-    - **Dashboard:** View overall metrics and recent process notes.
-    - **Create Process:** Draft a new process note.
-    - **Validation:** Run AI validation on a drafted note.
-    - **Review:** Manual reviewer dashboard.
-    """)
-    
-    st.info("Current AI Provider Mode: " + os.getenv("LLM_PROVIDER", "mock").upper())
+    role = st.session_state.get("current_user_role", "creator")
+
+    dashboard_page = st.Page("pages/1_Dashboard.py", title="Dashboard")
+    create_page = st.Page("pages/2_Create_Process.py", title="Create Process")
+    validation_page = st.Page("pages/3_Validation.py", title="Validation")
+    review_page = st.Page("pages/4_Review.py", title="Review")
+    view_all_page = st.Page("pages/5_View_All_Notes.py", title="View All Notes")
+
+    if role in ["admin", "reviewer"]:
+        pg = st.navigation([dashboard_page, review_page, view_all_page])
+    else:
+        pg = st.navigation([dashboard_page, create_page, validation_page, view_all_page])
+
+    from core.notifications import render_notifications_sidebar
+    render_notifications_sidebar()
+
+    pg.run()
 
 if __name__ == "__main__":
     main()

@@ -10,6 +10,7 @@ def inject_custom_css():
         header {visibility: hidden;}
         footer {visibility: hidden;}
         .stDeployButton {display:none;}
+        [data-testid="stStatusWidget"] {visibility: hidden;}
         
         /* Global Typography */
         html, body, [class*="css"], .stMarkdown {
@@ -86,11 +87,21 @@ def inject_custom_css():
         }
         
         /* Input field styling */
-        .stTextInput>div>div>input, .stTextArea>div>div>textarea, .stSelectbox>div>div>div {
+        .stTextInput>div>div>input, .stTextArea>div>div>textarea {
             border-radius: 8px;
             border: 1px solid #CBD5E1;
             transition: all 0.2s ease;
             padding: 12px 14px;
+            font-size: 14px;
+            font-family: 'Inter', sans-serif;
+            color: #1E293B;
+            background-color: #FFFFFF;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.02) inset;
+        }
+        .stSelectbox>div>div>div {
+            border-radius: 8px;
+            border: 1px solid #CBD5E1;
+            transition: all 0.2s ease;
             font-size: 14px;
             font-family: 'Inter', sans-serif;
             color: #1E293B;

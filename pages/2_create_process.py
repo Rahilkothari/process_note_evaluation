@@ -8,14 +8,12 @@ from sqlalchemy.orm import Session
 
 st.set_page_config(page_title="Create Process Note", layout="wide")
 from core.ui_utils import inject_custom_css
-from core.auth import require_login
-inject_custom_css()
-require_login()
+from core.ui_utils import inject_custom_css
+
 
 st.title("Create / Edit Process Note")
 st.markdown("Follow the instructions in each section to accurately document your team's process.")
 
-@st.cache_data
 def load_sections_config():
     with open("config/sections.yaml", "r") as f:
         return yaml.safe_load(f)
@@ -83,7 +81,14 @@ with st.container():
         save_basic = st.form_submit_button("Next ➔", type="primary")
 
 if save_basic:
-    # Temporarily bypassed validation for testing
+    if not process_name or not process_name.strip():
+        st.error("Process Name is a required field. Please provide it before proceeding.")
+        st.stop()
+    if not team or not team.strip():
+        st.error("Team is a required field. Please provide it before proceeding.")
+        st.stop()
+        
+    # Validation passed
     if current_note is None:
         current_note = ProcessNote(
             process_name=process_name if process_name else "Untitled Process",
@@ -138,11 +143,18 @@ if current_note:
     st.markdown(f"### {sec_config['id']} {sec_config['name']}")
     
     help_text = sec_config.get('help_text', 'No instructions provided.')
-    st.markdown(f"""
-    <div style="background-color: #F8FAFC; border-left: 4px solid #4F46E5; padding: 12px 16px; border-radius: 0 8px 8px 0; margin-bottom: 16px; font-size: 14px; color: #334155;">
-        <b>Instructions:</b> {help_text}
-    </div>
-    """, unsafe_allow_html=True)
+    example_text = sec_config.get('example', '')
+    
+    example_html = ""
+    if example_text:
+        example_html = f"""<div style="margin-top: 12px; background-color: #EEF2FF; padding: 8px 12px; border-radius: 6px; font-style: italic; color: #3730A3; white-space: pre-wrap; font-size: 13px;">
+{example_text}
+</div>"""
+        
+    st.markdown(f"""<div style="background-color: #F8FAFC; border-left: 4px solid #4F46E5; padding: 12px 16px; border-radius: 0 8px 8px 0; margin-bottom: 16px; font-size: 14px; color: #334155;">
+<div style="margin-bottom: 4px;"><b>Instructions:</b> {help_text}</div>
+{example_html}
+</div>""", unsafe_allow_html=True)
     
     sec_id = sec_config['id']
     existing_sec = existing_sections.get(sec_id)
@@ -153,13 +165,22 @@ if current_note:
                 val = existing_sec.content if existing_sec else ""
                 content = st.text_area("Provide your detailed response below:", value=val, height=250)
                 if st.form_submit_button("Save Section", type="primary"):
-                    if not existing_sec:
-                        new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=content)
-                        db.add(new_sec)
+                    from core.rule_validator import RuleValidator
+                    from models.schemas import ProcessSectionSchema
+                    sec_schema = ProcessSectionSchema(section_id=sec_id, content=content, structured_data=[])
+                    issues = RuleValidator().validate(sec_schema, config)
+                    
+                    if issues:
+                        for issue in issues:
+                            st.error(f"Validation Error: {issue}")
                     else:
-                        existing_sec.content = content
-                    db.commit()
-                    st.success(f"Section {sec_id} saved successfully!")
+                        if not existing_sec:
+                            new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=content)
+                            db.add(new_sec)
+                        else:
+                            existing_sec.content = content
+                        db.commit()
+                        st.success(f"Section {sec_id} saved successfully!")
             
             elif sec_config["type"] == "table":
                 fields = sec_config.get("fields", [])
@@ -167,10 +188,15 @@ if current_note:
                 if existing_sec and existing_sec.structured_data:
                     df = pd.DataFrame(existing_sec.structured_data)
                     df.index = df.index + 1
-                    for f in fields:
+                    
+                    render_fields = list(fields)
+                    if "Reviewer Comment" in df.columns:
+                        render_fields.append("Reviewer Comment")
+                        
+                    for f in render_fields:
                         if f not in df.columns:
                             df[f] = None
-                    df = df[fields]
+                    df = df[render_fields]
                 else:
                     df = pd.DataFrame(columns=fields)
                     df.loc[1] = [None for _ in fields]
@@ -198,18 +224,47 @@ if current_note:
                 
                 if st.form_submit_button("Save Section", type="primary"):
                     json_data = edited_df.to_dict(orient="records")
-                    if not existing_sec:
-                        new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=json_data)
-                        db.add(new_sec)
+                    
+                    from core.rule_validator import RuleValidator
+                    from models.schemas import ProcessSectionSchema
+                    sec_schema = ProcessSectionSchema(section_id=sec_id, content="", structured_data=json_data)
+                    issues = RuleValidator().validate(sec_schema, config)
+                    
+                    if issues:
+                        for issue in issues:
+                            st.error(f"Validation Error: {issue}")
                     else:
-                        existing_sec.structured_data = json_data
-                    db.commit()
-                    st.success(f"Section {sec_id} saved successfully!")
+                        if not existing_sec:
+                            new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=json_data)
+                            db.add(new_sec)
+                        else:
+                            existing_sec.structured_data = json_data
+                        db.commit()
+                        st.success(f"Section {sec_id} saved successfully!")
             
             elif sec_config["type"] == "file":
-                st.warning("File upload is not fully supported in the MVP Mock yet. Please skip this section.")
-                if st.form_submit_button("Save Section (Placeholder)"):
-                    pass
+                uploaded_file = st.file_uploader("Upload Process Flowchart", type=["png", "jpg", "jpeg", "pdf", "vsdx", "drawio", "docx"])
+                if existing_sec and existing_sec.content:
+                    st.info(f"Currently uploaded: {existing_sec.content}")
+                    
+                if st.form_submit_button("Save Section", type="primary"):
+                    if uploaded_file is not None:
+                        import os
+                        os.makedirs("uploads", exist_ok=True)
+                        file_path = os.path.join("uploads", uploaded_file.name)
+                        with open(file_path, "wb") as f:
+                            f.write(uploaded_file.getbuffer())
+                        content_val = uploaded_file.name
+                    else:
+                        content_val = existing_sec.content if existing_sec else ""
+                        
+                    if not existing_sec:
+                        new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=content_val)
+                        db.add(new_sec)
+                    else:
+                        existing_sec.content = content_val
+                    db.commit()
+                    st.success(f"Section {sec_id} saved successfully! File: {content_val}")
     
     st.markdown("<br>", unsafe_allow_html=True)
     col_prev, col_space, col_next = st.columns([1, 4, 1])
@@ -223,3 +278,6 @@ if current_note:
             if st.button("Next", type="primary"):
                 st.session_state.current_section_index += 1
                 st.rerun()
+        else:
+            if st.button("Proceed to Validation", type="primary"):
+                st.switch_page("pages/3_Validation.py")

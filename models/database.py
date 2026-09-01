@@ -10,7 +10,10 @@ load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./process_notes.db")
 
 engine = create_engine(
-    DATABASE_URL, connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
+    DATABASE_URL, 
+    pool_pre_ping=True,
+    pool_recycle=3600,
+    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -32,6 +35,7 @@ class ProcessNote(Base):
     team = Column(String)
     version = Column(String)
     status = Column(String)  # DRAFT, NEEDS_REVISION, UNDER_REVIEW, APPROVED
+    document_type = Column(String, default="PROCESS_NOTE") # PROCESS_NOTE or NEW_INITIATIVE
     
     # Metadata fields
     subject_matter_expert = Column(String, nullable=True)
@@ -104,6 +108,19 @@ class ReviewHistory(Base):
     timestamp = Column(DateTime, default=datetime.utcnow)
 
     process_note = relationship("ProcessNote", back_populates="reviews")
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    message = Column(Text)
+    is_read = Column(Integer, default=0) # 0 for False, 1 for True
+    process_note_id = Column(Integer, ForeignKey("process_notes.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", backref="notifications")
+    process_note = relationship("ProcessNote")
 
 def init_db():
     Base.metadata.create_all(bind=engine)
