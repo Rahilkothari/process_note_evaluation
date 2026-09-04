@@ -16,13 +16,8 @@ db: Session = next(get_db())
 current_role = st.session_state.get("current_user_role", "creator")
 current_user_id = st.session_state.get("current_user_id")
 
-# Base query depending on role
+# Base query
 base_query = db.query(ProcessNote)
-if current_role == "creator":
-    base_query = base_query.filter(ProcessNote.created_by == current_user_id)
-elif current_role in ["reviewer", "admin"]:
-    # Reviewers only see UNDER_REVIEW and APPROVED notes
-    base_query = base_query.filter(ProcessNote.status.in_(["UNDER_REVIEW", "APPROVED"]))
 
 # Fetch metrics
 total_notes = base_query.count()
@@ -33,10 +28,6 @@ approved = base_query.filter(ProcessNote.status == "APPROVED").count()
 
 # For avg score, we need to join ValidationRun and ProcessNote to apply the same filters
 avg_score = db.query(func.avg(ValidationRun.overall_score)).join(ProcessNote, ValidationRun.process_note_id == ProcessNote.id)
-if current_role == "creator":
-    avg_score = avg_score.filter(ProcessNote.created_by == current_user_id)
-elif current_role in ["reviewer", "admin"]:
-    avg_score = avg_score.filter(ProcessNote.status.in_(["UNDER_REVIEW", "APPROVED"]))
 avg_score = avg_score.scalar() or 0.0
 
 query_status = st.query_params.get("status", "All")

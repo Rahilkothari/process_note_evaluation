@@ -23,12 +23,7 @@ def init_supabase() -> Client:
 supabase: Client = init_supabase()
 
 def is_authorized_email(email: str) -> bool:
-    email = email.lower()
-    if email.endswith("@kotakeducationfoundation.org") or email.endswith("@gmail.com"):
-        return True
-    if email in ["rahilkothari99@gmail.com", "rahillkk07@gmail.com"]:
-        return True
-    return False
+    return True
 
 def get_role_for_email(email: str) -> str:
     email = email.lower()

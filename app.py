@@ -28,10 +28,7 @@ def main():
     review_page = st.Page("pages/4_review.py", title="Review")
     view_all_page = st.Page("pages/5_view_all_notes.py", title="View All Notes")
 
-    if role in ["admin", "reviewer"]:
-        pg = st.navigation([dashboard_page, review_page, view_all_page])
-    else:
-        pg = st.navigation([dashboard_page, create_page, validation_page, view_all_page])
+    pg = st.navigation([dashboard_page, create_page, validation_page, review_page, view_all_page])
 
     from core.notifications import render_notifications_sidebar
     render_notifications_sidebar()
