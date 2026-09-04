@@ -22,11 +22,11 @@ def main():
 
     role = st.session_state.get("current_user_role", "creator")
 
-    dashboard_page = st.Page("pages/1_Dashboard.py", title="Dashboard")
-    create_page = st.Page("pages/2_Create_Process.py", title="Create Process")
-    validation_page = st.Page("pages/3_Validation.py", title="Validation")
-    review_page = st.Page("pages/4_Review.py", title="Review")
-    view_all_page = st.Page("pages/5_View_All_Notes.py", title="View All Notes")
+    dashboard_page = st.Page("pages/1_dashboard.py", title="Dashboard")
+    create_page = st.Page("pages/2_create_process.py", title="Create Process")
+    validation_page = st.Page("pages/3_validation.py", title="Validation")
+    review_page = st.Page("pages/4_review.py", title="Review")
+    view_all_page = st.Page("pages/5_view_all_notes.py", title="View All Notes")
 
     if role in ["admin", "reviewer"]:
         pg = st.navigation([dashboard_page, review_page, view_all_page])
