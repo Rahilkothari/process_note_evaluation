@@ -1,14 +1,13 @@
 import streamlit as st
-import os
-from models.database import init_db
-from core.auth import require_login, logout
-from core.ui_utils import inject_custom_css
-
 st.set_page_config(
     page_title="Process Note Validator",
     layout="wide",
     initial_sidebar_state="expanded",
 )
+import os
+from models.database import init_db
+from core.auth import require_login, logout
+from core.ui_utils import inject_custom_css
 
 inject_custom_css()
 
