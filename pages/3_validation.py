@@ -6,7 +6,7 @@ from core.validation_engine import ValidationEngine
 import json
 import os
 
-st.set_page_config(page_title="Validation", layout="wide")
+
 from core.ui_utils import inject_custom_css
 from core.ui_utils import inject_custom_css
 

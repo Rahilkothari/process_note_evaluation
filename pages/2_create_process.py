@@ -6,7 +6,7 @@ import json
 from models.database import get_db, ProcessNote, ProcessSection, User
 from sqlalchemy.orm import Session
 
-st.set_page_config(page_title="Create Process Note", layout="wide")
+
 from core.ui_utils import inject_custom_css
 from core.ui_utils import inject_custom_css
 

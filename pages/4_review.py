@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 import pandas as pd
 from services.export_service import ExportService
 
-st.set_page_config(page_title="Review Process Notes", layout="wide")
+
 from core.ui_utils import inject_custom_css
 from core.ui_utils import inject_custom_css
 

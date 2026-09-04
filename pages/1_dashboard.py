@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 import pandas as pd
 
-st.set_page_config(page_title="Dashboard", layout="wide")
+
 from core.ui_utils import inject_custom_css
 from core.ui_utils import inject_custom_css
 
