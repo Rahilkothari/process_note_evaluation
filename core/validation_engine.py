@@ -27,6 +27,9 @@ class ValidationEngine:
             return {}
 
     def run_validation(self, note: ProcessNoteSchema) -> ValidationResponse:
+        pass_threshold = float(os.getenv("PASS_THRESHOLD", 75))
+        warning_threshold = float(os.getenv("WARNING_THRESHOLD", 65))
+        
         section_results: List[SectionValidationResult] = []
         
         import concurrent.futures
@@ -50,12 +53,22 @@ class ValidationEngine:
                 )
             else:
                 # Layer 2: AI
-                ai_result = self.ai_validator.validate(section, self.sections_config, self.rules_config)
+                ai_result = self.ai_validator.validate(section, self.sections_config, self.rules_config, note.team)
                 ai_result.section = section_name # Ensure name is set
-                # Enforce strict score thresholds instead of relying on LLM subjective status
-                if ai_result.score >= 70:
+                
+                # Documenting intended relationship:
+                # A score >= 60 is a PASS for individual sections.
+                # A score between 50 and 60 is a WARNING.
+                # A score < 50 means NEEDS_REVISION.
+                section_pass = float(os.getenv("SECTION_PASS_THRESHOLD", 60))
+                section_warn = float(os.getenv("SECTION_WARNING_THRESHOLD", 50))
+                
+                if ai_result.score >= section_pass:
                     ai_result.status = "PASS"
                     ai_result.severity = "LOW"
+                elif ai_result.score >= section_warn:
+                    ai_result.status = "WARNING"
+                    ai_result.severity = "MEDIUM"
                 else:
                     ai_result.status = "NEEDS_REVISION"
                     ai_result.severity = "HIGH"
@@ -77,8 +90,8 @@ class ValidationEngine:
         cross_section_issues = self.cross_validator.validate(all_sections_dict)
 
         # 3. Aggregate scores
-        pass_threshold = float(os.getenv("PASS_THRESHOLD", 80))
-        warning_threshold = float(os.getenv("WARNING_THRESHOLD", 70))
+        pass_threshold = float(os.getenv("PASS_THRESHOLD", 75))
+        warning_threshold = float(os.getenv("WARNING_THRESHOLD", 65))
         
         total_score = sum([res.score for res in section_results]) if section_results else 0
         overall_score = total_score / len(section_results) if section_results else 0
@@ -89,12 +102,12 @@ class ValidationEngine:
         sections_passed = sum([1 for res in section_results if res.status == "PASS"])
         sections_needing_revision = sum([1 for res in section_results if res.status == "NEEDS_REVISION"])
         
-        if critical_issues > 0 or sections_needing_revision > 0 or overall_score < warning_threshold:
-            overall_status = "NEEDS_REVISION"
-        elif overall_score < pass_threshold or warnings > 0:
+        if overall_score >= pass_threshold:
+            overall_status = "PASS"
+        elif overall_score >= warning_threshold:
             overall_status = "WARNING"
         else:
-            overall_status = "PASS"
+            overall_status = "NEEDS_REVISION"
 
         return ValidationResponse(
             overall_score=round(overall_score, 1),

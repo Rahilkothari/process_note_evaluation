@@ -17,7 +17,12 @@ current_role = st.session_state.get("current_user_role", "creator")
 current_user_id = st.session_state.get("current_user_id")
 
 # Base query
-base_query = db.query(ProcessNote)
+if current_role == "admin":
+    base_query = db.query(ProcessNote)
+elif current_role == "reviewer":
+    base_query = db.query(ProcessNote).filter(ProcessNote.status.in_(["UNDER_REVIEW", "APPROVED"]))
+else:
+    base_query = db.query(ProcessNote).filter(ProcessNote.created_by == current_user_id)
 
 # Fetch metrics
 total_notes = base_query.count()
@@ -27,12 +32,18 @@ under_review = base_query.filter(ProcessNote.status == "UNDER_REVIEW").count()
 approved = base_query.filter(ProcessNote.status == "APPROVED").count()
 
 # For avg score, we need to join ValidationRun and ProcessNote to apply the same filters
-avg_score = db.query(func.avg(ValidationRun.overall_score)).join(ProcessNote, ValidationRun.process_note_id == ProcessNote.id)
-avg_score = avg_score.scalar() or 0.0
+avg_query = db.query(func.avg(ValidationRun.overall_score)).join(ProcessNote, ValidationRun.process_note_id == ProcessNote.id)
+if current_role == "admin":
+    pass # Admin averages everything
+elif current_role == "reviewer":
+    avg_query = avg_query.filter(ProcessNote.status.in_(["UNDER_REVIEW", "APPROVED"]))
+else:
+    avg_query = avg_query.filter(ProcessNote.created_by == current_user_id)
+avg_score = avg_query.scalar() or 0.0
 
 query_status = st.query_params.get("status", "All")
 status_options = ["All", "DRAFT", "UNDER_REVIEW", "APPROVED", "NEEDS_REVISION"]
-if current_role in ["reviewer", "admin"]:
+if current_role == "reviewer":
     status_options = ["All", "UNDER_REVIEW", "APPROVED"]
 
 default_idx = status_options.index(query_status) if query_status in status_options else 0
@@ -119,3 +130,18 @@ else:
         <p style="color: #94A3B8; font-size: 15px; margin-bottom: 24px;">No process notes match the selected filter ({status_filter}).</p>
     </div>
     """, unsafe_allow_html=True)
+
+if current_role == "admin":
+    st.markdown("<br><hr><br>", unsafe_allow_html=True)
+    st.subheader("Admin: User Management")
+    from models.database import User
+    users = db.query(User).all()
+    user_options = {f"{u.email} ({u.role})": u.id for u in users}
+    selected_user_key = st.selectbox("Select User", list(user_options.keys()))
+    new_role = st.selectbox("New Role", ["creator", "reviewer", "admin"])
+    if st.button("Update Role"):
+        target_user = db.query(User).filter(User.id == user_options[selected_user_key]).first()
+        if target_user:
+            target_user.role = new_role
+            db.commit()
+            st.success(f"Updated {target_user.email} to {new_role}")

@@ -9,11 +9,13 @@ load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./process_notes.db")
 
+connect_args_dict = {"check_same_thread": False} if "sqlite" in DATABASE_URL else {"keepalives": 1, "keepalives_idle": 30, "keepalives_interval": 10, "keepalives_count": 5}
+
 engine = create_engine(
     DATABASE_URL, 
     pool_pre_ping=True,
-    pool_recycle=3600,
-    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
+    pool_recycle=300,
+    connect_args=connect_args_dict
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -31,6 +33,7 @@ class ProcessNote(Base):
     __tablename__ = "process_notes"
 
     id = Column(Integer, primary_key=True, index=True)
+    document_id = Column(String, index=True, nullable=True) # UUID to link versions
     process_name = Column(String, index=True)
     team = Column(String)
     version = Column(String)
@@ -123,7 +126,14 @@ class Notification(Base):
     process_note = relationship("ProcessNote")
 
 def init_db():
-    Base.metadata.create_all(bind=engine)
+    import time
+    for attempt in range(3):
+        try:
+            Base.metadata.create_all(bind=engine)
+            break
+        except Exception as e:
+            print(f"Database initialization failed on attempt {attempt+1}: {e}")
+            time.sleep(2)
 
 def get_db():
     db = SessionLocal()

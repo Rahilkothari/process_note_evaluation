@@ -11,9 +11,13 @@ from core.ui_utils import inject_custom_css
 
 inject_custom_css()
 
+@st.cache_resource(show_spinner=False)
+def cached_init_db():
+    init_db()
+
 def main():
     # Always init DB to ensure tables exist in PostgreSQL
-    init_db()
+    cached_init_db()
     
     # Enforce authentication
     require_login()
@@ -22,13 +26,19 @@ def main():
 
     role = st.session_state.get("current_user_role", "creator")
 
-    dashboard_page = st.Page("pages/1_dashboard.py", title="Dashboard")
-    create_page = st.Page("pages/2_create_process.py", title="Create Process")
-    validation_page = st.Page("pages/3_validation.py", title="Validation")
-    review_page = st.Page("pages/4_review.py", title="Review")
-    view_all_page = st.Page("pages/5_view_all_notes.py", title="View All Notes")
+    dashboard_page = st.Page("pages/1_Dashboard.py", title="Dashboard")
+    create_page = st.Page("pages/2_Create_Process.py", title="Create Process")
+    validation_page = st.Page("pages/3_Validation.py", title="Validation")
+    review_page = st.Page("pages/4_Review.py", title="Review")
+    view_all_page = st.Page("pages/5_View_All_Notes.py", title="View All Notes")
+    version_history_page = st.Page("pages/6_Version_History.py", title="Version History")
 
-    pg = st.navigation([dashboard_page, create_page, validation_page, review_page, view_all_page])
+    if role == "creator":
+        pages = [dashboard_page, create_page, validation_page, view_all_page, version_history_page]
+    else:
+        pages = [dashboard_page, review_page, view_all_page, version_history_page]
+        
+    pg = st.navigation(pages)
 
     from core.notifications import render_notifications_sidebar
     render_notifications_sidebar()

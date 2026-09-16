@@ -14,6 +14,7 @@ from core.ui_utils import inject_custom_css
 st.title("Create / Edit Process Note")
 st.markdown("Follow the instructions in each section to accurately document your team's process.")
 
+@st.cache_data
 def load_sections_config():
     with open("config/sections.yaml", "r") as f:
         return yaml.safe_load(f)
@@ -90,7 +91,9 @@ if save_basic:
         
     # Validation passed
     if current_note is None:
+        import uuid
         current_note = ProcessNote(
+            document_id=str(uuid.uuid4()),
             process_name=process_name if process_name else "Untitled Process",
             team=team if team else "Unassigned",
             version=version,
@@ -128,38 +131,96 @@ st.markdown("<br>", unsafe_allow_html=True)
 
 if current_note:
     st.subheader("Process Details (Step-by-Step)")
+    
+    team_lower = current_note.team.lower() if current_note.team else ""
+    if "volunteer" in team_lower or "comm" in team_lower:
+        st.info(f"💡 **Pre-Submission Checklist:** Review the governance criteria for the **{current_note.team}** team before submitting.")
+        with st.expander(f"View {current_note.team} Audit & Governance Guidelines", expanded=False):
+            if "volunteer" in team_lower:
+                st.markdown("""
+**Ensure your process note adequately covers:**
+- Types of Volunteering
+- Volunteer onboarding, registration and eligibility criteria.
+- Volunteer allocation/deployment process across programmes and activities.
+- Volunteer engagement, attendance and participation tracking.
+- Roles, responsibilities and reporting structure of volunteers.
+- Volunteer training, orientation and capacity-building process.
+- Volunteer communication, grievance handling and escalation mechanism.
+- Background verification, code of conduct and safeguarding requirements, wherever applicable.
+- Volunteer exit process.
+- Volunteer data management, documentation and records maintained.
+- Monitoring, feedback and performance evaluation of volunteers.
+- Volunteer certification process, including eligibility criteria, assessment/completion requirements, approval and issuance of certificates.
+                """)
+            elif "comm" in team_lower:
+                st.markdown("""
+**Ensure your process note adequately covers:**
+- Branding guidelines, brand identity and usage standards across all KEF programmes, offices and communication channels.
+- Brand approval process for logos, creatives, collaterals, signage, merchandise and other branded materials.
+- Communication and marketing strategy, planning and annual activity calendar.
+- Content development, review and approval process for internal and external communications.
+- Social media management, content calendar, posting and monitoring process.
+- Website/content management, including updates and approval controls.
+- Event, campaign and programme communication process.
+- Media engagement, PR, press releases and external communication approvals.
+- Creative/design development process, including agency/vendor coordination.
+- Photography, videography and consent management for use of images, videos and other content.
+- Marketing collateral development, printing and distribution process.
+- Stakeholder communication and coordination with programme/project teams.
+- Communication budget, vendor management and payment/approval process.
+- Roles, responsibilities, approval matrix and escalation mechanism.
+- Records and documentation of campaigns, communications, approvals and performance/MIS.
+                """)
+                
     st.markdown("Scroll down to fill out all sections of the process note. **Read the instruction box** in each section before entering data.")
     
     existing_sections = {s.section_id: s for s in current_note.sections}
     
-    if "current_section_index" not in st.session_state:
-        st.session_state.current_section_index = 0
+    if "current_section_edit" not in st.session_state:
+        st.session_state["current_section_edit"] = f"{sections[0]['id']} {sections[0]['name']}"
 
-    st.progress((st.session_state.current_section_index + 1) / len(sections))
-    st.markdown(f"**Section {st.session_state.current_section_index + 1} of {len(sections)}**")
+    tab_names = [f"{sec['id']} {sec['name']}" for sec in sections]
     
-    sec_config = sections[st.session_state.current_section_index]
+    # Ensure current state is valid
+    if st.session_state["current_section_edit"] not in tab_names:
+        st.session_state["current_section_edit"] = tab_names[0]
+        
+    selected_tab = st.selectbox("📌 Select a Section to Fill Out:", tab_names, index=tab_names.index(st.session_state["current_section_edit"]))
+    st.session_state["current_section_edit"] = selected_tab
     
-    st.markdown(f"### {sec_config['id']} {sec_config['name']}")
+    sec_config = sections[tab_names.index(selected_tab)]
     
     help_text = sec_config.get('help_text', 'No instructions provided.')
     example_text = sec_config.get('example', '')
-    
+
     example_html = ""
     if example_text:
         example_html = f"""<div style="margin-top: 12px; background-color: #EEF2FF; padding: 8px 12px; border-radius: 6px; font-style: italic; color: #3730A3; white-space: pre-wrap; font-size: 13px;">
 {example_text}
 </div>"""
-        
+
     st.markdown(f"""<div style="background-color: #F8FAFC; border-left: 4px solid #4F46E5; padding: 12px 16px; border-radius: 0 8px 8px 0; margin-bottom: 16px; font-size: 14px; color: #334155;">
-<div style="margin-bottom: 4px;"><b>Instructions:</b> {help_text}</div>
+<div style="margin-bottom: 4px;"><b>Instructions for {sec_config['name']}:</b> {help_text}</div>
 {example_html}
 </div>""", unsafe_allow_html=True)
-    
+
     sec_id = sec_config['id']
     existing_sec = existing_sections.get(sec_id)
-    
+
     with st.container():
+        if sec_config["type"] == "text":
+            if st.button(f"✨ Get AI Suggestion for {sec_id}"):
+                from services.rag_service import rag_service
+                from services.llm_service import get_llm_provider
+        
+                with st.spinner("Generating suggestion based on team history..."):
+                    context_list = rag_service.get_team_context(current_note.team, sec_id)
+                    if isinstance(context_list, str):
+                        context_list = [context_list]
+                    llm = get_llm_provider()
+                    suggestion = llm.generate_suggestion(sec_config, context_list)
+                    st.info(f"**AI Suggestion (Copy and paste if useful):**\n\n{suggestion}")
+
         with st.form(f"form_{sec_id}"):
             if sec_config["type"] == "text":
                 val = existing_sec.content if existing_sec else ""
@@ -169,7 +230,7 @@ if current_note:
                     from models.schemas import ProcessSectionSchema
                     sec_schema = ProcessSectionSchema(section_id=sec_id, content=content, structured_data=[])
                     issues = RuleValidator().validate(sec_schema, config)
-                    
+            
                     if issues:
                         for issue in issues:
                             st.error(f"Validation Error: {issue}")
@@ -181,18 +242,18 @@ if current_note:
                             existing_sec.content = content
                         db.commit()
                         st.success(f"Section {sec_id} saved successfully!")
-            
+    
             elif sec_config["type"] == "table":
                 fields = sec_config.get("fields", [])
-                
+        
                 if existing_sec and existing_sec.structured_data:
                     df = pd.DataFrame(existing_sec.structured_data)
                     df.index = df.index + 1
-                    
+            
                     render_fields = list(fields)
                     if "Reviewer Comment" in df.columns:
                         render_fields.append("Reviewer Comment")
-                        
+                
                     for f in render_fields:
                         if f not in df.columns:
                             df[f] = None
@@ -200,17 +261,15 @@ if current_note:
                 else:
                     df = pd.DataFrame(columns=fields)
                     df.loc[1] = [None for _ in fields]
-                
+        
                 column_config = {}
                 for f in fields:
                     f_lower = f.lower()
                     if "date" in f_lower:
                         column_config[f] = st.column_config.DateColumn(f, format="YYYY-MM-DD")
-                        # Strictly cast to datetime so Streamlit recognizes it as a DateColumn
                         df[f] = pd.to_datetime(df[f], errors='coerce').dt.date
                     elif "no." in f_lower or "tat" in f_lower:
                         column_config[f] = st.column_config.NumberColumn(f, step=1)
-                        # Force pandas numeric type for Streamlit compatibility
                         df[f] = pd.to_numeric(df[f], errors='coerce')
                     elif f in ["Responsible (R)", "Accountable (A)", "Consulted (C)", "Informed (I)"]:
                         column_config[f] = st.column_config.SelectboxColumn(f, options=["Yes", "No"])
@@ -221,15 +280,15 @@ if current_note:
 
                 st.markdown("Edit the table below:")
                 edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, key=f"editor_{sec_id}", column_config=column_config)
-                
+        
                 if st.form_submit_button("Save Section", type="primary"):
                     json_data = edited_df.to_dict(orient="records")
-                    
+            
                     from core.rule_validator import RuleValidator
                     from models.schemas import ProcessSectionSchema
                     sec_schema = ProcessSectionSchema(section_id=sec_id, content="", structured_data=json_data)
                     issues = RuleValidator().validate(sec_schema, config)
-                    
+            
                     if issues:
                         for issue in issues:
                             st.error(f"Validation Error: {issue}")
@@ -241,12 +300,12 @@ if current_note:
                             existing_sec.structured_data = json_data
                         db.commit()
                         st.success(f"Section {sec_id} saved successfully!")
-            
+    
             elif sec_config["type"] == "file":
                 uploaded_file = st.file_uploader("Upload Process Flowchart", type=["png", "jpg", "jpeg", "pdf", "vsdx", "drawio", "docx"])
                 if existing_sec and existing_sec.content:
                     st.info(f"Currently uploaded: {existing_sec.content}")
-                    
+            
                 if st.form_submit_button("Save Section", type="primary"):
                     if uploaded_file is not None:
                         import os
@@ -257,7 +316,7 @@ if current_note:
                         content_val = uploaded_file.name
                     else:
                         content_val = existing_sec.content if existing_sec else ""
-                        
+                
                     if not existing_sec:
                         new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=content_val)
                         db.add(new_sec)
@@ -266,18 +325,6 @@ if current_note:
                     db.commit()
                     st.success(f"Section {sec_id} saved successfully! File: {content_val}")
     
-    st.markdown("<br>", unsafe_allow_html=True)
-    col_prev, col_space, col_next = st.columns([1, 4, 1])
-    with col_prev:
-        if st.session_state.current_section_index > 0:
-            if st.button("Previous"):
-                st.session_state.current_section_index -= 1
-                st.rerun()
-    with col_next:
-        if st.session_state.current_section_index < len(sections) - 1:
-            if st.button("Next", type="primary"):
-                st.session_state.current_section_index += 1
-                st.rerun()
-        else:
-            if st.button("Proceed to Validation", type="primary"):
-                st.switch_page("pages/3_Validation.py")
+    st.markdown("<br><hr>", unsafe_allow_html=True)
+    if st.button("Proceed to Validation", type="primary", use_container_width=True):
+        st.switch_page("pages/3_Validation.py")

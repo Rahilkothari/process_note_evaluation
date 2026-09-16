@@ -1,0 +1,23 @@
+Sr. No.,Index / Section,Brief Description
+1.1,Approval Matrix,Defines the stakeholders responsible for reviewing and approving the Process Note at different levels.
+1.2,Document Change History,"Records the changes made to the Process Note, including the version, date, description of change, and person responsible."
+1.3,Document Review Cycle,"Specifies how frequently the Process Note should be reviewed and updated, along with the responsible stakeholders."
+1.4,Related Documents,"Lists other documents, policies, guidelines, SOPs, or references related to the process."
+1.5,Process Performance Parameters (Key Performance Indicators),Defines the key metrics/KPIs used to measure the effectiveness and performance of the process.
+1.6,Process Coverage / Scope,"Specifies what is included and excluded from the process and the areas, teams, or activities covered."
+1.7,Start Point,"Defines the event, request, or activity that triggers the beginning of the process."
+1.8,End Point,Defines the event or outcome that indicates the completion of the process.
+1.9,Introduction,Provides a brief overview and background of the process and explains why the process is required.
+1.1,Objective,States the purpose of the process and the intended outcome or goal to be achieved.
+1.11,Process Flowchart,"Provides a visual representation of the process steps, sequence, decision points, and flow."
+1.12,Process Description,"Provides a detailed description of each step in the process, including activities, responsibilities, inputs, and outputs."
+1.13,RACI Matrix,"Defines the roles and responsibilities of stakeholders using Responsible, Accountable, Consulted, and Informed categories."
+1.14,Business Rules,"Lists the rules, conditions, or guidelines that must be followed while carrying out the process."
+1.15,Exception and Change Management,"Describes how exceptions, deviations, and changes to the standard process should be identified, handled, and documented."
+1.16,Risk Management,"Identifies potential risks associated with the process and defines measures to prevent, mitigate, or manage them."
+1.17,Compliance Management,"Specifies the applicable laws, regulations, policies, standards, and internal requirements that the process must comply with."
+1.18,Data Archival,"Defines the data/documents that need to be retained, the retention period, storage location, and archival method."
+1.19,Abbreviations & Acronyms,Provides the full forms and meanings of abbreviations and acronyms used in the Process Note.
+1.2,Best Practices Summary,Highlights recommended practices that help ensure the process is performed efficiently and consistently.
+1.21,Innovations,"Captures new ideas, improvements, technology, or innovative approaches introduced or suggested for the process."
+1.22,SIPOC,"Provides a high-level overview of the process by identifying Suppliers, Inputs, Process, Outputs, and Customers."

@@ -8,3 +8,5 @@ python-dotenv==1.0.1
 psycopg2-binary
 supabase
 google-generativeai
+chromadb
+fpdf2==2.8.1

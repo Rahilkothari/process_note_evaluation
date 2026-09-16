@@ -27,24 +27,26 @@ def is_authorized_email(email: str) -> bool:
 
 def get_role_for_email(email: str) -> str:
     email = email.lower()
-    if email == "rahillkk07@gmail.com":
+    if email in ["rahilkk07@gmail.com", "rahilkko+07@gmail.com"]:
         return "admin"
     # Default roles
     return "creator"
 
-def sync_user_to_db(email: str, name: str = None, requested_role: str = None):
+def sync_user_to_db(email: str, name: str = None):
     db = next(get_db())
     user = db.query(User).filter(User.email == email).first()
     
     if not user:
-        role = requested_role if requested_role else get_role_for_email(email)
+        role = get_role_for_email(email)
         user = User(name=name or email.split("@")[0], email=email, role=role)
         db.add(user)
         db.commit()
-    elif requested_role and user.role != requested_role:
-        # Update role for MVP demo purposes
-        user.role = requested_role
-        db.commit()
+    else:
+        # Enforce admin role for hardcoded admins even if they were created earlier as creators
+        expected_role = get_role_for_email(email)
+        if expected_role == "admin" and user.role != "admin":
+            user.role = "admin"
+            db.commit()
     
     st.session_state.current_user_id = user.id
     st.session_state.current_user_role = user.role
@@ -54,14 +56,14 @@ def require_login():
     if "user" not in st.session_state:
         st.session_state.user = None
 
-    # Auto-login workaround for page refreshes
-    if st.session_state.user is None and "session_email" in st.query_params:
-        cached_email = st.query_params["session_email"]
-        if is_authorized_email(cached_email):
-            class MockUser:
-                def __init__(self, e):
-                    self.email = e
-            st.session_state.user = MockUser(cached_email)
+    # Session restore
+    if st.session_state.user is None:
+        try:
+            session = supabase.auth.get_session()
+            if session:
+                st.session_state.user = session.user
+        except Exception:
+            pass
 
     if st.session_state.user is not None and "current_user_name" not in st.session_state:
         try:
@@ -80,24 +82,24 @@ def require_login():
             st.markdown("---")
 
     if st.session_state.user is None:
-        st.markdown("""
-        <style>
-            [data-testid="stSidebarNav"] {
-                display: none;
-            }
-        </style>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("<h2 style='text-align: center; margin-top: 50px;'>Login Required</h2>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; color: #64748B;'>Please sign in to access the Process Note Validator.</p>", unsafe_allow_html=True)
-        
-        with st.container():
+        login_container = st.empty()
+        with login_container.container():
+            st.markdown("""
+            <style>
+                [data-testid="stSidebarNav"] {
+                    display: none;
+                }
+            </style>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("<h2 style='text-align: center; margin-top: 50px;'>Login Required</h2>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align: center; color: #64748B;'>Please sign in to access the Process Note Validator.</p>", unsafe_allow_html=True)
+            
             col1, col2, col3 = st.columns([1, 2, 1])
             with col2:
                 with st.form("login_form"):
                     email = st.text_input("Email")
                     password = st.text_input("Password", type="password")
-                    login_role = st.selectbox("Log in as", ["Normal User", "Reviewer"], help="Select your role for this session.")
                     
                     submit = st.form_submit_button("Sign In", type="primary", use_container_width=True)
                     
@@ -108,9 +110,8 @@ def require_login():
                             try:
                                 response = supabase.auth.sign_in_with_password({"email": email, "password": password})
                                 st.session_state.user = response.user
-                                st.query_params["session_email"] = response.user.email
-                                db_role = "admin" if login_role == "Reviewer" else "creator"
-                                sync_user_to_db(response.user.email, requested_role=db_role)
+                                sync_user_to_db(response.user.email)
+                                login_container.empty()
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Login failed: {str(e)}")

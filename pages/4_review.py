@@ -2,14 +2,15 @@ import streamlit as st
 from models.database import get_db, ProcessNote, ValidationRun, ValidationFinding
 from sqlalchemy.orm import Session
 import pandas as pd
-from services.export_service import ExportService
+from services.export_service import generate_docx
 
 
 from core.ui_utils import inject_custom_css
 from core.ui_utils import inject_custom_css
 
 
-if st.session_state.get("current_user_role") not in ["admin", "reviewer"]:
+user_email = st.session_state.user.email if st.session_state.get("user") else ""
+if st.session_state.get("current_user_role") not in ["admin", "reviewer"] and user_email not in ["rahilkk07@gmail.com", "rahilkko+07@gmail.com"]:
     st.error("Access Denied: You do not have the required permissions to access the Reviewer Dashboard. This page is restricted to Reviewers and Admins.")
     st.stop()
 
@@ -57,6 +58,25 @@ with tab1:
                     st.success("Note has been approved!")
                     action_val = "APPROVED"
                     
+                    # Ingest sections into RAG
+                    from services.rag_service import rag_service
+                    for section in current_note.sections:
+                        content_to_ingest = section.content
+                        if not content_to_ingest and section.structured_data:
+                            import json
+                            content_to_ingest = json.dumps(section.structured_data)
+                        
+                        if content_to_ingest and content_to_ingest != "[]":
+                            try:
+                                rag_service.ingest_section(
+                                    process_name=current_note.process_name,
+                                    team=current_note.team,
+                                    section_id=section.section_id,
+                                    content=content_to_ingest
+                                )
+                            except Exception as e:
+                                print(f"Failed to ingest section {section.section_id} into RAG: {e}")
+                    
                     # Clear reviewer comments from structured data upon approval
                     from sqlalchemy.orm.attributes import flag_modified
                     for section in current_note.sections:
@@ -70,13 +90,57 @@ with tab1:
                                 flag_modified(section, "structured_data")
                                 
                 else:
-                    current_note.status = "NEEDS_REVISION"
-                    st.warning("Note sent back for revision.")
+                    import uuid
+                    from models.database import ProcessSection
+                    
+                    if not current_note.document_id:
+                        current_note.document_id = str(uuid.uuid4())
+                        
+                    current_note.status = "ARCHIVED"
+                    
+                    try:
+                        v_num = float(current_note.version)
+                        new_version = f"{v_num + 0.1:.1f}"
+                    except:
+                        new_version = current_note.version + "_revised"
+                        
+                    new_note = ProcessNote(
+                        document_id=current_note.document_id,
+                        process_name=current_note.process_name,
+                        team=current_note.team,
+                        version=new_version,
+                        status="NEEDS_REVISION",
+                        subject_matter_expert=current_note.subject_matter_expert,
+                        process_owner=current_note.process_owner,
+                        process_champion=current_note.process_champion,
+                        process_reviewer=current_note.process_reviewer,
+                        process_approver=current_note.process_approver,
+                        effective_date=current_note.effective_date,
+                        next_review_date=current_note.next_review_date,
+                        created_by=current_note.created_by
+                    )
+                    db.add(new_note)
+                    db.flush()
+                    
+                    for section in current_note.sections:
+                        import copy
+                        new_section = ProcessSection(
+                            process_note_id=new_note.id,
+                            process_name=new_note.process_name,
+                            section_id=section.section_id,
+                            content=section.content,
+                            structured_data=copy.deepcopy(section.structured_data) if section.structured_data else None
+                        )
+                        db.add(new_section)
+                        
+                    st.warning(f"Note sent back for revision. A new draft (v{new_version}) was created.")
                     action_val = "SENT_BACK"
+                    note_for_history = current_note
+                    current_note = new_note
                 
                 reviewer_name = st.session_state.get("current_user_name", "Unknown Reviewer")
                 review = ReviewHistory(
-                    process_note_id=current_note.id,
+                    process_note_id=note_for_history.id if action_val == "SENT_BACK" else current_note.id,
                     process_name=current_note.process_name,
                     reviewer=reviewer_name,
                     action=action_val,
@@ -97,11 +161,9 @@ with tab1:
         
         col_btn1, col_btn2 = st.columns([1, 4])
         with col_btn1:
-            if st.button("Export to Docx", type="primary"):
-                filename = ExportService.export_to_docx(current_note)
-                st.success(f"Generated {filename}")
-                with open(filename, "rb") as f:
-                    st.download_button("Download Docx", f, file_name=filename)
+            file_stream = generate_docx(current_note)
+            filename = f"Process_Note_{current_note.id}.docx"
+            st.download_button("Export to Docx", file_stream, file_name=filename, type="primary", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
         with col_btn2:
             if st.button("Revert Approval", type="secondary"):
                 from models.database import ReviewHistory

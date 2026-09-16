@@ -19,11 +19,11 @@ engine = ValidationEngine()
 current_role = st.session_state.get("current_user_role", "creator")
 current_user_id = st.session_state.get("current_user_id")
 
-base_query = db.query(ProcessNote).filter(ProcessNote.status.in_(["DRAFT", "NEEDS_REVISION"]))
-if current_role == "creator":
-    notes = base_query.filter(ProcessNote.created_by == current_user_id).all()
+if current_role == "admin":
+    base_query = db.query(ProcessNote)
 else:
-    notes = base_query.all()
+    base_query = db.query(ProcessNote).filter(ProcessNote.created_by == current_user_id)
+notes = base_query.all()
 note_options = {f"[{n.id}] {n.process_name} (v{n.version})": n for n in notes}
 
 if not note_options:
@@ -139,7 +139,7 @@ st.markdown("<hr>", unsafe_allow_html=True)
 latest_run = db.query(ValidationRun).filter(ValidationRun.process_note_id == current_note.id).order_by(ValidationRun.timestamp.desc()).first()
 
 if latest_run:
-    st.subheader(f"Latest Validation Results ({latest_run.timestamp.strftime('%Y-%m-%d %H:%M')})")
+    st.markdown(f"### Latest Validation Results (<span style='white-space: nowrap;'>{latest_run.timestamp.strftime('%Y-%m-%d %H:%M')}</span>)", unsafe_allow_html=True)
     
     status_class = "badge-pass" if latest_run.status == "PASS" else ("badge-warning" if latest_run.status == "WARNING" else "badge-fail")
     score_bar_class = "score-pass" if latest_run.status == "PASS" else ("score-warn" if latest_run.status == "WARNING" else "score-fail")
@@ -221,8 +221,8 @@ if latest_run:
                     warnings = sum([1 for res in all_f if (res.severity == "MEDIUM" or res.status == "WARNING")])
                     sections_needing_revision = sum([1 for res in all_f if res.status == "NEEDS_REVISION"])
                     
-                    pass_threshold = float(os.getenv("PASS_THRESHOLD", 80))
-                    warning_threshold = float(os.getenv("WARNING_THRESHOLD", 70))
+                    pass_threshold = float(os.getenv("PASS_THRESHOLD", 75))
+                    warning_threshold = float(os.getenv("WARNING_THRESHOLD", 65))
                     
                     if critical_issues > 0 or sections_needing_revision > 0 or latest_run.overall_score < warning_threshold:
                         latest_run.status = "NEEDS_REVISION"

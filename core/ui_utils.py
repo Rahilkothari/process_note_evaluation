@@ -1,5 +1,6 @@
 import streamlit as st
 
+@st.cache_data
 def inject_custom_css():
     st.markdown("""
     <style>

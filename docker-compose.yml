@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "8501:8501"
+    volumes:
+      - .:/app
+    environment:
+      - DATABASE_URL=sqlite:///./process_notes.db
+      - LLM_PROVIDER=mock
+    restart: unless-stopped

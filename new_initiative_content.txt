@@ -1,0 +1,272 @@
+--- PARAGRAPHS ---
+KEF - New Initiatives Proposal Form Template
+(To be filled by the respective vertical heads/strategy team for review and approval by KEF EC & BOT)
+SECTION A: GENERAL INFORMATION
+SECTION B: STRATEGIC ALIGNMENT
+SECTION C: PROJECT DESIGN & DELIVERY MODEL
+SECTION D: MONITORING, IMPACT, & LEARNING
+SECTION E: FINANCIALS & RESOURCE PLAN
+SECTION F: RISK MANAGEMENT & COMPLIANCE
+SECTION G: EXIT & SUSTAINABILITY STRATEGY
+SECTION H: VERTICAL-SPECIFIC POINTS
+School Education (CEFR, FLN, LEAD, DLS, PM SHRI, MS, KSHAMATA)
+Scholarships (KJS, KGS, KK)
+Vocational Education & Livelihood
+SECTION I: SUGGESTED ANNEXURES
+Number and label annexures clearly (e.g., Annexure 1 – Budget Sheet, Annexure 5 – Baseline Study).
+Maintain one folder per initiative proposal with all annexures.
+Ensure proper referencing in the main form: e.g., "Refer Annexure 5 for Baseline Findings."
+All annexures should be up to date and signed/stamped if applicable.
+--- TABLES ---
+Table:
+Sr. No.	Particulars	Description
+1	Title of the initiative	Short descriptive title of the initiative
+
+2	Vertical	☐ School Education ☐ Scholarships ☐ Vocational Education & Livelihood
+
+3	Programs (if applicable)	E.g., KSHAMATA, D2B, MS, PM SHRI, KGS, KJS, KKS, Unnati etc.
+
+4	Proposal submitted by	Name:
+Designation:
+Intervention:
+Email:
+Contact:
+
+5	Date of Submission	DD/MM/YYYY
+
+6	Type of initiative	☐ New Pilot ☐ Strategic Partnership ☐ Scale-Up ☐ Innovation ☐ Research-Based
+
+Table:
+Sr. No.	Particulars	Description
+7	Background / Rationale
+
+	Describe the context and the need for this initiative (quantitative/qualitative justification). Provide data-backed justification (need assessment, baseline survey, or secondary data). Attach any supporting baseline or secondary data.
+
+8	Alignment with KEF Vision & Mission	Describe how this initiative aligns with KEF’s core values of Integrity, Commitment, Excellence & Key principles of Dignity, Innovation & Sustainability.
+
+9	Problem Statement / Need Gap	Define the specific challenge, gap or issue that this initiative seeks to address.
+
+10	Target Geography	State(s), District(s), Block(s) covered. Include rationale for area selection-low learning levels, Government mandates, state education dept directives etc.
+
+11	Target Beneficiary Profile	Age, gender, socio-economic status, educational stage, marginalized category (if any)
+
+12	Alignment with NEP 2020’s NIPUN / State Priorities / /SDGs if applicable	Specify which policy/goal is being advanced and how (e.g., NEP 2020's FLN quality primary education NIPUN).
+
+Table:
+Sr. No.	Particulars	Description
+13	Goals & Objectives	Clearly define SMART (Specific, Measurable, Achievable, Relevant, Time-bound) goals; link to outcomes such as improved learning levels, retention etc.
+
+14	Key Activities & Interventions	List main activities, deliverables, and proposed timelines such as when does the activity start, when is the proposed end date and what will be the frequency of such activities
+15	Implementation Model	☐ Direct Implementation ☐ NGO Partner Model ☐ Government Partnership ☐ Hybrid
+Explain roles of each partner in detail
+
+16	Technology Components (if any)	One KEF, ERP integration, digital tools, AI/ML platforms, mobile apps etc. Mention scalability and accessibility
+
+17a	Key Internal Stakeholders	Primary implementation by KEF’s Interventions, designing content & education materials, coordinating with partners, tracking progress and outcome
+On-ground master trainers/facilitators/field staff who execute the program at the community/school level.
+17b	Key External Stakeholders	SCERT, state governments for policy and program mandates
+Technology and infrastructure providers responsible for digital platform development, AI enabled learning, analytics dashboard, technical support, and deployment
+KMBL which will require periodic reporting and impact analysis
+Academic institutions who can support in pedagogy, content, impact assessment, AI training etc.
+Operational partners for logistics, training etc.
+
+18	Gender & Inclusion Lens	How the initiative ensures equity and access for girls, differently-abled, and underserved communities
+
+
+Table:
+Sr. No.	Particulars	Description
+19	Key Success Indicators	Specify short term outputs, medium term outcomes, and long term impact-level metrics
+
+20	Monitoring Framework	Frequency and methodology of data collection (baseline –endline), reporting formats, field visits & internal audit plan
+21	Evaluation Design (if any)	☐ Internal ☐ Third-party ☐ Mixed-methods. 
+Indicate sample size, tools, evaluation partner if applicable
+
+22	Knowledge Dissemination Plan	Case studies, One KEF dashboards, KEF website, social media platforms, review forums, internal newsletters if applicable, documentation strategy
+
+Table:
+Sr. No.	Particulars	Description
+23	Budget Estimate	Line-item wise breakup (HR, Training, Printing & Stationery, Travel & Accommodation, Equipment, Admin, IT etc.
+
+24	Total Estimated Cost	INR ___ (include all assumptions)
+
+25	Cost per Beneficiary	INR ___ (include all assumptions)
+
+26	Source of Funds	☐ KMBL
+☐ KMBL Subsidiaries
+
+27	Sponsorship (in kind)	Volunteering, Partnership & engagement contribution (in-kind) for e.g. donated assets for beneficiaries
+
+28	HR Resource Requirement	Number and type of facilitators, trainers, field team required
+29	Infrastructure Requirement	Training centers/venues, digital labs, hardware, software
+30	Procurement or Vendor Needs	Type of procurement (books, tablets, kits etc.) and proposed procurement partners/vendors/service providers
+
+
+Table:
+Sr. No.	Particulars	Description
+31	Key Risks	Identify operational, legal, reputational, delivery, funding & stakeholder risks
+
+32	Risk Mitigation Plan	Contingency measures, Strategy to address each risk mentioned above
+
+33	Government Approvals Required	MOU, GRs, Circulars, NOC’s, Letters of Permission. 
+Mention timelines for each.
+
+34	Legal / Contractual Needs	List of documents needing vetting by legal team such as MOU’s, NDA’s, partner agreements etc.
+
+35	Child Protection & Data Privacy	Measures for safeguarding minors and sensitive data (esp. under School and Scholarship projects), POSCO Act, IT Policy, DPDP Act
+
+
+Table:
+Sr. No.	Particulars	Description
+36	Scalability Potential	How can this be replicated or scaled in other geographies?
+
+37	Sustainability Plan	Exit plan or plan to institutionalize with government or local stakeholders, funding transition
+
+38	Community or School Ownership Plan
+	Any community/school engagement strategy for sustained impact
+
+
+Table:
+Sr No	Particulars	Description
+39	Curriculum & Assessment Linkages	- Specify how the initiative aligns with NEP 2020 principles.
+- Describe integration with foundational literacy and numeracy (FLN) goals.
+- Alignment with state textbooks, lesson plans, and teacher guides.
+- Link to assessments like baseline, end line, pre and post 
+40	Teacher Training & Capacity Building Plan
+	- Format (residential/online/blended), frequency, duration.
+- Use of cascade model or peer-led training.
+- Follow-up mechanisms: classroom observation, feedback loops, Learning Circles.
+- Inclusion of gender-sensitive pedagogy and inclusive education strategies.
+
+41	School/CRC/BRC Involvement Strategy
+	- Engagement strategy for government education functionaries.
+- Role of Cluster Resource Centre/Block Resource Centers in monitoring or mentoring.
+- School Management Committees (SMC) involvement.
+
+42	Integration with State Platforms (if applicable)	- How the program aligns to DIKSHA (Digital Infrastructure for Knowledge Sharing) NDLI (national Digital Library of India) E-Pathshala etc.
+- Any integration with MIS platforms or teacher dashboards.
+
+43	State/National Board Recognition (if applicable)	- Recognition or endorsement from SCERT/NCERT/Specific state education boards
+- Certification of training modules or assessments.
+- Policy linkages or MoUs signed with state education departments.
+
+44	Learning Outcome measurement plan 	- Tools used (ASER, Early Grade Reading Assessment, Early Grade Mathematics Assessment, etc.)
+- Baseline, midline, and endline assessments and data analysis plan.
+- Integration of classroom observation tools.
+-Integration with One KEF platform
+
+
+Table:
+Sr No	Particulars	Description
+45	Eligibility & Selection Criteria
+	- Academic benchmarks (e.g., >85% in last exam).
+- Income ceiling, gender/reservation categories.
+- Geographic or institutional filters (rural, government schools, etc.).
+- Special categories (first-generation learners, disabilities, minorities).
+
+46	Application & Disbursement Process
+	- Tracking and audit trail mechanisms.
+- Use of DBT (Direct Benefit Transfer) systems.
+-Digital/physical, KYC compliance, bank linkages
+
+47	Mentorship & Academic Support Plan
+	- Structured mentorship through mentors, peers, alumni.
+- Webinars, doubt-clearing sessions, career guidance.
+- Engagement plan for different educational stages (10th/12th/UG/PG)
+
+48	Transition Support Plan	
+
+49	Alumni Network & Tracking
+	- Alumni database creation with regular updates.
+- Use of CRM systems, alumni portal or WhatsApp groups.
+- Engagement activities like virtual reunions, newsletters, mentorship by alumni.
+- Impact stories to showcase progression.
+
+
+50	Study groups & counseling	- Mental health counseling support if needed.
+- Peer study groups or buddy systems.
+- Emergency support mentor helpline during exams or crisis.
+
+
+Table:
+Sr No	Particulars	Description
+51	Trade & Skill Domain	- Specific sectors: BFSI, Hospitality, Customer Relations & Sales, Advance Beauty, IT/ITES, Apparel, ITI, MST, GDA etc.
+- Rationale for skill selection based on local livelihood potential.
+- Market demand mapping (formal or informal assessment).
+52	NSDC/SSC Curriculum Alignment	-Level of National Skill Qualification Framework (NSQF) alignment, certification body
+- Assessment partner details and certification validity.
+53	Mobilization of aspirants	-Target group definition (for e.g. age group, unemployed youth, gender focus, underserved communities etc.).
+-Geographic focus (mobilization locations showing urban or rural preference)
+-Mobilization strategy (community outreach such as D2D, SHG, NGO, Key Influencers, school or college alumni, walk ins, data calling, job fairs, referrals, street plays, pamphlets, toll free number etc.)
+-Partnerships with external agencies for mobilization post due diligence 
+54	Operations- Registration & Onboarding of aspirants	-Screening & Counselling at centers (Aspirant interest mapping through registration forms, career counselling, KEF domain specific points etc.
+-requirement of new centers/locations as per market survey (justify with data and potential registrations)
+-infrastructure and manpower readiness or requirements
+55	Operations -Training & drop outs of aspirants
+	-Training delivery requirements and monitoring
+-Tracking & Reporting of dropouts through ERP
+- Retention efforts for dropouts
+56	Infrastructure & Equipment support 	- Usage of ERP forms such as mobilization, potential registration etc.
+- Details of training centers, labs, tools required.
+- Model classrooms or mobile skill vans (if applicable).
+- Maintenance and cost of consumables.
+57	Soft skills, work readiness & Life skills curriculum	- Training on communication, workplace behavior, digital literacy.
+- Financial literacy, gender sensitization, legal rights.
+- Exposure visits or guest lectures from role models.
+
+58	Training & impact evaluation plan	- Use of MIS/ERP systems to track training to employment journey.
+- Evidence of income improvement or job retention.
+- Gender-wise and trade-wise outcome.
+59	Placement Strategy	- Employer tie-ups (MoUs, funder group companies , job fairs).
+- Placement targets (%, salary bands, geographic mobility).
+- Industry immersion (OJT ) or apprenticeship/ internships prior to final placement.
+-Partnerships with external agencies for placement post due diligence
+
+60	Post-Placement Support	- Regular follow-up for 3/6/12 months.
+- Support for relocation or migration (travel, accommodation leads).
+- Helpline or alumni portal for grievances and opportunities.
+
+61	Self-Employment Strategy (if any)	- Linkages with SHGs, loans, microfinance.
+- Entrepreneurship training, Business Plan creation, soft loans, digital tools.
+- Incubation support, mentoring from industry professionals.
+62	Alumni Network & Tracking
+	- Alumni database creation with regular updates.
+- Use of CRM systems, alumni portal or WhatsApp groups.
+- Engagement activities like virtual reunions, newsletters, mentorship by alumni.
+- Impact stories to showcase progression.
+
+
+Table:
+Annx. Sr No	Annexure 	Description/Purpose 	Suggestive Formats to be used 
+1	Detailed Budget Sheet	- Provides a clear, line-item-wise breakdown of costs.
+- Helps justify funding requested and ensures transparency.	Excel sheet with cost heads: HR, Admin, Technology, Training, Travel, Monitoring, Contingency, etc. Include monthly or quarterly breakdown if possible
+
+2	Gantt Chart/implementation timeline 	- Visual representation of activities and timelines.
+- Shows step by step sequencing, dependencies, and duration of each phase.
+	Gantt chart in Excel/MS Project/PowerPoint with activity name, key milestones, start and end dates.
+3	Draft MoU / Concept Note / Partner Proposal	- Outlines roles and responsibilities between KEF and partner org.
+- Legal/operational readiness for partnerships.	MoU draft, Letter of Understanding, or a concept note with partner org’s scope of work, deliverables, and timelines.
+
+4	Letters of Intent / Government Endorsements	-Confirms that government or stakeholders are on board.
+- Builds project credibility 	Signed letters, emails, or notifications from departments (Education, Skill, Women & Child, Rural Dev., etc.) expressing approval/support
+5	Baseline Data or Need Assessment	- Proves that the project is needed in this area.
+- Helps track change in the future.	Primary survey reports, UDISE data, ASER/FLN results, community needs assessments
+6	Risk Matrix	- Identifies key operational, financial, reputational, or legal risks.
+- Lists mitigation strategies.	Excel/Word table listing risks, likelihood, impact, mitigation plan, responsible team. Can follow a 5x5 risk assessment grid
+
+7	Resource Materials / Prototype Samples (if applicable)	- Shows that tools and materials are ready or being developed.
+- Useful for training or field use.	Draft material, training module, teacher handbook, app screenshots, sample question papers, mobile lab photos, etc.
+
+8	Theory of Change / Logical Framework (Log frame)	- Explains how the project will lead to long-term impact.
+- Connects inputs to outcomes.	Diagram or table with Inputs → Activities → Outputs → Outcomes → Impact.
+ Mention any assumptions or external factors.
+
+9	Monitoring & Evaluation Plan	- Framework to measure progress and outcomes.
+- Clarifies frequency, tools, roles, and budget for M&E
+	M&E Matrix or Dashboard template, toolkits, MIS structure, frequency of data collection, reporting schedule.
+10	Stakeholder Mapping Matrix	- Lists key people/organizations involved.
+- Helps build better coordination and support.	Table/chart with stakeholders, interest level, influence, proposed engagement method, frequency.
+11	Communication & Advocacy Plan	 - Tells how the project will share its work with others.
+- Helps build visibility and partnerships.	Simple plan listing: audience groups, communication channels (social media, events, reports), key messages, timeline 
+12	Case Studies / Success Stories (if scaling/continuing existing work)	- Shows proof that similar work has worked before.
+- Builds confidence in the proposal.	1–2 page write-ups with photos, quotes from beneficiaries, impact data, and KEF attribution.
+

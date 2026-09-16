@@ -70,7 +70,7 @@ class GeminiProvider(LLMProvider):
         genai.configure(api_key=api_key)
         self.model = genai.GenerativeModel(os.getenv("LLM_MODEL", "gemini-1.5-pro"))
 
-    def validate_section(self, section_content: str, section_rules: Dict[str, Any], global_rules: Dict[str, Any] = None) -> SectionValidationResult:
+    def validate_section(self, section_content: str, section_rules: Dict[str, Any], global_rules: Dict[str, Any] = None, team_name: str = "") -> SectionValidationResult:
         criteria = ""
         if global_rules:
             for rule in global_rules.get("rules", []):
@@ -78,21 +78,59 @@ class GeminiProvider(LLMProvider):
                     criteria = "\n".join([f"- {c}" for c in rule.get("criteria", [])])
                     break
                     
+        team_context = ""
+        team_lower = team_name.lower() if team_name else ""
+        if "volunteer" in team_lower:
+            team_context = """
+TEAM-SPECIFIC GOVERNANCE RULES (VOLUNTEERING):
+Ensure the process note adequately covers:
+- Types of Volunteering
+- Volunteer onboarding, registration and eligibility criteria.
+- Volunteer allocation/deployment process across programmes and activities.
+- Volunteer engagement, attendance and participation tracking.
+- Roles, responsibilities and reporting structure of volunteers.
+- Volunteer training, orientation and capacity-building process.
+- Volunteer communication, grievance handling and escalation mechanism.
+- Background verification, code of conduct and safeguarding requirements, wherever applicable.
+- Volunteer exit process.
+- Volunteer data management, documentation and records maintained.
+- Monitoring, feedback and performance evaluation of volunteers.
+- Volunteer certification process, including eligibility criteria, assessment/completion requirements, approval and issuance of certificates.
+"""
+        elif "comm" in team_lower:
+            team_context = """
+TEAM-SPECIFIC GOVERNANCE RULES (COMMUNICATIONS):
+Ensure the process note adequately covers:
+- Branding guidelines, brand identity and usage standards.
+- Brand approval process for logos, creatives, collaterals.
+- Budget, vendor management, and payment/approval processes.
+- Roles, responsibilities, approval matrix and escalation mechanism.
+- Records and documentation of approvals and performance/MIS.
+"""
+        elif "finance" in team_lower:
+            team_context = """
+TEAM-SPECIFIC GOVERNANCE RULES (FINANCE):
+Ensure the process note adequately covers standard finance governance, such as Maker/Checker principles, audit trails, and strict financial approval matrices.
+"""
+                    
         prompt = f"""
 You are an expert Process Auditor. Validate the following process section.
 Section Name: {section_rules.get('name')}
 General Guidelines: {section_rules.get('help_text')}
 Strict Evaluation Criteria:
 {criteria}
+{team_context}
 
 Content to validate:
 {section_content}
 
-Evaluate the content strictly against the rules. Be very critical and catch intentional mistakes (e.g. missing approvers, vague metrics, no accountability).
+Evaluate the content against the rules. Be practical and highly lenient. If the core requirement of the section is met, award a PASS and a high score (85-100). 
+Do NOT penalize the content for being brief, concise, or lacking excessive detail as long as the necessary basic information is provided. 
+Only give a WARNING (Score 60-84) or NEEDS_REVISION (Score < 60) if critical compliance rules for the team are actively violated, egregiously missing, or if the input is complete gibberish.
 
 CRITICAL INSTRUCTIONS FOR OUTPUT:
 1. If the evaluation results in a "PASS", you MUST leave the "issues" and "recommendations" lists COMPLETELY EMPTY. Do not invent reasons or explain the pass.
-2. If the evaluation results in "WARNING" or "NEEDS_REVISION", you must provide issues and recommendations, but keep them CRISP and CONCISE (maximum 1-2 short sentences per point). Do not write long paragraphs.
+2. If the evaluation results in "WARNING" or "NEEDS_REVISION", provide very brief issues and recommendations (maximum 1 short sentence per point).
 
 Return your evaluation as a valid JSON object matching this schema exactly:
 {{
@@ -135,13 +173,47 @@ Do NOT wrap the JSON in markdown code blocks. Just return the raw JSON string.
             )
 
     def validate_cross_sections(self, all_sections: List[Dict[str, Any]]) -> List[Dict[str, str]]:
-        # Simplified for now
-        return []
+        prompt = f"""
+You are an expert Process Auditor. Validate the cross-section consistency of the following process note.
+
+All sections and their content:
+{json.dumps(all_sections, indent=2)}
+
+Check for logical inconsistencies across sections. For example, a role mentioned in RACI should be defined in Roles & Responsibilities. A step in the SIPOC should be in the detailed process flow.
+
+If everything is consistent, return an empty list: []
+If there are inconsistencies, return a JSON array of objects with this exact schema:
+[
+  {{
+    "issue": "Description of the inconsistency",
+    "severity": "LOW" | "MEDIUM" | "HIGH"
+  }}
+]
+
+Output ONLY the raw JSON array. Do NOT wrap in markdown code blocks.
+"""
+        try:
+            response = self.model.generate_content(prompt)
+            text = response.text.strip()
+            
+            import re
+            match = re.search(r'\[.*\]', text, re.DOTALL)
+            if match:
+                text = match.group(0)
+                
+            data = json.loads(text)
+            if isinstance(data, list):
+                return data
+            return []
+        except Exception as e:
+            return [{"issue": f"Cross-section LLM Error: {str(e)}", "severity": "HIGH"}]
 
 def get_llm_provider() -> LLMProvider:
     provider_name = os.getenv("LLM_PROVIDER", "mock").lower()
     
     if provider_name == "gemini":
         return GeminiProvider()
-    else:
+    elif provider_name == "mock":
         return MockProvider()
+    else:
+        raise ValueError(f"LLM_PROVIDER '{provider_name}' is not implemented. Supported providers: 'mock', 'gemini'.")
