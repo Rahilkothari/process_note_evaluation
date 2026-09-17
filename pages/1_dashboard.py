@@ -16,30 +16,54 @@ db: Session = next(get_db())
 current_role = st.session_state.get("current_user_role", "creator")
 current_user_id = st.session_state.get("current_user_id")
 
-# Base query
-if current_role == "admin":
-    base_query = db.query(ProcessNote)
-elif current_role == "reviewer":
-    base_query = db.query(ProcessNote).filter(ProcessNote.status.in_(["UNDER_REVIEW", "APPROVED"]))
-else:
-    base_query = db.query(ProcessNote).filter(ProcessNote.created_by == current_user_id)
+@st.cache_data(ttl=60)
+def get_dashboard_stats(_db: Session, current_role: str, current_user_id: int):
+    if current_role == "admin":
+        base_query = _db.query(ProcessNote)
+    elif current_role == "reviewer":
+        base_query = _db.query(ProcessNote).filter(ProcessNote.status.in_(["UNDER_REVIEW", "APPROVED"]))
+    else:
+        base_query = _db.query(ProcessNote).filter(ProcessNote.created_by == current_user_id)
 
-# Fetch metrics
-total_notes = base_query.count()
-drafts = base_query.filter(ProcessNote.status == "DRAFT").count()
-needs_revision = base_query.filter(ProcessNote.status == "NEEDS_REVISION").count()
-under_review = base_query.filter(ProcessNote.status == "UNDER_REVIEW").count()
-approved = base_query.filter(ProcessNote.status == "APPROVED").count()
+    total_notes = base_query.count()
+    drafts = base_query.filter(ProcessNote.status == "DRAFT").count()
+    needs_revision = base_query.filter(ProcessNote.status == "NEEDS_REVISION").count()
+    under_review = base_query.filter(ProcessNote.status == "UNDER_REVIEW").count()
+    approved = base_query.filter(ProcessNote.status == "APPROVED").count()
 
-# For avg score, we need to join ValidationRun and ProcessNote to apply the same filters
-avg_query = db.query(func.avg(ValidationRun.overall_score)).join(ProcessNote, ValidationRun.process_note_id == ProcessNote.id)
-if current_role == "admin":
-    pass # Admin averages everything
-elif current_role == "reviewer":
-    avg_query = avg_query.filter(ProcessNote.status.in_(["UNDER_REVIEW", "APPROVED"]))
-else:
-    avg_query = avg_query.filter(ProcessNote.created_by == current_user_id)
-avg_score = avg_query.scalar() or 0.0
+    avg_query = _db.query(func.avg(ValidationRun.overall_score)).join(ProcessNote, ValidationRun.process_note_id == ProcessNote.id)
+    if current_role == "admin":
+        pass
+    elif current_role == "reviewer":
+        avg_query = avg_query.filter(ProcessNote.status.in_(["UNDER_REVIEW", "APPROVED"]))
+    else:
+        avg_query = avg_query.filter(ProcessNote.created_by == current_user_id)
+    avg_score = avg_query.scalar() or 0.0
+    
+    return total_notes, drafts, needs_revision, under_review, approved, avg_score
+
+@st.cache_data(ttl=60)
+def get_dashboard_notes(_db: Session, current_role: str, current_user_id: int, status_filter: str):
+    if current_role == "admin":
+        base_query = _db.query(ProcessNote.id, ProcessNote.process_name, ProcessNote.version, ProcessNote.team, ProcessNote.status, ProcessNote.updated_at)
+    elif current_role == "reviewer":
+        base_query = _db.query(ProcessNote.id, ProcessNote.process_name, ProcessNote.version, ProcessNote.team, ProcessNote.status, ProcessNote.updated_at).filter(ProcessNote.status.in_(["UNDER_REVIEW", "APPROVED"]))
+    else:
+        base_query = _db.query(ProcessNote.id, ProcessNote.process_name, ProcessNote.version, ProcessNote.team, ProcessNote.status, ProcessNote.updated_at).filter(ProcessNote.created_by == current_user_id)
+        
+    if status_filter != "All":
+        base_query = base_query.filter(ProcessNote.status == status_filter)
+        
+    notes = base_query.order_by(ProcessNote.updated_at.desc()).all()
+    return [{"id": n.id, "process_name": n.process_name, "version": n.version, "team": n.team, "status": n.status, "updated_at": n.updated_at} for n in notes]
+
+@st.cache_data(ttl=60)
+def get_dashboard_users(_db: Session):
+    from models.database import User
+    users = _db.query(User.id, User.email, User.role).all()
+    return [{"id": u.id, "email": u.email, "role": u.role} for u in users]
+
+total_notes, drafts, needs_revision, under_review, approved, avg_score = get_dashboard_stats(db, current_role, current_user_id)
 
 query_status = st.query_params.get("status", "All")
 status_options = ["All", "DRAFT", "UNDER_REVIEW", "APPROVED", "NEEDS_REVISION"]
@@ -80,7 +104,6 @@ with col2:
 with col3:
     clickable_metric("Under Review", under_review, "UNDER_REVIEW")
     st.markdown("<br>", unsafe_allow_html=True)
-    # For average score, it doesn't make sense to filter by score, so we'll just link it to All
     clickable_metric("Average Quality Score", f"{avg_score:.1f}%", "All")
 
 st.markdown("<br><hr><br>", unsafe_allow_html=True)
@@ -90,13 +113,9 @@ with col_title:
 with col_filter:
     status_filter = st.selectbox("Filter by Status", status_options, index=default_idx, label_visibility="collapsed")
 
-if status_filter == "All":
-    recent_notes = base_query.order_by(ProcessNote.updated_at.desc()).all()
-else:
-    recent_notes = base_query.filter(ProcessNote.status == status_filter).order_by(ProcessNote.updated_at.desc()).all()
+recent_notes = get_dashboard_notes(db, current_role, current_user_id, status_filter)
 
 if recent_notes:
-    # Table Header
     hcol1, hcol2, hcol3, hcol4 = st.columns([3, 2, 2, 2])
     with hcol1: st.markdown("**Process Name**")
     with hcol2: st.markdown("**Team**")
@@ -104,24 +123,23 @@ if recent_notes:
     with hcol4: st.markdown("**Last Updated**")
     st.markdown("<hr style='margin: 0.5em 0;'>", unsafe_allow_html=True)
 
-    # Table Rows
     for note in recent_notes:
         col1, col2, col3, col4 = st.columns([3, 2, 2, 2])
         with col1:
-            if st.button(f"{note.process_name} (v{note.version})", key=f"btn_{note.id}", use_container_width=True):
-                st.session_state.selected_note_id = note.id
-                if current_role == "creator" and note.status in ["DRAFT", "NEEDS_REVISION"]:
+            if st.button(f"{note['process_name']} (v{note['version']})", key=f"btn_{note['id']}", use_container_width=True):
+                st.session_state.selected_note_id = note['id']
+                if current_role == "creator" and note['status'] in ["DRAFT", "NEEDS_REVISION"]:
                     st.switch_page("pages/3_Validation.py")
-                elif current_role in ["reviewer", "admin"] and note.status == "UNDER_REVIEW":
+                elif current_role in ["reviewer", "admin"] and note['status'] == "UNDER_REVIEW":
                     st.switch_page("pages/4_Review.py")
                 else:
                     st.switch_page("pages/5_View_All_Notes.py")
         with col2: 
-            st.markdown(f"<div style='padding-top: 8px;'>{note.team}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='padding-top: 8px;'>{note['team']}</div>", unsafe_allow_html=True)
         with col3: 
-            st.markdown(f"<div style='padding-top: 8px;'>{note.status.replace('_', ' ')}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='padding-top: 8px;'>{note['status'].replace('_', ' ')}</div>", unsafe_allow_html=True)
         with col4: 
-            st.markdown(f"<div style='padding-top: 8px;'>{note.updated_at.strftime('%Y-%m-%d %H:%M')}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='padding-top: 8px;'>{note['updated_at'].strftime('%Y-%m-%d %H:%M')}</div>", unsafe_allow_html=True)
         st.markdown("<hr style='margin: 0.5em 0; border-color: #F1F5F9;'>", unsafe_allow_html=True)
 else:
     st.markdown(f"""
@@ -135,8 +153,8 @@ if current_role == "admin":
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
     st.subheader("Admin: User Management")
     from models.database import User
-    users = db.query(User).all()
-    user_options = {f"{u.email} ({u.role})": u.id for u in users}
+    users_meta = get_dashboard_users(db)
+    user_options = {f"{u['email']} ({u['role']})": u['id'] for u in users_meta}
     selected_user_key = st.selectbox("Select User", list(user_options.keys()))
     new_role = st.selectbox("New Role", ["creator", "reviewer", "admin"])
     if st.button("Update Role"):
@@ -144,4 +162,5 @@ if current_role == "admin":
         if target_user:
             target_user.role = new_role
             db.commit()
+            st.cache_data.clear()
             st.success(f"Updated {target_user.email} to {new_role}")

@@ -9,17 +9,21 @@ st.markdown("Compare different versions of process notes.")
 
 db: Session = next(get_db())
 
-# Fetch all notes that have versions
-notes = db.query(ProcessNote).all()
+@st.cache_data(ttl=60)
+def get_all_notes_history_metadata(_db: Session):
+    notes = _db.query(ProcessNote.id, ProcessNote.process_name, ProcessNote.version, ProcessNote.status, ProcessNote.created_at).all()
+    return [{"id": n.id, "process_name": n.process_name, "version": n.version, "status": n.status, "created_at": n.created_at} for n in notes]
 
-if not notes:
+notes_meta = get_all_notes_history_metadata(db)
+
+if not notes_meta:
     st.info("No process notes found.")
     st.stop()
 
 # Group by process_name (or document_id)
 groups = {}
-for n in notes:
-    key = n.process_name
+for n in notes_meta:
+    key = n["process_name"]
     if key not in groups:
         groups[key] = []
     groups[key].append(n)
@@ -33,9 +37,9 @@ if not multi_version_groups:
 
 selected_process = st.selectbox("Select Process", list(multi_version_groups.keys()))
 process_notes = multi_version_groups[selected_process]
-process_notes.sort(key=lambda x: x.created_at)
+process_notes.sort(key=lambda x: x["created_at"])
 
-options = [f"Version {n.version} ({n.status})" for n in process_notes]
+options = [f"Version {n['version']} ({n['status']})" for n in process_notes]
 
 col1, col2 = st.columns(2)
 with col1:
@@ -47,8 +51,11 @@ if v1_idx == v2_idx:
     st.warning("Please select two different versions to compare.")
     st.stop()
 
-base_note = process_notes[v1_idx]
-compare_note = process_notes[v2_idx]
+base_note_meta = process_notes[v1_idx]
+compare_note_meta = process_notes[v2_idx]
+
+base_note = db.query(ProcessNote).filter(ProcessNote.id == base_note_meta['id']).first()
+compare_note = db.query(ProcessNote).filter(ProcessNote.id == compare_note_meta['id']).first()
 
 st.markdown("---")
 st.subheader("Comparison")

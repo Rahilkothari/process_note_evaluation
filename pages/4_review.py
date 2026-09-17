@@ -21,21 +21,27 @@ db: Session = next(get_db())
 filter_status = st.radio("View Notes", ["Pending Review", "Approved"], horizontal=True)
 status_to_fetch = "UNDER_REVIEW" if filter_status == "Pending Review" else "APPROVED"
 
-notes = db.query(ProcessNote).filter(ProcessNote.status == status_to_fetch).all()
-if not notes:
+@st.cache_data(ttl=60)
+def get_review_notes_metadata(_db: Session, status: str):
+    notes = _db.query(ProcessNote.id, ProcessNote.process_name, ProcessNote.version, ProcessNote.status).filter(ProcessNote.status == status).all()
+    return [{"id": n.id, "process_name": n.process_name, "version": n.version, "status": n.status} for n in notes]
+
+notes_meta = get_review_notes_metadata(db, status_to_fetch)
+if not notes_meta:
     st.info(f"No process notes found for: {filter_status}.")
     st.stop()
 
-note_options = {f"[{n.id}] {n.process_name} (v{n.version}) - {n.status.replace('_', ' ')}": n for n in notes}
+note_options = {f"[{n['id']}] {n['process_name']} (v{n['version']}) - {n['status'].replace('_', ' ')}": n['id'] for n in notes_meta}
 default_idx = 0
 if "selected_note_id" in st.session_state:
     for i, key in enumerate(note_options.keys()):
-        if note_options[key].id == st.session_state.selected_note_id:
+        if note_options[key] == st.session_state.selected_note_id:
             default_idx = i
             break
 
 selected = st.selectbox("Select Process Note", list(note_options.keys()), index=default_idx)
-current_note = note_options[selected]
+selected_id = note_options[selected]
+current_note = db.query(ProcessNote).filter(ProcessNote.id == selected_id).first()
 
 status_class = "badge-review"
 if current_note.status == "APPROVED": status_class = "badge-pass"
@@ -58,24 +64,31 @@ with tab1:
                     st.success("Note has been approved!")
                     action_val = "APPROVED"
                     
-                    # Ingest sections into RAG
-                    from services.rag_service import rag_service
+                    # Background RAG ingestion
+                    def ingest_rag_background(note_id, team, sections_data):
+                        from services.rag_service import rag_service
+                        for sec_id, content in sections_data:
+                            try:
+                                rag_service.ingest_section(
+                                    note_id=note_id,
+                                    team=team,
+                                    section_id=sec_id,
+                                    content=content
+                                )
+                            except Exception as e:
+                                print(f"Failed to ingest section {sec_id} into RAG: {e}")
+                    
+                    import threading
+                    import json
+                    sections_to_ingest = []
                     for section in current_note.sections:
                         content_to_ingest = section.content
                         if not content_to_ingest and section.structured_data:
-                            import json
                             content_to_ingest = json.dumps(section.structured_data)
-                        
                         if content_to_ingest and content_to_ingest != "[]":
-                            try:
-                                rag_service.ingest_section(
-                                    process_name=current_note.process_name,
-                                    team=current_note.team,
-                                    section_id=section.section_id,
-                                    content=content_to_ingest
-                                )
-                            except Exception as e:
-                                print(f"Failed to ingest section {section.section_id} into RAG: {e}")
+                            sections_to_ingest.append((section.section_id, content_to_ingest))
+                            
+                    threading.Thread(target=ingest_rag_background, args=(current_note.id, current_note.team, sections_to_ingest)).start()
                     
                     # Clear reviewer comments from structured data upon approval
                     from sqlalchemy.orm.attributes import flag_modified
@@ -92,6 +105,7 @@ with tab1:
                 else:
                     import uuid
                     from models.database import ProcessSection
+                    import copy
                     
                     if not current_note.document_id:
                         current_note.document_id = str(uuid.uuid4())
@@ -119,19 +133,19 @@ with tab1:
                         next_review_date=current_note.next_review_date,
                         created_by=current_note.created_by
                     )
-                    db.add(new_note)
-                    db.flush()
                     
+                    new_sections = []
                     for section in current_note.sections:
-                        import copy
                         new_section = ProcessSection(
-                            process_note_id=new_note.id,
                             process_name=new_note.process_name,
                             section_id=section.section_id,
                             content=section.content,
                             structured_data=copy.deepcopy(section.structured_data) if section.structured_data else None
                         )
-                        db.add(new_section)
+                        new_sections.append(new_section)
+                    
+                    new_note.sections = new_sections
+                    db.add(new_note)
                         
                     st.warning(f"Note sent back for revision. A new draft (v{new_version}) was created.")
                     action_val = "SENT_BACK"
@@ -155,6 +169,7 @@ with tab1:
                     msg = f"Reviewer {reviewer_name} has {action_val.replace('_', ' ').lower()} your note '{current_note.process_name}'."
                     create_notification(db, current_note.created_by, msg, current_note.id)
                 
+                st.cache_data.clear()
                 st.rerun()
     elif current_note.status == "APPROVED":
         st.success("This Process Note has been approved.")

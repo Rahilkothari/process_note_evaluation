@@ -13,24 +13,30 @@ st.markdown("Read-only access to all process notes in the system.")
 
 db: Session = next(get_db())
 
-# Fetch all notes
-notes = db.query(ProcessNote).all()
+@st.cache_data(ttl=60)
+def get_all_notes_metadata(_db: Session):
+    notes = _db.query(ProcessNote.id, ProcessNote.process_name, ProcessNote.version, ProcessNote.status).all()
+    return [{"id": n.id, "process_name": n.process_name, "version": n.version, "status": n.status} for n in notes]
 
-if not notes:
+notes_meta = get_all_notes_metadata(db)
+
+if not notes_meta:
     st.info("No process notes found in the database.")
     st.stop()
 
-note_options = {f"[{n.id}] {n.process_name} (v{n.version}) - {n.status.replace('_', ' ')}": n for n in notes}
+note_options = {f"[{n['id']}] {n['process_name']} (v{n['version']}) - {n['status'].replace('_', ' ')}": n['id'] for n in notes_meta}
 
 default_idx = 0
 if "selected_note_id" in st.session_state:
     for i, key in enumerate(note_options.keys()):
-        if note_options[key].id == st.session_state.selected_note_id:
+        if note_options[key] == st.session_state.selected_note_id:
             default_idx = i
             break
             
 selected = st.selectbox("Select Process Note to View", list(note_options.keys()), index=default_idx)
-current_note = note_options[selected]
+selected_id = note_options[selected]
+
+current_note = db.query(ProcessNote).filter(ProcessNote.id == selected_id).first()
 
 st.markdown("<hr>", unsafe_allow_html=True)
 

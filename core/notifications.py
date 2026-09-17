@@ -12,6 +12,7 @@ def create_notification(db: Session, user_id: int, message: str, process_note_id
     db.add(notification)
     db.commit()
     db.refresh(notification)
+    st.cache_data.clear()
     return notification
 
 def get_unread_notifications(db: Session, user_id: int):
@@ -20,11 +21,17 @@ def get_unread_notifications(db: Session, user_id: int):
         Notification.is_read == 0
     ).order_by(Notification.created_at.desc()).all()
 
+@st.cache_data(ttl=60)
+def get_cached_unread_notifications(_db: Session, user_id: int):
+    notifications = get_unread_notifications(_db, user_id)
+    return [{"id": n.id, "message": n.message} for n in notifications]
+
 def mark_as_read(db: Session, notification_id: int):
     notification = db.query(Notification).filter(Notification.id == notification_id).first()
     if notification:
         notification.is_read = 1
         db.commit()
+        st.cache_data.clear()
 
 def render_notifications_sidebar():
     if "current_user_id" not in st.session_state:
@@ -33,7 +40,7 @@ def render_notifications_sidebar():
     db = next(get_db())
     user_id = st.session_state.current_user_id
     
-    unread_notifications = get_unread_notifications(db, user_id)
+    unread_notifications = get_cached_unread_notifications(db, user_id)
     count = len(unread_notifications)
     
     # We use a container or expander in the sidebar
@@ -42,9 +49,9 @@ def render_notifications_sidebar():
         if count > 0:
             with st.expander(f"🔔 Notifications ({count})", expanded=True):
                 for notif in unread_notifications:
-                    st.info(notif.message)
-                    if st.button("Mark as Read", key=f"read_{notif.id}"):
-                        mark_as_read(db, notif.id)
+                    st.info(notif["message"])
+                    if st.button("Mark as Read", key=f"read_{notif['id']}"):
+                        mark_as_read(db, notif['id'])
                         st.rerun()
         else:
             with st.expander("🔔 Notifications (0)", expanded=False):

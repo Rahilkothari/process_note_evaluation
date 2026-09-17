@@ -27,8 +27,18 @@ def is_authorized_email(email: str) -> bool:
 
 def get_role_for_email(email: str) -> str:
     email = email.lower()
-    if email in ["rahilkk07@gmail.com", "rahilkko+07@gmail.com"]:
+    
+    admin_emails = ["rahilkk07@gmail.com", "rahilkko+07@gmail.com"]
+    reviewer_emails = [
+        "jayati.kapadia@kotakeducationfoundation.org", 
+        "tanvi.parulekar@kotakeducationfoundation.org"
+    ]
+    
+    if email in admin_emails:
         return "admin"
+    elif email in reviewer_emails:
+        return "reviewer"
+        
     # Default roles
     return "creator"
 
@@ -128,7 +138,7 @@ def require_login():
                             else:
                                 try:
                                     response = supabase.auth.sign_up({"email": new_email, "password": new_password})
-                                    st.success("Account created successfully! You can now log in.")
+                                    st.success("Account created successfully! Please check your email and click the confirmation link before logging in.")
                                 except Exception as e:
                                     st.error(f"Sign up failed: {str(e)}")
         
