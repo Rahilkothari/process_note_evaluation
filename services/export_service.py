@@ -124,23 +124,20 @@ def generate_pdf(note: ProcessNote) -> io.BytesIO:
         if section.structured_data and isinstance(section.structured_data, list) and len(section.structured_data) > 0:
             headers = list(section.structured_data[0].keys())
             
-            # Simple table rendering
-            pdf.set_font("helvetica", "B", 10)
-            epw = pdf.w - pdf.l_margin - pdf.r_margin
-            col_width = epw / len(headers) if len(headers) > 0 else epw
-            for header in headers:
-                pdf.cell(col_width, 8, safe_str(str(header)[:20]), border=1)
-            pdf.ln()
-            
-            pdf.set_font("helvetica", "", 10)
-            for row_data in section.structured_data:
-                # check if page break needed
-                if pdf.get_y() > 250:
-                    pdf.add_page()
-                for header in headers:
-                    val = str(row_data.get(header, ""))
-                    pdf.cell(col_width, 8, safe_str(val[:25]), border=1)
-                pdf.ln()
+            pdf.set_font("helvetica", "", 9)
+            try:
+                with pdf.table() as table:
+                    header_row = table.row()
+                    for header in headers:
+                        header_row.cell(safe_str(str(header)))
+                    
+                    for row_data in section.structured_data:
+                        data_row = table.row()
+                        for header in headers:
+                            val = str(row_data.get(header, ""))
+                            data_row.cell(safe_str(val))
+            except Exception as e:
+                pdf.multi_cell(0, 8, safe_str(f"(Table rendering failed: {str(e)})"))
             pdf.ln(5)
             
     pdf_bytes = pdf.output(dest='S').encode('latin-1')
