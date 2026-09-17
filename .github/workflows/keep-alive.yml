@@ -1,0 +1,45 @@
+name: Keep Streamlit App Awake
+
+on:
+  schedule:
+    # Run every 8 hours
+    - cron: "0 */8 * * *"
+  workflow_dispatch: # Allows you to manually trigger it from the Actions tab
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          
+      - name: Install Playwright
+        run: |
+          python -m pip install playwright
+          playwright install chromium
+          
+      - name: Simulate User Visit
+        run: |
+          python -c "
+          from playwright.sync_api import sync_playwright
+          import time
+          
+          def run():
+              with sync_playwright() as p:
+                  print('Launching headless browser...')
+                  browser = p.chromium.launch(headless=True)
+                  page = browser.new_page()
+                  print('Navigating to app...')
+                  page.goto('https://processnote.streamlit.app/')
+                  print('Waiting 15 seconds for WebSocket to establish...')
+                  time.sleep(15)
+                  browser.close()
+                  print('Successfully simulated user visit!')
+                  
+          run()
+          "
