@@ -3,7 +3,7 @@ import yaml
 import os
 import pandas as pd
 import json
-from models.database import get_db, ProcessNote, ProcessSection, User
+from models.database import SessionLocal, get_db, ProcessNote, ProcessSection, User
 from sqlalchemy.orm import Session
 
 
@@ -12,7 +12,18 @@ from core.ui_utils import inject_custom_css
 
 
 st.title("Create / Edit Process Note")
-st.markdown("Follow the instructions in each section to accurately document your team's process.")
+st.markdown("""
+<div style="background-color: #FFFBEB; border: 1px solid #FEF3C7; padding: 16px; border-radius: 8px; margin-bottom: 24px;">
+    <h4 style="color: #92400E; margin-top: 0;">📝 How to draft your process note:</h4>
+    <ol style="color: #92400E; margin-bottom: 0;">
+        <li><b>Start by filling out the Basic Information</b> below (Name, Team, SMEs, etc.) and click <b>Next</b>.</li>
+        <li><b>Select a Note:</b> If you already started one, select it from the dropdown to continue editing.</li>
+        <li><b>Fill Out Sections:</b> Scroll down to the 'Process Details' area. Use the dropdown to jump between sections (e.g. 1.0, 1.1).</li>
+        <li><b>Save Often:</b> Make sure to click the <b>Save Section</b> button inside each tab before moving to the next one!</li>
+        <li><b>Use AI:</b> Stuck on what to write? Click the <b>✨ Get AI Suggestion</b> button for a head start based on your team's history.</li>
+    </ol>
+</div>
+""", unsafe_allow_html=True)
 
 @st.cache_data
 def load_sections_config():
@@ -22,7 +33,7 @@ def load_sections_config():
 config = load_sections_config()
 sections = config.get("sections", [])
 
-db: Session = next(get_db())
+db: Session = SessionLocal()
 
 # Select existing draft or create new
 st.markdown("### Note Selection")
@@ -326,5 +337,10 @@ if current_note:
                     st.success(f"Section {sec_id} saved successfully! File: {content_val}")
     
     st.markdown("<br><hr>", unsafe_allow_html=True)
-    if st.button("Proceed to Validation", type="primary", use_container_width=True):
-        st.switch_page("pages/3_Validation.py")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("👀 Preview Full Draft", use_container_width=True, help="Read through your entire process note so far."):
+            st.switch_page("pages/5_View_All_Notes.py")
+    with col2:
+        if st.button("Proceed to Validation ➔", type="primary", use_container_width=True):
+            st.switch_page("pages/3_Validation.py")

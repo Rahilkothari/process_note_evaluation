@@ -1,5 +1,5 @@
 import streamlit as st
-from models.database import get_db, ProcessNote, ProcessSection
+from models.database import SessionLocal, get_db, ProcessNote, ProcessSection
 from sqlalchemy.orm import Session
 import pandas as pd
 
@@ -11,7 +11,7 @@ from core.ui_utils import inject_custom_css
 st.title("View All Process Notes")
 st.markdown("Read-only access to all process notes in the system.")
 
-db: Session = next(get_db())
+db: Session = SessionLocal()
 
 @st.cache_data(ttl=60)
 def get_all_notes_metadata(_db: Session):

@@ -1,13 +1,13 @@
 import streamlit as st
 import pandas as pd
-from models.database import get_db, ProcessNote, ProcessSection
+from models.database import SessionLocal, get_db, ProcessNote, ProcessSection
 from sqlalchemy.orm import Session
 import difflib
 
 st.title("Version History & Diffs")
 st.markdown("Compare different versions of process notes.")
 
-db: Session = next(get_db())
+db: Session = SessionLocal()
 
 @st.cache_data(ttl=60)
 def get_all_notes_history_metadata(_db: Session):

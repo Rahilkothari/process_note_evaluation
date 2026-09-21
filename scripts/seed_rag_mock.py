@@ -1,10 +1,10 @@
-from models.database import get_db, ProcessNote, ProcessSection
+from models.database import SessionLocal, get_db, ProcessNote, ProcessSection
 from services.rag_service import rag_service
 from sqlalchemy.orm import Session
 
 def seed_rag():
     print("Connecting to database...")
-    db: Session = next(get_db())
+    db: Session = SessionLocal()
     
     print("Looking for APPROVED notes...")
     approved_notes = db.query(ProcessNote).filter(ProcessNote.status == "APPROVED").all()

@@ -1,5 +1,5 @@
 import streamlit as st
-from models.database import get_db, ProcessNote, ValidationRun, ValidationFinding, ProcessSection, ReviewHistory
+from models.database import SessionLocal, get_db, ProcessNote, ValidationRun, ValidationFinding, ProcessSection, ReviewHistory
 from models.schemas import ProcessNoteSchema, ProcessSectionSchema
 from sqlalchemy.orm import Session
 from core.validation_engine import ValidationEngine
@@ -13,7 +13,7 @@ from core.ui_utils import inject_custom_css
 
 st.title("Run AI Validation")
 
-db: Session = next(get_db())
+db: Session = SessionLocal()
 engine = ValidationEngine()
 
 current_role = st.session_state.get("current_user_role", "creator")

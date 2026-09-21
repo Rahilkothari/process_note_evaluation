@@ -1,5 +1,5 @@
 import streamlit as st
-from models.database import get_db, ProcessNote, ValidationRun, ValidationFinding
+from models.database import SessionLocal, get_db, ProcessNote, ValidationRun, ValidationFinding
 from sqlalchemy.orm import Session
 import pandas as pd
 from services.export_service import generate_docx
@@ -16,7 +16,7 @@ if st.session_state.get("current_user_role") not in ["admin", "reviewer"] and us
 
 st.title("Reviewer Dashboard")
 
-db: Session = next(get_db())
+db: Session = SessionLocal()
 
 filter_status = st.radio("View Notes", ["Pending Review", "Approved"], horizontal=True)
 status_to_fetch = "UNDER_REVIEW" if filter_status == "Pending Review" else "APPROVED"

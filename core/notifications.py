@@ -1,5 +1,5 @@
 import streamlit as st
-from models.database import get_db, Notification
+from models.database import SessionLocal, get_db, Notification
 from sqlalchemy.orm import Session
 
 def create_notification(db: Session, user_id: int, message: str, process_note_id: int = None):
@@ -37,7 +37,7 @@ def render_notifications_sidebar():
     if "current_user_id" not in st.session_state:
         return
         
-    db = next(get_db())
+    db = SessionLocal()
     user_id = st.session_state.current_user_id
     
     unread_notifications = get_cached_unread_notifications(db, user_id)

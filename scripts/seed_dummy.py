@@ -4,12 +4,12 @@ import sys
 # Add root to sys path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from models.database import get_db, User, ProcessNote, ProcessSection
+from models.database import SessionLocal, get_db, User, ProcessNote, ProcessSection
 from datetime import datetime
 import uuid
 
 def seed_data():
-    db = next(get_db())
+    db = SessionLocal()
     
     # Ensure users exist
     creator_email = "rahilkothari99@gmail.com"

@@ -1,7 +1,7 @@
 import os
 import streamlit as st
 from supabase import create_client, Client
-from models.database import get_db, User
+from models.database import SessionLocal, get_db, User
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -43,7 +43,7 @@ def get_role_for_email(email: str) -> str:
     return "creator"
 
 def sync_user_to_db(email: str, name: str = None):
-    db = next(get_db())
+    db = SessionLocal()
     user = db.query(User).filter(User.email == email).first()
     
     if not user:
