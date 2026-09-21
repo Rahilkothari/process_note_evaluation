@@ -258,7 +258,18 @@ with tab2:
                                 )
                                 
                                 edited_df = edited_df.fillna("")
-                                new_data = edited_df.to_dict("records")
+                                raw_data = edited_df.to_dict("records")
+                                new_data = []
+                                for row in raw_data:
+                                    clean_row = {}
+                                    for k, v in row.items():
+                                        if pd.isna(v):
+                                            clean_row[k] = None
+                                        elif hasattr(v, 'isoformat'):
+                                            clean_row[k] = v.isoformat()
+                                        else:
+                                            clean_row[k] = v
+                                    new_data.append(clean_row)
                                 
                                 if new_data != section.structured_data:
                                     section.structured_data = new_data
@@ -326,7 +337,18 @@ with tab3:
                 )
                 
                 edited_df = edited_df.fillna("")
-                new_data = edited_df.to_dict("records")
+                raw_data = edited_df.to_dict("records")
+                new_data = []
+                for row in raw_data:
+                    clean_row = {}
+                    for k, v in row.items():
+                        if pd.isna(v):
+                            clean_row[k] = None
+                        elif hasattr(v, 'isoformat'):
+                            clean_row[k] = v.isoformat()
+                        else:
+                            clean_row[k] = v
+                    new_data.append(clean_row)
                 
                 # Save changes automatically if modified
                 if new_data != s.structured_data:

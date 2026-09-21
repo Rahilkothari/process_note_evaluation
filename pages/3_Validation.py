@@ -322,7 +322,18 @@ if latest_run:
                         st.markdown("Update the table below:")
                         edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, key=f"inline_editor_{true_section_id}_{latest_run.id}", column_config=column_config)
                         if st.form_submit_button("Save Update", type="primary"):
-                            json_data = edited_df.to_dict(orient="records")
+                            raw_data = edited_df.to_dict(orient="records")
+                            json_data = []
+                            for row in raw_data:
+                                clean_row = {}
+                                for k, v in row.items():
+                                    if pd.isna(v):
+                                        clean_row[k] = None
+                                    elif hasattr(v, 'isoformat'):
+                                        clean_row[k] = v.isoformat()
+                                    else:
+                                        clean_row[k] = v
+                                json_data.append(clean_row)
                             if not section:
                                 section = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=true_section_id, structured_data=json_data)
                                 db.add(section)
