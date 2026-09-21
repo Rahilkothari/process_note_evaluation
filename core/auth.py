@@ -129,14 +129,11 @@ def require_login():
                 with st.expander("Need an account? Sign Up"):
                     with st.form("signup_form"):
                         new_email = st.text_input("Email Address")
-                        confirm_email = st.text_input("Confirm Email Address")
                         new_password = st.text_input("Password", type="password")
                         signup_submit = st.form_submit_button("Sign Up", type="secondary", use_container_width=True)
                         
                         if signup_submit:
-                            if new_email != confirm_email:
-                                st.error("Email addresses do not match! Please check for typos.")
-                            elif not is_authorized_email(new_email):
+                            if not is_authorized_email(new_email):
                                 st.error("Unauthorized email domain. Access denied.")
                             else:
                                 try:
