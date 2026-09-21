@@ -271,7 +271,16 @@ if current_note:
                     df = df[render_fields]
                 else:
                     df = pd.DataFrame(columns=fields)
-                    df.loc[1] = [None for _ in fields]
+                    if sec_id == "1.1":
+                        df.loc[1] = [None for _ in fields]
+                        df.loc[2] = [None for _ in fields]
+                        df.loc[3] = [None for _ in fields]
+                        if "Role" in df.columns:
+                            df.at[1, "Role"] = "Process Owner"
+                            df.at[2, "Role"] = "Process Reviewer"
+                            df.at[3, "Role"] = "Process Approver"
+                    else:
+                        df.loc[1] = [None for _ in fields]
         
                 column_config = {}
                 for f in fields:
