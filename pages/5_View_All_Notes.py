@@ -52,17 +52,9 @@ st.markdown(f"**Status:** <span class='badge {status_class}'>{current_note.statu
 st.markdown("<br>", unsafe_allow_html=True)
 
 st.markdown("### Export")
-export_col1, export_col2, _ = st.columns([1, 1, 2])
-with export_col1:
-    from services.export_service import generate_docx, generate_pdf
-    docx_data = generate_docx(current_note)
-    st.download_button("Export as Word (.docx)", data=docx_data, file_name=f"{current_note.process_name}.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-with export_col2:
-    try:
-        pdf_data = generate_pdf(current_note)
-        st.download_button("Export as PDF (.pdf)", data=pdf_data, file_name=f"{current_note.process_name}.pdf", mime="application/pdf")
-    except Exception as e:
-        st.error(f"PDF export failed: {e}")
+from services.export_service import generate_docx
+docx_data = generate_docx(current_note)
+st.download_button("Export as Word (.docx)", data=docx_data, file_name=f"{current_note.process_name}.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
