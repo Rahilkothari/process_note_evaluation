@@ -28,9 +28,10 @@ class RuleValidator:
                 # specific deterministic checks
                 if section.section_id == "1.1": # Approval matrix
                     roles = [str(r.get("Role", "")).lower() for r in section.structured_data]
+                    names = [str(r.get("Name", "")).lower() for r in section.structured_data]
                     mandatory_roles = ["process owner", "process reviewer", "process approver"]
                     for m_role in mandatory_roles:
-                        if not any(m_role in role for role in roles):
+                        if not any(m_role in r_val for r_val in roles) and not any(m_role in n_val for n_val in names):
                             issues.append(f"Missing mandatory role: {m_role.title()}")
 
         return issues
