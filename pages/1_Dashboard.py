@@ -115,25 +115,30 @@ try:
         """
         st.markdown(html, unsafe_allow_html=True)
 
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        clickable_metric("Total Notes", total_notes, "All")
-        st.markdown("<br>", unsafe_allow_html=True)
-        clickable_metric("Approved", approved, "APPROVED")
-    with col2:
-        if current_role == "creator":
-            clickable_metric("Drafts", drafts, "DRAFT")
+    if current_role == "creator":
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            clickable_metric("Total Notes", total_notes, "All")
             st.markdown("<br>", unsafe_allow_html=True)
+            clickable_metric("Under Review", under_review, "UNDER_REVIEW")
+        with col2:
+            clickable_metric("Active Drafts", drafts + warning + pass_notes, "DRAFT")
+            st.markdown("<br>", unsafe_allow_html=True)
+            clickable_metric("Approved", approved, "APPROVED")
+        with col3:
             clickable_metric("Needs Revision", needs_revision, "NEEDS_REVISION")
             st.markdown("<br>", unsafe_allow_html=True)
-            clickable_metric("Warning", warning, "WARNING")
-    with col3:
-        if current_role == "creator":
-            clickable_metric("Passed Validation", pass_notes, "PASS")
+            clickable_metric("Average Quality Score", f"{avg_score:.1f}%", "All")
+    else:
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            clickable_metric("Total Notes", total_notes, "All")
             st.markdown("<br>", unsafe_allow_html=True)
-        clickable_metric("Under Review", under_review, "UNDER_REVIEW")
-        st.markdown("<br>", unsafe_allow_html=True)
-        clickable_metric("Average Quality Score", f"{avg_score:.1f}%", "All")
+            clickable_metric("Average Quality Score", f"{avg_score:.1f}%", "All")
+        with col2:
+            clickable_metric("Under Review", under_review, "UNDER_REVIEW")
+        with col3:
+            clickable_metric("Approved", approved, "APPROVED")
 
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
     col_title, col_filter = st.columns([1, 1])
