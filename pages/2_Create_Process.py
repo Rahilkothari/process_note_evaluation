@@ -392,6 +392,8 @@ try:
         col1, col2 = st.columns(2)
         with col1:
             if st.button("👀 Preview Full Draft", use_container_width=True, help="Read through your entire process note so far."):
+                if current_note:
+                    st.session_state.selected_note_id = current_note.id
                 st.switch_page("pages/5_View_All_Notes.py")
     
         current_idx = tab_names.index(selected_tab)
