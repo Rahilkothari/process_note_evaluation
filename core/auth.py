@@ -147,7 +147,10 @@ def require_login():
                                             "emailRedirectTo": "http://localhost:8501/"
                                         }
                                     })
-                                    st.success("Account created successfully! Please check your email and click the confirmation link before logging in.")
+                                    if response.session:
+                                        st.success("Account created successfully! You can now log in immediately.")
+                                    else:
+                                        st.success("Account created successfully! Please check your email and click the confirmation link before logging in.")
                                 except Exception as e:
                                     st.error(f"Sign up failed: {str(e)}")
         
