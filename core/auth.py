@@ -147,7 +147,9 @@ def require_login():
                                             "emailRedirectTo": "http://localhost:8501/"
                                         }
                                     })
-                                    if response.session:
+                                    if response.user and getattr(response.user, 'identities', None) == []:
+                                        st.error("This email is already registered! Please check your inbox for a previous confirmation email or try logging in.")
+                                    elif response.session:
                                         st.success("Account created successfully! You can now log in immediately.")
                                     else:
                                         st.success("Account created successfully! Please check your email and click the confirmation link before logging in.")
