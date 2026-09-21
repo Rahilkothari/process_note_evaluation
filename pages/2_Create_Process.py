@@ -318,7 +318,18 @@ if current_note:
                 edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, key=f"editor_{sec_id}", column_config=column_config)
         
                 if st.form_submit_button("Save Section", type="primary"):
-                    json_data = edited_df.to_dict(orient="records")
+                    raw_data = edited_df.to_dict(orient="records")
+                    json_data = []
+                    for row in raw_data:
+                        clean_row = {}
+                        for k, v in row.items():
+                            if pd.isna(v):
+                                clean_row[k] = None
+                            elif hasattr(v, 'isoformat'):
+                                clean_row[k] = v.isoformat()
+                            else:
+                                clean_row[k] = v
+                        json_data.append(clean_row)
             
                     from core.rule_validator import RuleValidator
                     from models.schemas import ProcessSectionSchema
