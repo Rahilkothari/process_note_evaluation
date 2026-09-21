@@ -25,7 +25,6 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-@st.cache_data
 def load_sections_config():
     with open("config/sections.yaml", "r") as f:
         return yaml.safe_load(f)
