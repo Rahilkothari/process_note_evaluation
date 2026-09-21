@@ -37,7 +37,7 @@ try:
 
     # Select existing draft or create new
     st.markdown("### Note Selection")
-    existing_notes = db.query(ProcessNote).filter(ProcessNote.status.in_(["DRAFT", "NEEDS_REVISION"])).all()
+    existing_notes = db.query(ProcessNote).filter(ProcessNote.status.in_(["DRAFT", "NEEDS_REVISION", "WARNING", "PASS"])).all()
     note_options = {"Create New Process Note": None}
     for n in existing_notes:
         note_options[f"[{n.id}] {n.process_name} (v{n.version}) - {n.status}"] = n

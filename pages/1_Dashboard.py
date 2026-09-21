@@ -50,6 +50,8 @@ try:
         total_notes = base_query.count()
         drafts = base_query.filter(ProcessNote.status == "DRAFT").count()
         needs_revision = base_query.filter(ProcessNote.status == "NEEDS_REVISION").count()
+        warning = base_query.filter(ProcessNote.status == "WARNING").count()
+        pass_notes = base_query.filter(ProcessNote.status == "PASS").count()
         under_review = base_query.filter(ProcessNote.status == "UNDER_REVIEW").count()
         approved = base_query.filter(ProcessNote.status == "APPROVED").count()
 
@@ -62,7 +64,7 @@ try:
             avg_query = avg_query.filter(ProcessNote.created_by == current_user_id)
         avg_score = avg_query.scalar() or 0.0
     
-        return total_notes, drafts, needs_revision, under_review, approved, avg_score
+        return total_notes, drafts, needs_revision, warning, pass_notes, under_review, approved, avg_score
 
     @st.cache_data(ttl=60)
     def get_dashboard_notes(_db: Session, current_role: str, current_user_id: int, status_filter: str):
@@ -85,10 +87,10 @@ try:
         users = _db.query(User.id, User.email, User.role).all()
         return [{"id": u.id, "email": u.email, "role": u.role} for u in users]
 
-    total_notes, drafts, needs_revision, under_review, approved, avg_score = get_dashboard_stats(db, current_role, current_user_id)
+    total_notes, drafts, needs_revision, warning, pass_notes, under_review, approved, avg_score = get_dashboard_stats(db, current_role, current_user_id)
 
     query_status = st.query_params.get("status", "All")
-    status_options = ["All", "DRAFT", "UNDER_REVIEW", "APPROVED", "NEEDS_REVISION"]
+    status_options = ["All", "DRAFT", "NEEDS_REVISION", "WARNING", "PASS", "UNDER_REVIEW", "APPROVED"]
     if current_role == "reviewer":
         status_options = ["All", "UNDER_REVIEW", "APPROVED"]
 
@@ -123,7 +125,12 @@ try:
             clickable_metric("Drafts", drafts, "DRAFT")
             st.markdown("<br>", unsafe_allow_html=True)
             clickable_metric("Needs Revision", needs_revision, "NEEDS_REVISION")
+            st.markdown("<br>", unsafe_allow_html=True)
+            clickable_metric("Warning", warning, "WARNING")
     with col3:
+        if current_role == "creator":
+            clickable_metric("Passed Validation", pass_notes, "PASS")
+            st.markdown("<br>", unsafe_allow_html=True)
         clickable_metric("Under Review", under_review, "UNDER_REVIEW")
         st.markdown("<br>", unsafe_allow_html=True)
         clickable_metric("Average Quality Score", f"{avg_score:.1f}%", "All")
