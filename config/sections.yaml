@@ -32,7 +32,6 @@ sections:
   name: Document Review Cycle
   type: table
   fields:
-  - Sr. No.
   - Effective Date
   - Next Review Date
   - Process Owner
@@ -41,8 +40,8 @@ sections:
   help_text: Specify how often this process needs to be reviewed (e.g., annually)
     to ensure it stays up-to-date. Ensure the 'Next Review Date' is logically after
     the 'Effective Date'.
-  example: "Example: \nSr. No.: 1 | Effective Date: 2023-10-01 | Next Review Date:\
-    \ 2024-10-01 | Process Owner: John Doe | Name: John Doe | Sign: JD"
+  example: "Example: \nEffective Date: 2023-10-01 | Next Review Date: 2024-10-01 |\
+    \ Process Owner: John Doe | Name: John Doe | Sign: JD"
 - id: '1.4'
   name: Related Documents
   type: table
@@ -58,7 +57,6 @@ sections:
   name: Process Performance Parameters / KPIs
   type: table
   fields:
-  - Sr. No.
   - Description
   - Owner
   - Target
@@ -71,10 +69,9 @@ sections:
   help_text: Define the Key Performance Indicators (KPIs) that measure the success
     of this process. A good KPI must be measurable (e.g., 'Turnaround time under 24
     hours') rather than vague (e.g., 'Improve efficiency').
-  example: "Example: \nSr. No.: 1 | Description: Average Onboarding TAT | Owner: HR\
-    \ Ops | Target: < 5 Days | Maker: Recruiter | Checker: HR Manager | Data Source:\
-    \ HRIS | Report Name: Onboarding Metrics | Report Frequency: Monthly | Review\
-    \ Frequency: Quarterly"
+  example: "Example: \nDescription: Average Onboarding TAT | Owner: HR Ops | Target:\
+    \ < 5 Days | Maker: Recruiter | Checker: HR Manager | Data Source: HRIS | Report\
+    \ Name: Onboarding Metrics | Report Frequency: Monthly | Review Frequency: Quarterly"
 - id: '1.6'
   name: Process Coverage / Scope
   type: text
@@ -129,7 +126,6 @@ sections:
   name: Process Description
   type: table
   fields:
-  - Sr. No.
   - Activity
   - Description
   - Owner/Role
@@ -137,9 +133,8 @@ sections:
   help_text: This is the most critical section. List the step-by-step activities of
     the process in logical order. Be specific, assign an owner to each step, and define
     the Turn-Around Time (TAT). Do not use generic filler.
-  example: "Example: \nSr. No.: 1 | Activity: Background Check | Description: Initiate\
-    \ background verification with 3rd party vendor | Owner/Role: HR Ops | TAT: 2\
-    \ days"
+  example: "Example: \nActivity: Background Check | Description: Initiate background\
+    \ verification with 3rd party vendor | Owner/Role: HR Ops | TAT: 2 days"
 - id: '1.13'
   name: RACI Matrix
   type: table
@@ -159,18 +154,16 @@ sections:
   name: Business Rules
   type: table
   fields:
-  - Sr. No.
   - Business Rule
   help_text: List the strict rules or policies that govern this process (e.g., 'Approvals
     over $500 require VP sign-off'). Do not put general descriptions here; these must
     be actual rules.
-  example: "Example: \nSr. No.: 1 | Business Rule: All IT asset requests must be submitted\
-    \ at least 72 hours before the Date of Joining."
+  example: "Example: \nBusiness Rule: All IT asset requests must be submitted at least\
+    \ 72 hours before the Date of Joining."
 - id: '1.15'
   name: Exception and Change Management
   type: table
   fields:
-  - Sr. No.
   - Area of Exception
   - Exception Description
   - Exception Mitigation
@@ -182,9 +175,8 @@ sections:
   help_text: Identify what happens when the standard process cannot be followed. Describe
     the exception and how it is mitigated. If there are truly no exceptions, state
     'No known exceptions identified'.
-  example: "Example: \nSr. No.: 1 | Area: Background Check | Exception Description:\
-    \ Vendor delay > 5 days | Exception Mitigation: Conditional joining approved by\
-    \ VP | ..."
+  example: "Example: \nArea: Background Check | Exception Description: Vendor delay\
+    \ > 5 days | Exception Mitigation: Conditional joining approved by VP | ..."
 - id: '1.16'
   name: Risk Management
   type: table
