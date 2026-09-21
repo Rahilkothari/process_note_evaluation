@@ -14,7 +14,7 @@ class LLMProvider(ABC):
         pass
 
     @abstractmethod
-    def generate_suggestion(self, section_rules: Dict[str, Any], context_list: List[str]) -> str:
+    def generate_suggestion(self, section_rules: Dict[str, Any], context_list: List[str], user_draft: str = "") -> str:
         pass
 
 class MockProvider(LLMProvider):
@@ -65,7 +65,7 @@ class MockProvider(LLMProvider):
         
         return cross_issues
 
-    def generate_suggestion(self, section_rules: Dict[str, Any], context_list: List[str]) -> str:
+    def generate_suggestion(self, section_rules: Dict[str, Any], context_list: List[str], user_draft: str = "") -> str:
         return f"This is a mock AI suggestion for {section_rules.get('name')}. Context items found: {len(context_list)}."
 
 class GeminiProvider(LLMProvider):
@@ -215,17 +215,24 @@ Output ONLY the raw JSON array. Do NOT wrap in markdown code blocks.
         except Exception as e:
             return [{"issue": f"Cross-section LLM Error: {str(e)}", "severity": "HIGH"}]
 
-    def generate_suggestion(self, section_rules: Dict[str, Any], context_list: List[str]) -> str:
+    def generate_suggestion(self, section_rules: Dict[str, Any], context_list: List[str], user_draft: str = "") -> str:
         context_str = "\n".join(context_list) if context_list else "No historical context available."
+        
+        draft_instruction = ""
+        if user_draft and user_draft.strip():
+            draft_instruction = f"\n\nThe user has provided the following rough draft or notes:\n\"\"\"{user_draft}\"\"\"\nPlease expand, refine, and properly format these notes into a professional section based on the guidelines and historical context. Do not invent completely new concepts not mentioned by the user unless strictly required by the section guidelines."
+        else:
+            draft_instruction = "\n\nThe user has not provided a draft. Please generate a highly relevant template or complete draft based on the guidelines and historical context."
+
         prompt = f"""
 You are an expert Process Consultant helping a user draft a section of their process note.
 Section Name: {section_rules.get('name')}
 Guidelines: {section_rules.get('help_text')}
 
 Historical Context (from similar process notes in their team):
-{context_str}
+{context_str}{draft_instruction}
 
-Please generate a professional, concise, and highly relevant draft for this section based on the guidelines and historical context. Output ONLY the suggested text, nothing else. Do not use generic corporate filler.
+Please generate a professional, concise, and highly relevant draft for this section. Output ONLY the suggested text, nothing else. Do not use generic corporate filler.
 """
         try:
             response = self.model.generate_content(prompt)

@@ -224,24 +224,30 @@ try:
         existing_sec = existing_sections.get(sec_id)
 
         with st.container():
-            if sec_config["type"] == "text":
-                if st.button(f"✨ Get AI Suggestion for {sec_id}"):
-                    from services.rag_service import rag_service
-                    from services.llm_service import get_llm_provider
-        
-                    with st.spinner("Generating suggestion based on team history..."):
-                        context_list = rag_service.get_team_context(current_note.team, sec_id)
-                        if isinstance(context_list, str):
-                            context_list = [context_list]
-                        llm = get_llm_provider()
-                        suggestion = llm.generate_suggestion(sec_config, context_list)
-                        st.info(f"**AI Suggestion (Copy and paste if useful):**\n\n{suggestion}")
-
             with st.form(f"form_{sec_id}"):
                 if sec_config["type"] == "text":
                     val = existing_sec.content if existing_sec else ""
                     content = st.text_area("Provide your detailed response below:", value=val, height=250)
-                    if st.form_submit_button("Save Section", type="primary"):
+                    
+                    col1, col2 = st.columns([1, 1])
+                    with col1:
+                        save_btn = st.form_submit_button("Save Section", type="primary")
+                    with col2:
+                        ai_btn = st.form_submit_button(f"✨ Get AI Suggestion for {sec_id}")
+
+                    if ai_btn:
+                        from services.rag_service import rag_service
+                        from services.llm_service import get_llm_provider
+            
+                        with st.spinner("Generating suggestion based on your notes and team history..."):
+                            context_list = rag_service.get_team_context(current_note.team, sec_id)
+                            if isinstance(context_list, str):
+                                context_list = [context_list]
+                            llm = get_llm_provider()
+                            suggestion = llm.generate_suggestion(sec_config, context_list, user_draft=content)
+                            st.info(f"**AI Suggestion (Copy and paste into the box above):**\n\n{suggestion}")
+
+                    if save_btn:
                         from core.rule_validator import RuleValidator
                         from models.schemas import ProcessSectionSchema
                         sec_schema = ProcessSectionSchema(section_id=sec_id, content=content, structured_data=[])
