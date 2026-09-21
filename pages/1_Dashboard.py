@@ -11,23 +11,31 @@ from core.ui_utils import inject_custom_css
 
 st.title("Process Note Dashboard")
 
-st.markdown("""
-<div style="background-color: #F0F9FF; border: 1px solid #BAE6FD; padding: 16px; border-radius: 8px; margin-bottom: 24px;">
-    <h4 style="color: #0369A1; margin-top: 0;">👋 Welcome to the Process Note Validator!</h4>
-    <p style="color: #0C4A6E; margin-bottom: 8px;">Here is how you can use this platform to create and validate your process notes:</p>
-    <ol style="color: #0C4A6E; margin-bottom: 0;">
-        <li><b>Create Process:</b> Go to the 'Create Process' tab on the left to draft a new note. Fill out the sections one by one.</li>
-        <li><b>AI Validation:</b> Once drafted, submit it to our AI validator. It will score your note against strict governance rules and suggest improvements.</li>
-        <li><b>Review & Fix:</b> Address any warnings or missing information the AI points out.</li>
-        <li><b>Final Approval:</b> When your score is passing, submit it for human review!</li>
-    </ol>
-</div>
-""", unsafe_allow_html=True)
-
-db: Session = SessionLocal()
-
 current_role = st.session_state.get("current_user_role", "creator")
 current_user_id = st.session_state.get("current_user_id")
+
+if current_role == "creator":
+    st.markdown("""
+    <div style="background-color: #F0F9FF; border: 1px solid #BAE6FD; padding: 16px; border-radius: 8px; margin-bottom: 24px;">
+        <h4 style="color: #0369A1; margin-top: 0;">👋 Welcome to the Process Note Validator!</h4>
+        <p style="color: #0C4A6E; margin-bottom: 8px;">Here is how you can use this platform to create and validate your process notes:</p>
+        <ol style="color: #0C4A6E; margin-bottom: 0;">
+            <li><b>Create Process:</b> Go to the 'Create Process' tab on the left to draft a new note. Fill out the sections one by one.</li>
+            <li><b>AI Validation:</b> Once drafted, submit it to our AI validator. It will score your note against strict governance rules and suggest improvements.</li>
+            <li><b>Review & Fix:</b> Address any warnings or missing information the AI points out.</li>
+            <li><b>Final Approval:</b> When your score is passing, submit it for human review!</li>
+        </ol>
+    </div>
+    """, unsafe_allow_html=True)
+elif current_role in ["reviewer", "admin"]:
+    st.markdown("""
+    <div style="background-color: #FDF4FF; border: 1px solid #F0ABFC; padding: 16px; border-radius: 8px; margin-bottom: 24px;">
+        <h4 style="color: #86198F; margin-top: 0;">👋 Welcome Reviewer!</h4>
+        <p style="color: #701A75; margin-bottom: 0;">Use this dashboard to monitor process notes that have been submitted for human review. Click on any note with the status <b>UNDER REVIEW</b> to read the content, check the AI's grading, and provide your final approval.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+db: Session = SessionLocal()
 
 @st.cache_data(ttl=60)
 def get_dashboard_stats(_db: Session, current_role: str, current_user_id: int):
