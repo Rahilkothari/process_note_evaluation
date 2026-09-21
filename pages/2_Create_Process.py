@@ -55,6 +55,13 @@ try:
         current_note = note_options[selected_option]
 
     st.markdown("<br>", unsafe_allow_html=True)
+    
+    if current_note and current_note.status == "NEEDS_REVISION":
+        from models.database import ReviewHistory
+        latest_review = db.query(ReviewHistory).join(ProcessNote, ReviewHistory.process_note_id == ProcessNote.id).filter(ProcessNote.document_id == current_note.document_id).order_by(ReviewHistory.timestamp.desc()).first()
+        if latest_review and latest_review.comments:
+            st.error(f"**Reviewer Feedback ({latest_review.reviewer}):**\n\n{latest_review.comments}")
+            st.markdown("<br>", unsafe_allow_html=True)
 
     with st.container():
         st.subheader("Basic Information")
