@@ -397,12 +397,209 @@ try:
             if current_idx < len(tab_names) - 1:
                 def go_next():
                     st.session_state["current_section_edit"] = tab_names[current_idx + 1]
-                st.button("Next Section ➔", type="primary", use_container_width=True, on_click=go_next)
-            else:
-                if completed_count < total_count:
-                    st.warning(f"You have only completed {completed_count}/{total_count} sections. It is highly recommended to finish all sections before validation.")
-                if st.button("Proceed to Validation ➔", type="primary", use_container_width=True):
-                    st.switch_page("pages/3_Validation.py")
+selected_tab = st.selectbox("📌 Select a Section to Fill Out:", tab_names, key="current_section_edit")
+
+    sec_config = sections[tab_names.index(selected_tab)]
+
+    help_text = sec_config.get('help_text', 'No instructions provided.')
+    example_text = sec_config.get('example', '')
+
+    example_html = ""
+    if example_text:
+        example_html = f"""<div style="margin-top: 12px; background-color: #EEF2FF; padding: 8px 12px; border-radius: 6px; font-style: italic; color: #3730A3; white-space: pre-wrap; font-size: 13px;">
+{example_text}
+</div>"""
+
+    st.markdown(f"""<div style="background-color: #F8FAFC; border-left: 4px solid #4F46E5; padding: 12px 16px; border-radius: 0 8px 8px 0; margin-bottom: 16px; font-size: 14px; color: #334155;">
+<div style="margin-bottom: 4px;"><b>Instructions for {sec_config['name']}:</b> {help_text}</div>
+{example_html}
+</div>""", unsafe_allow_html=True)
+
+    sec_id = sec_config['id']
+    existing_sec = existing_sections.get(sec_id)
+
+    with st.container():
+        with st.form(f"form_{sec_id}"):
+            if sec_config["type"] == "text":
+                val = existing_sec.content if existing_sec else ""
+                content = st.text_area("Provide your detailed response below:", value=val, height=250)
+                
+                col1, col2 = st.columns([1, 1])
+                with col1:
+                    save_btn = st.form_submit_button("Save Section", type="primary")
+                with col2:
+                    ai_btn = st.form_submit_button(f"✨ Get AI Suggestion for {sec_id}")
+
+                if ai_btn:
+                    from services.rag_service import rag_service
+                    from services.llm_service import get_llm_provider
+        
+                    with st.spinner("Generating suggestion based on your notes and team history..."):
+                        context_list = rag_service.get_team_context(current_note.team, sec_id)
+                        if isinstance(context_list, str):
+                            context_list = [context_list]
+                        llm = get_llm_provider()
+                        suggestion = llm.generate_suggestion(sec_config, context_list, user_draft=content)
+                        st.info(f"**AI Suggestion (Copy and paste into the box above):**\n\n{suggestion}")
+
+                if save_btn:
+                    from core.rule_validator import RuleValidator
+                    from models.schemas import ProcessSectionSchema
+                    sec_schema = ProcessSectionSchema(section_id=sec_id, content=content, structured_data=[])
+                    issues = RuleValidator().validate(sec_schema, config)
+        
+                    if issues:
+                        for issue in issues:
+                            st.error(f"Validation Error: {issue}")
+                    else:
+                        if not existing_sec:
+                            new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=content)
+                            db.add(new_sec)
+                        else:
+                            existing_sec.content = content
+                        db.commit()
+                        st.success(f"Section {sec_id} saved successfully!")
+
+            elif sec_config["type"] == "table":
+                fields = sec_config.get("fields", [])
+    
+                if existing_sec and existing_sec.structured_data:
+                    df = pd.DataFrame(existing_sec.structured_data)
+                    df.index = df.index + 1
+        
+                    render_fields = list(fields)
+                    if "Reviewer Comment" in df.columns:
+                        render_fields.append("Reviewer Comment")
+            
+                    for f in render_fields:
+                        if f not in df.columns:
+                            df[f] = None
+                    df = df[render_fields]
+                else:
+                    df = pd.DataFrame(columns=fields)
+                    if sec_id == "1.1":
+                        df.loc[1] = [None for _ in fields]
+                        df.loc[2] = [None for _ in fields]
+                        df.loc[3] = [None for _ in fields]
+                        if "Role" in df.columns:
+                            df.at[1, "Role"] = "Process Owner"
+                            df.at[2, "Role"] = "Process Reviewer"
+                            df.at[3, "Role"] = "Process Approver"
+                    elif sec_id == "1.2":
+                        df.loc[1] = [None for _ in fields]
+                        if "Version No." in df.columns:
+                            df.at[1, "Version No."] = "1.0"
+                        if "Amendment" in df.columns:
+                            df.at[1, "Amendment"] = "Initial Draft"
+                    elif sec_id == "1.13":
+                        df.loc[1] = [None for _ in fields]
+                        if "Roles" in df.columns:
+                            df.at[1, "Roles"] = "Process Owner"
+                        if "Accountable (A)" in df.columns:
+                            df.at[1, "Accountable (A)"] = "Yes"
+                    elif sec_id == "1.15":
+                        df.loc[1] = [None for _ in fields]
+                        if "Exception Description" in df.columns:
+                            df.at[1, "Exception Description"] = "No known exceptions identified"
+                    else:
+                        df.loc[1] = [None for _ in fields]
+    
+                column_config = {}
+                for f in fields:
+                    f_lower = f.lower()
+                    if "date" in f_lower:
+                        column_config[f] = st.column_config.DateColumn(f, format="YYYY-MM-DD")
+                        df[f] = pd.to_datetime(df[f], errors='coerce').dt.date
+                    elif "no." in f_lower or f_lower == "tat" or " tat " in f_lower:
+                        column_config[f] = st.column_config.NumberColumn(f, step=1)
+                        df[f] = pd.to_numeric(df[f], errors='coerce')
+                    elif f in ["Responsible (R)", "Accountable (A)", "Consulted (C)", "Informed (I)"]:
+                        column_config[f] = st.column_config.SelectboxColumn(f, options=["Yes", "No"])
+                    elif "level of risk" in f_lower:
+                        column_config[f] = st.column_config.SelectboxColumn(f, options=["High", "Medium", "Low"])
+                    else:
+                        column_config[f] = st.column_config.TextColumn(f)
+
+                st.markdown("Edit the table below:")
+                edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, key=f"editor_{sec_id}", column_config=column_config)
+    
+                if st.form_submit_button("Save Section", type="primary"):
+                    raw_data = edited_df.to_dict(orient="records")
+                    json_data = []
+                    for row in raw_data:
+                        clean_row = {}
+                        for k, v in row.items():
+                            if pd.isna(v):
+                                clean_row[k] = None
+                            elif hasattr(v, 'isoformat'):
+                                clean_row[k] = v.isoformat()
+                            else:
+                                clean_row[k] = v
+                        json_data.append(clean_row)
+        
+                    from core.rule_validator import RuleValidator
+                    from models.schemas import ProcessSectionSchema
+                    sec_schema = ProcessSectionSchema(section_id=sec_id, content="", structured_data=json_data)
+                    issues = RuleValidator().validate(sec_schema, config)
+        
+                    if issues:
+                        for issue in issues:
+                            st.error(f"Validation Error: {issue}")
+                    else:
+                        if not existing_sec:
+                            new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=json_data)
+                            db.add(new_sec)
+                        else:
+                            existing_sec.structured_data = json_data
+                        db.commit()
+                        st.success(f"Section {sec_id} saved successfully!")
+
+            elif sec_config["type"] == "file":
+                uploaded_file = st.file_uploader("Upload Process Flowchart", type=["png", "jpg", "jpeg", "pdf", "vsdx", "drawio", "docx"])
+                if existing_sec and existing_sec.content:
+                    st.info(f"Currently uploaded: {existing_sec.content}")
+        
+                if st.form_submit_button("Save Section", type="primary"):
+                    if uploaded_file is not None:
+                        import os
+                        os.makedirs("uploads", exist_ok=True)
+                        file_path = os.path.join("uploads", uploaded_file.name)
+                        with open(file_path, "wb") as f:
+                            f.write(uploaded_file.getbuffer())
+                        content_val = uploaded_file.name
+                    else:
+                        content_val = existing_sec.content if existing_sec else ""
+            
+                    if not content_val:
+                        st.error("Validation Error: Please wait for the file to finish uploading or attach a file before saving.")
+                    else:
+                        if not existing_sec:
+                            new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=content_val)
+                            db.add(new_sec)
+                        else:
+                            existing_sec.content = content_val
+                        db.commit()
+                        st.success(f"Section {sec_id} saved successfully! File: {content_val}")
+
+    st.markdown("<br><hr>", unsafe_allow_html=True)
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("👀 Preview Full Draft", use_container_width=True, help="Read through your entire process note so far."):
+            st.switch_page("pages/5_View_All_Notes.py")
+
+    current_idx = tab_names.index(selected_tab)
+    with col2:
+        if current_idx < len(tab_names) - 1:
+            def go_next():
+                st.session_state["current_section_edit"] = tab_names[current_idx + 1]
+            st.button("Next Section ➔", type="primary", use_container_width=True, on_click=go_next)
+        else:
+            if completed_count < total_count:
+                st.warning(f"You have only completed {completed_count}/{total_count} sections. It is highly recommended to finish all sections before validation.")
+            if st.button("Proceed to Validation ➔", type="primary", use_container_width=True):
+                if current_note:
+                    st.session_state.selected_note_id = current_note.id
+                st.switch_page("pages/3_Validation.py")
 
 finally:
     db.close()
