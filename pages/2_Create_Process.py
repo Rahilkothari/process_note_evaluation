@@ -315,7 +315,7 @@ try:
                         if "date" in f_lower:
                             column_config[f] = st.column_config.DateColumn(f, format="YYYY-MM-DD")
                             df[f] = pd.to_datetime(df[f], errors='coerce').dt.date
-                        elif "no." in f_lower or "tat" in f_lower:
+                        elif "no." in f_lower or f_lower == "tat" or " tat " in f_lower:
                             column_config[f] = st.column_config.NumberColumn(f, step=1)
                             df[f] = pd.to_numeric(df[f], errors='coerce')
                         elif f in ["Responsible (R)", "Accountable (A)", "Consulted (C)", "Informed (I)"]:
