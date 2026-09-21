@@ -22,7 +22,8 @@ class RuleValidator:
                 fields = section_config.get("fields", [])
                 for idx, row in enumerate(section.structured_data):
                     for field in fields:
-                        if field not in row or not str(row[field]).strip():
+                        val = row.get(field)
+                        if val is None or str(val).strip() == "" or str(val).strip().lower() == "none":
                             issues.append(f"Row {idx+1}: Missing required field '{field}'.")
 
                 # specific deterministic checks
