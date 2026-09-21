@@ -279,6 +279,22 @@ if current_note:
                             df.at[1, "Role"] = "Process Owner"
                             df.at[2, "Role"] = "Process Reviewer"
                             df.at[3, "Role"] = "Process Approver"
+                    elif sec_id == "1.2":
+                        df.loc[1] = [None for _ in fields]
+                        if "Version No." in df.columns:
+                            df.at[1, "Version No."] = "1.0"
+                        if "Amendment" in df.columns:
+                            df.at[1, "Amendment"] = "Initial Draft"
+                    elif sec_id == "1.13":
+                        df.loc[1] = [None for _ in fields]
+                        if "Roles" in df.columns:
+                            df.at[1, "Roles"] = "Process Owner"
+                        if "Accountable (A)" in df.columns:
+                            df.at[1, "Accountable (A)"] = "Yes"
+                    elif sec_id == "1.15":
+                        df.loc[1] = [None for _ in fields]
+                        if "Exception Description" in df.columns:
+                            df.at[1, "Exception Description"] = "No known exceptions identified"
                     else:
                         df.loc[1] = [None for _ in fields]
         
