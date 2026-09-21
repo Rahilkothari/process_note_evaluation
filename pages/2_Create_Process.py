@@ -186,6 +186,11 @@ if current_note:
     st.markdown("Scroll down to fill out all sections of the process note. **Read the instruction box** in each section before entering data.")
     
     existing_sections = {s.section_id: s for s in current_note.sections}
+    completed_count = len(existing_sections)
+    total_count = len(sections)
+    
+    st.markdown(f"**Progress:** {completed_count} / {total_count} Sections Completed")
+    st.progress(completed_count / total_count)
     
     if "current_section_edit" not in st.session_state:
         st.session_state["current_section_edit"] = f"{sections[0]['id']} {sections[0]['name']}"
@@ -377,6 +382,15 @@ if current_note:
     with col1:
         if st.button("👀 Preview Full Draft", use_container_width=True, help="Read through your entire process note so far."):
             st.switch_page("pages/5_View_All_Notes.py")
+    
+    current_idx = tab_names.index(selected_tab)
     with col2:
-        if st.button("Proceed to Validation ➔", type="primary", use_container_width=True):
-            st.switch_page("pages/3_Validation.py")
+        if current_idx < len(tab_names) - 1:
+            if st.button("Next Section ➔", type="primary", use_container_width=True):
+                st.session_state["current_section_edit"] = tab_names[current_idx + 1]
+                st.rerun()
+        else:
+            if completed_count < total_count:
+                st.warning(f"You have only completed {completed_count}/{total_count} sections. It is highly recommended to finish all sections before validation.")
+            if st.button("Proceed to Validation ➔", type="primary", use_container_width=True):
+                st.switch_page("pages/3_Validation.py")
