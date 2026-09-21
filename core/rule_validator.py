@@ -20,11 +20,18 @@ class RuleValidator:
             else:
                 # Check for empty mandatory fields in the table
                 fields = section_config.get("fields", [])
+                missing_details = []
                 for idx, row in enumerate(section.structured_data):
+                    row_missing = []
                     for field in fields:
                         val = row.get(field)
                         if val is None or str(val).strip() == "" or str(val).strip().lower() == "none":
-                            issues.append(f"Row {idx+1}: Missing required field '{field}'.")
+                            row_missing.append(field)
+                    if row_missing:
+                        missing_details.append(f"Row {idx+1} ({', '.join(row_missing)})")
+                
+                if missing_details:
+                    issues.append(f"Missing required fields in: {'; '.join(missing_details)}.")
 
                 # specific deterministic checks
                 if section.section_id == "1.1": # Approval matrix
