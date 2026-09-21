@@ -148,7 +148,7 @@ try:
                         new_note.sections = new_sections
                         db.add(new_note)
                         
-                        st.warning(f"Note sent back for revision. A new draft (v{new_version}) was created.")
+                        st.success(f"Revision requested successfully! A new editable draft (v{new_version}) has been sent back to the creator.")
                         action_val = "SENT_BACK"
                         note_for_history = current_note
                         current_note = new_note

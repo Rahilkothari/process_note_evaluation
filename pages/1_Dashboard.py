@@ -47,7 +47,7 @@ try:
         else:
             base_query = _db.query(ProcessNote).filter(ProcessNote.created_by == current_user_id)
 
-        total_notes = base_query.count()
+        total_notes = base_query.with_entities(func.count(func.distinct(ProcessNote.process_name))).scalar()
         drafts = base_query.filter(ProcessNote.status == "DRAFT").count()
         needs_revision = base_query.filter(ProcessNote.status == "NEEDS_REVISION").count()
         warning = base_query.filter(ProcessNote.status == "WARNING").count()
