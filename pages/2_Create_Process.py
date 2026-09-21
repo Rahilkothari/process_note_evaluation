@@ -297,11 +297,13 @@ try:
                             if "Amendment" in df.columns:
                                 df.at[1, "Amendment"] = "Initial Draft"
                         elif sec_id == "1.13":
-                            df.loc[1] = [None for _ in fields]
-                            if "Roles" in df.columns:
-                                df.at[1, "Roles"] = "Process Owner"
-                            if "Accountable (A)" in df.columns:
-                                df.at[1, "Accountable (A)"] = "Yes"
+                            roles = ["Process Owner", "Process Reviewer", "Process Approver", "Maker", "Checker"]
+                            for i, role in enumerate(roles, start=1):
+                                df.loc[i] = [None for _ in fields]
+                                if "Roles" in df.columns:
+                                    df.at[i, "Roles"] = role
+                                if role == "Process Owner" and "Accountable (A)" in df.columns:
+                                    df.at[i, "Accountable (A)"] = "Yes"
                         elif sec_id == "1.15":
                             df.loc[1] = [None for _ in fields]
                             if "Exception Description" in df.columns:
