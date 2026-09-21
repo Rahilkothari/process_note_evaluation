@@ -201,8 +201,7 @@ try:
         if st.session_state["current_section_edit"] not in tab_names:
             st.session_state["current_section_edit"] = tab_names[0]
         
-        selected_tab = st.selectbox("📌 Select a Section to Fill Out:", tab_names, index=tab_names.index(st.session_state["current_section_edit"]))
-        st.session_state["current_section_edit"] = selected_tab
+        selected_tab = st.selectbox("📌 Select a Section to Fill Out:", tab_names, key="current_section_edit")
     
         sec_config = sections[tab_names.index(selected_tab)]
     
@@ -375,13 +374,16 @@ try:
                         else:
                             content_val = existing_sec.content if existing_sec else ""
                 
-                        if not existing_sec:
-                            new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=content_val)
-                            db.add(new_sec)
+                        if not content_val:
+                            st.error("Validation Error: Please wait for the file to finish uploading or attach a file before saving.")
                         else:
-                            existing_sec.content = content_val
-                        db.commit()
-                        st.success(f"Section {sec_id} saved successfully! File: {content_val}")
+                            if not existing_sec:
+                                new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=content_val)
+                                db.add(new_sec)
+                            else:
+                                existing_sec.content = content_val
+                            db.commit()
+                            st.success(f"Section {sec_id} saved successfully! File: {content_val}")
     
         st.markdown("<br><hr>", unsafe_allow_html=True)
         col1, col2 = st.columns(2)
