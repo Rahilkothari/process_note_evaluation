@@ -394,9 +394,9 @@ try:
         current_idx = tab_names.index(selected_tab)
         with col2:
             if current_idx < len(tab_names) - 1:
-                if st.button("Next Section ➔", type="primary", use_container_width=True):
+                def go_next():
                     st.session_state["current_section_edit"] = tab_names[current_idx + 1]
-                    st.rerun()
+                st.button("Next Section ➔", type="primary", use_container_width=True, on_click=go_next)
             else:
                 if completed_count < total_count:
                     st.warning(f"You have only completed {completed_count}/{total_count} sections. It is highly recommended to finish all sections before validation.")
