@@ -90,8 +90,8 @@ try:
                 effective_date = str(effective_date) if effective_date else ""
                 next_review_date = str(next_review_date) if next_review_date else ""
         
-            st.markdown("<p style='font-size: 13px; color: #64748B; margin-top: 8px;'>* Required fields</p>", unsafe_allow_html=True)
-            save_basic = st.form_submit_button("Next ➔", type="primary")
+            st.markdown("<p style='font-size: 13px; color: #64748B; margin-top: 8px;'>* Required fields. <strong>You MUST click the button below to save this information!</strong></p>", unsafe_allow_html=True)
+            save_basic = st.form_submit_button("💾 Save Basic Information", type="primary")
 
     if save_basic:
         if not process_name or not process_name.strip():
