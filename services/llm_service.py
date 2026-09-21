@@ -13,6 +13,10 @@ class LLMProvider(ABC):
     def validate_cross_sections(self, all_sections: List[Dict[str, Any]]) -> List[Dict[str, str]]:
         pass
 
+    @abstractmethod
+    def generate_suggestion(self, section_rules: Dict[str, Any], context_list: List[str]) -> str:
+        pass
+
 class MockProvider(LLMProvider):
     def validate_section(self, section_content: str, section_rules: Dict[str, Any], global_rules: Dict[str, Any] = None) -> SectionValidationResult:
         content_lower = section_content.lower()
@@ -60,6 +64,9 @@ class MockProvider(LLMProvider):
             })
         
         return cross_issues
+
+    def generate_suggestion(self, section_rules: Dict[str, Any], context_list: List[str]) -> str:
+        return f"This is a mock AI suggestion for {section_rules.get('name')}. Context items found: {len(context_list)}."
 
 class GeminiProvider(LLMProvider):
     def __init__(self):
@@ -207,6 +214,24 @@ Output ONLY the raw JSON array. Do NOT wrap in markdown code blocks.
             return []
         except Exception as e:
             return [{"issue": f"Cross-section LLM Error: {str(e)}", "severity": "HIGH"}]
+
+    def generate_suggestion(self, section_rules: Dict[str, Any], context_list: List[str]) -> str:
+        context_str = "\n".join(context_list) if context_list else "No historical context available."
+        prompt = f"""
+You are an expert Process Consultant helping a user draft a section of their process note.
+Section Name: {section_rules.get('name')}
+Guidelines: {section_rules.get('help_text')}
+
+Historical Context (from similar process notes in their team):
+{context_str}
+
+Please generate a professional, concise, and highly relevant draft for this section based on the guidelines and historical context. Output ONLY the suggested text, nothing else. Do not use generic corporate filler.
+"""
+        try:
+            response = self.model.generate_content(prompt)
+            return response.text.strip()
+        except Exception as e:
+            return f"Error generating suggestion: {str(e)}"
 
 def get_llm_provider() -> LLMProvider:
     provider_name = os.getenv("LLM_PROVIDER", "mock").lower()
