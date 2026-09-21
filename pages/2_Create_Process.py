@@ -35,23 +35,24 @@ sections = config.get("sections", [])
 db: Session = SessionLocal()
 try:
 
-    # Select existing draft or create new
     st.markdown("### Note Selection")
-    existing_notes = db.query(ProcessNote).filter(ProcessNote.status.in_(["DRAFT", "NEEDS_REVISION", "WARNING", "PASS"])).all()
-    note_options = {"Create New Process Note": None}
-    for n in existing_notes:
-        note_options[f"[{n.id}] {n.process_name} (v{n.version}) - {n.status}"] = n
-
-    note_keys = list(note_options.keys())
-    default_key = st.session_state.get("selected_note_key", "Create New Process Note")
-    try:
-        default_index = note_keys.index(default_key)
-    except ValueError:
-        default_index = 0
-
-    selected_option = st.selectbox("Select a Note to Edit or Create a New One", note_keys, index=default_index)
-    st.session_state.selected_note_key = selected_option
-    current_note = note_options[selected_option]
+    
+    action = st.radio("What would you like to do?", ["Create New Process Note", "Edit Existing Process Note"], horizontal=True)
+    
+    if action == "Create New Process Note":
+        current_note = None
+    else:
+        existing_notes = db.query(ProcessNote).filter(ProcessNote.status.in_(["DRAFT", "NEEDS_REVISION", "WARNING", "PASS"])).all()
+        if not existing_notes:
+            st.info("You don't have any existing drafts to edit.")
+            st.stop()
+            
+        note_options = {}
+        for n in existing_notes:
+            note_options[f"[{n.id}] {n.process_name} (v{n.version}) - {n.status}"] = n
+            
+        selected_option = st.selectbox("Select a Note to Edit", list(note_options.keys()))
+        current_note = note_options[selected_option]
 
     st.markdown("<br>", unsafe_allow_html=True)
 
