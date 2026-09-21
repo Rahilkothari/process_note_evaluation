@@ -39,7 +39,7 @@ def test_validation_engine_thresholds(mock_getenv):
     mock_ai_result = SectionValidationResult(
         section="Test Section",
         status="PASS",
-        score=90.0,
+        score=80.0,
         severity="LOW",
         issues=[],
         recommendations=[]
@@ -50,8 +50,8 @@ def test_validation_engine_thresholds(mock_getenv):
     assert result.overall_status == "PASS"
     assert result.section_results[0].status == "PASS"
     
-    # Test WARNING (65 <= Score < 85)
-    mock_ai_result.score = 75.0
+    # Test WARNING (65 <= Score < 75)
+    mock_ai_result.score = 70.0
     mock_ai_result.issues = ["Minor issue"]
     result = engine.run_validation(note)
     assert result.overall_status == "WARNING"

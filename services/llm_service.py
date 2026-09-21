@@ -131,9 +131,9 @@ Strict Evaluation Criteria:
 Content to validate:
 {section_content}
 
-Evaluate the content against the rules. Be practical and highly lenient. If the core requirement of the section is met, award a PASS and a high score (85-100). 
+Evaluate the content against the rules. Be practical and highly lenient. If the core requirement of the section is met, award a PASS and a high score (75-100). 
 Do NOT penalize the content for being brief, concise, or lacking excessive detail as long as the necessary basic information is provided. 
-Only give a WARNING (Score 60-84) or NEEDS_REVISION (Score < 60) if critical compliance rules for the team are actively violated, egregiously missing, or if the input is complete gibberish.
+Only give a WARNING (Score 60-74) or NEEDS_REVISION (Score < 60) if critical compliance rules for the team are actively violated, egregiously missing, or if the input is complete gibberish.
 
 CRITICAL INSTRUCTIONS FOR OUTPUT:
 1. If the evaluation results in a "PASS", you MUST leave the "issues" and "recommendations" lists COMPLETELY EMPTY. Do not invent reasons or explain the pass.
