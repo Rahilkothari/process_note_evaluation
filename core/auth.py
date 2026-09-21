@@ -137,7 +137,13 @@ def require_login():
                                 st.error("Unauthorized email domain. Access denied.")
                             else:
                                 try:
-                                    response = supabase.auth.sign_up({"email": new_email, "password": new_password})
+                                    response = supabase.auth.sign_up({
+                                        "email": new_email,
+                                        "password": new_password,
+                                        "options": {
+                                            "emailRedirectTo": "http://localhost:8501/"
+                                        }
+                                    })
                                     st.success("Account created successfully! Please check your email and click the confirmation link before logging in.")
                                 except Exception as e:
                                     st.error(f"Sign up failed: {str(e)}")
