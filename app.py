@@ -27,7 +27,7 @@ def main():
     role = st.session_state.get("current_user_role", "creator")
 
     dashboard_page = st.Page("pages/1_Dashboard.py", title="Dashboard")
-    create_page = st.Page("pages/2_Create_Process.py", title="Create Process")
+    create_page = st.Page("pages/2_Create_Process.py", title="Create/Edit Process Note")
     validation_page = st.Page("pages/3_Validation.py", title="Validation")
     review_page = st.Page("pages/4_Review.py", title="Review")
     view_all_page = st.Page("pages/5_View_All_Notes.py", title="View All Notes")
