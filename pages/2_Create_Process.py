@@ -335,7 +335,8 @@ try:
                             column_config[f] = st.column_config.TextColumn(f)
 
                     st.markdown("Edit the table below:")
-                    edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, key=f"editor_{sec_id}", column_config=column_config)
+                    disabled_cols = ["Reviewer Comment"] if "Reviewer Comment" in df.columns else False
+                    edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, key=f"editor_{sec_id}", column_config=column_config, disabled=disabled_cols)
         
                     if st.form_submit_button("Save Section", type="primary"):
                         raw_data = edited_df.to_dict(orient="records")

@@ -325,7 +325,8 @@ try:
 
                         with st.form(f"inline_edit_{true_section_id}_{latest_run.id}"):
                             st.markdown("Update the table below:")
-                            edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, key=f"inline_editor_{true_section_id}_{latest_run.id}", column_config=column_config)
+                            disabled_cols = ["Reviewer Comment"] if "Reviewer Comment" in df.columns else False
+                            edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, key=f"inline_editor_{true_section_id}_{latest_run.id}", column_config=column_config, disabled=disabled_cols)
                             if st.form_submit_button("Save Update", type="primary"):
                                 raw_data = edited_df.to_dict(orient="records")
                                 json_data = []
