@@ -76,7 +76,10 @@ try:
             base_query = _db.query(ProcessNote.id, ProcessNote.process_name, ProcessNote.version, ProcessNote.team, ProcessNote.status, ProcessNote.updated_at).filter(ProcessNote.created_by == current_user_id)
         
         if status_filter != "All":
-            base_query = base_query.filter(ProcessNote.status == status_filter)
+            if status_filter == "ACTIVE_DRAFTS":
+                base_query = base_query.filter(ProcessNote.status.in_(["DRAFT", "NEEDS_REVISION", "WARNING", "PASS"]))
+            else:
+                base_query = base_query.filter(ProcessNote.status == status_filter)
         
         notes = base_query.order_by(ProcessNote.updated_at.desc()).all()
         return [{"id": n.id, "process_name": n.process_name, "version": n.version, "team": n.team, "status": n.status, "updated_at": n.updated_at} for n in notes]
@@ -90,7 +93,7 @@ try:
     total_notes, drafts, needs_revision, warning, pass_notes, under_review, approved, avg_score = get_dashboard_stats(db, current_role, current_user_id)
 
     query_status = st.query_params.get("status", "All")
-    status_options = ["All", "DRAFT", "NEEDS_REVISION", "WARNING", "PASS", "UNDER_REVIEW", "APPROVED"]
+    status_options = ["All", "ACTIVE_DRAFTS", "UNDER_REVIEW", "APPROVED"]
     if current_role == "reviewer":
         status_options = ["All", "UNDER_REVIEW", "APPROVED"]
 
@@ -98,54 +101,44 @@ try:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    def clickable_metric(title, value, status):
-        import urllib.parse
-        params = dict(st.query_params)
-        params["status"] = status
-        query_string = urllib.parse.urlencode(params)
-        url = f"/?{query_string}"
-    
+    def render_metric_tile(title, value):
         html = f"""
-        <a href="{url}" target="_self" style="text-decoration: none; color: inherit; display: block;">
-            <div style="background-color: #FFFFFF; border: 1px solid #E2E8F0; padding: 20px 24px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02); display: flex; flex-direction: column; justify-content: center; cursor: pointer; transition: all 0.2s ease;" onmouseover="this.style.borderColor='#4F46E5'; this.style.boxShadow='0 10px 15px -3px rgba(0, 0, 0, 0.08)';" onmouseout="this.style.borderColor='#E2E8F0'; this.style.boxShadow='0 4px 6px -1px rgba(0, 0, 0, 0.02)';">
-                <div style="color: #64748B; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; font-family: 'Inter', sans-serif;">{title}</div>
-                <div style="color: #0F172A; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 32px; margin-top: 4px;">{value}</div>
-            </div>
-        </a>
+        <div style="background-color: #FFFFFF; border: 1px solid #E2E8F0; padding: 20px 24px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02); display: flex; flex-direction: column; justify-content: center;">
+            <div style="color: #64748B; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; font-family: 'Inter', sans-serif;">{title}</div>
+            <div style="color: #0F172A; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 32px; margin-top: 4px;">{value}</div>
+        </div>
         """
         st.markdown(html, unsafe_allow_html=True)
 
     if current_role == "creator":
         col1, col2, col3 = st.columns(3)
         with col1:
-            clickable_metric("Total Notes", total_notes, "All")
+            render_metric_tile("Total Notes", total_notes)
             st.markdown("<br>", unsafe_allow_html=True)
-            clickable_metric("Under Review", under_review, "UNDER_REVIEW")
+            render_metric_tile("Under Review", under_review)
         with col2:
-            clickable_metric("Active Drafts", drafts + warning + pass_notes, "DRAFT")
+            render_metric_tile("Active Drafts", drafts + needs_revision + warning + pass_notes)
             st.markdown("<br>", unsafe_allow_html=True)
-            clickable_metric("Approved", approved, "APPROVED")
+            render_metric_tile("Approved", approved)
         with col3:
-            clickable_metric("Needs Revision", needs_revision, "NEEDS_REVISION")
-            st.markdown("<br>", unsafe_allow_html=True)
-            clickable_metric("Average Quality Score", f"{avg_score:.1f}%", "All")
+            render_metric_tile("Average Quality Score", f"{avg_score:.1f}%")
     else:
         col1, col2, col3 = st.columns(3)
         with col1:
-            clickable_metric("Total Notes", total_notes, "All")
+            render_metric_tile("Total Notes", total_notes)
             st.markdown("<br>", unsafe_allow_html=True)
-            clickable_metric("Average Quality Score", f"{avg_score:.1f}%", "All")
+            render_metric_tile("Average Quality Score", f"{avg_score:.1f}%")
         with col2:
-            clickable_metric("Under Review", under_review, "UNDER_REVIEW")
+            render_metric_tile("Under Review", under_review)
         with col3:
-            clickable_metric("Approved", approved, "APPROVED")
+            render_metric_tile("Approved", approved)
 
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
     col_title, col_filter = st.columns([1, 1])
     with col_title:
         st.subheader("Process Notes")
     with col_filter:
-        status_filter = st.selectbox("Filter by Status", status_options, index=default_idx, label_visibility="collapsed")
+        status_filter = st.selectbox("Filter by Status", status_options, index=default_idx, label_visibility="collapsed", format_func=lambda x: x.replace('_', ' ').title() if x != "All" else "All")
 
     recent_notes = get_dashboard_notes(db, current_role, current_user_id, status_filter)
 
