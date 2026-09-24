@@ -73,19 +73,17 @@ sections:
   name: Start Point
   type: table
   fields:
-  - Sub-Process Name
   - Activity
   - Entry Criteria
-  help_text: Identify the exact trigger that starts this process. Tag the Sub-Process if your note covers multiple activities.
+  help_text: Identify the exact trigger that starts this process.
 
 - id: '1.8'
   name: End Point
   type: table
   fields:
-  - Sub-Process Name
   - Activity
   - Exit Criteria
-  help_text: Identify how the process officially concludes. Tag the Sub-Process if applicable.
+  help_text: Identify how the process officially concludes.
 
 - id: '1.9'
   name: Introduction
@@ -106,46 +104,42 @@ sections:
   name: Process Description
   type: table
   fields:
-  - Sub-Process Name
   - Activity
   - Description
   - Owner/Role
   - TAT
-  help_text: List step-by-step activities. Use the 'Sub-Process Name' to group steps if your process note covers multiple distinct workflows (e.g. Video Translation, Rubrics Eval).
+  help_text: List step-by-step activities.
 
 - id: '1.13'
   name: RACI Matrix
   type: table
   fields:
-  - Sub-Process Name
   - Roles
-  - Responsible (R)
-  - Accountable (A)
-  - Consulted (C)
-  - Informed (I)
+  - Responsible ( R )
+  - Accountable ( A )
+  - Consulted ( C )
+  - Informed ( I )
   - TAT
-  help_text: Define RACI roles. Use Sub-Process Name if dealing with multiple workflows.
+  help_text: Define RACI roles.
 
 - id: '1.14'
   name: Business Rules
   type: table
   fields:
-  - Sub-Process Name
-  - Business Rule
+  - Business Rules
   help_text: List the strict rules or policies that govern this process. Enter N/A if none.
 
 - id: '1.15'
   name: Exception and Change Management
   type: table
   fields:
-  - Sub-Process Name
   - Area of Exception
   - Exception Description
   - Exception Mitigation
-  - Proposed By
-  - Recommended By
+  - Prop By
+  - Recom By
   - Approved By
-  - Informed To
+  - Informed to
   - Remarks
   help_text: Describe exceptions and mitigations. If no known exceptions, write 'N/A' and provide a brief reason.
 
@@ -153,36 +147,36 @@ sections:
   name: Risk Management
   type: table
   fields:
-  - Sub-Process Name
+  - Sub Process
   - Risk Description
   - Root Cause
   - Type of Risk
   - Risk Impact
   - Level of Risk
   - Control Description
-  - Control Frequency
-  help_text: Identify potential risks and controls. Use Sub-Process Name to tag risks. If no risks exist for an activity, write 'N/A' and justify.
+  - Control frequency
+  help_text: Identify potential risks and controls. If no risks exist for an activity, write 'N/A' and justify.
 
 - id: '1.17'
   name: Compliance Management
   type: table
   fields:
-  - Sub-Process Name
-  - Compliance Particulars
-  - Target Date
+  - Sub Process
+  - Compliance particulars
+  - Target date
   help_text: Regulatory/legal compliance. Enter N/A if none.
 
 - id: '1.18'
   name: Data Archival
   type: table
   fields:
-  - Sub-Process Name
+  - Sub Process
   - Financial Year
   - Document Title
   - Criticality
   - Storage Type
-  - Cut-off Period
-  - Retention Period
+  - Cut off Period
+  - Retention period
   - Location - hard copy
   - Folder link - soft copy
   help_text: Describe data storage and retention. 
@@ -199,8 +193,7 @@ sections:
   name: Best Practices Summary
   type: table
   fields:
-  - Sub-Process Name
-  - Best Practice Followed
+  - Best Practices Followed (suggested list)
   - Envisaged/Planned
   - Tentative Timelines
   help_text: Highlight current or planned best practices.
@@ -209,20 +202,18 @@ sections:
   name: Innovations
   type: table
   fields:
-  - Sub-Process Name
   - Innovations Implemented
   - Envisaged/Planned
-  - Tentative Timelines
+  - TENTATIVE TIMELINES
   help_text: Specific innovations introduced.
 
 - id: '1.22'
   name: SIPOC
   type: table
   fields:
-  - Sub-Process Name
   - Supplier (Dept)
   - Input
   - Key Process Step
   - Output
-  - Customer (Dept)
+  - Customer (dept)
   help_text: Supplier, Input, Process, Output, Customer.
