@@ -83,12 +83,10 @@ def clean_and_seed():
                 ]},
                 {"id": "1.9", "content": "PedTech frequently creates localized video content and complex evaluation rubrics to ensure standardized learning across all centers."},
                 {"id": "1.10", "content": "To standardize the translation of educational videos and the creation of learning rubrics within the PedTech team."},
-                {"id": "1.11", "content": "N/A"},
+                {"id": "1.11", "content": ""},
                 {"id": "1.12", "structured_data": [
-                    {"Sub-Process Name": "Video Translation", "Activity": "Draft Script", "Description": "Draft the translated script from English.", "Owner/Role": "Translator", "TAT": "2 days"},
-                    {"Sub-Process Name": "Video Translation", "Activity": "Voiceover", "Description": "Record voiceover.", "Owner/Role": "Voice Artist", "TAT": "2 days"},
-                    {"Sub-Process Name": "Rubrics Evaluation", "Activity": "Define Metrics", "Description": "Identify key scoring areas.", "Owner/Role": "Evaluator", "TAT": "1 day"},
-                    {"Sub-Process Name": "Rubrics Evaluation", "Activity": "Score Rubric", "Description": "Assign weights.", "Owner/Role": "Evaluator", "TAT": "1 day"}
+                    {"Sub-Process Name": "Video Translation", "Activity": "Draft Script", "Description": "", "Owner/Role": "Translator", "TAT": ""},
+                    {"Sub-Process Name": "Rubrics Evaluation", "Activity": "", "Description": "Identify key scoring areas.", "Owner/Role": "", "TAT": "1 day"}
                 ]},
                 {"id": "1.13", "structured_data": [
                     {"Sub-Process Name": "Video Translation", "Roles": "Translator", "Responsible (R)": "Yes", "Accountable (A)": "Yes", "Consulted (C)": "No", "Informed (I)": "No", "TAT": "2 days"},
@@ -102,8 +100,8 @@ def clean_and_seed():
                     {"Sub-Process Name": "Video Translation", "Area of Exception": "Voice Artist Unavailable", "Exception Description": "Artist is sick.", "Exception Mitigation": "Use AI voice generator temporarily.", "Proposed By": "Translator", "Recommended By": "Lead", "Approved By": "Director", "Informed To": "Team", "Remarks": "Only for non-flagship courses."}
                 ]},
                 {"id": "1.16", "structured_data": [
-                    {"Sub-Process Name": "Video Translation", "Risk Description": "Inaccurate translation", "Root Cause": "Lack of context", "Type of Risk": "Quality", "Risk Impact": "High", "Level of Risk": "Medium", "Control Description": "Peer review", "Control Frequency": "Per video"},
-                    {"Sub-Process Name": "Rubrics Evaluation", "Risk Description": "Subjective scoring", "Root Cause": "Vague metrics", "Type of Risk": "Quality", "Risk Impact": "Medium", "Level of Risk": "Low", "Control Description": "Standardized metric templates", "Control Frequency": "Per rubric"}
+                    {"Sub-Process Name": "Video Translation", "Risk Description": "Inaccurate translation", "Root Cause": "Lack of context", "Type of Risk": "Quality", "Risk Impact": "High", "Level of Risk": "Medium", "Control Description": "", "Control Frequency": ""},
+                    {"Sub-Process Name": "Rubrics Evaluation", "Risk Description": "Subjective scoring", "Root Cause": "", "Type of Risk": "", "Risk Impact": "Medium", "Level of Risk": "Low", "Control Description": "Standardized metric templates", "Control Frequency": ""}
                 ]},
                 {"id": "1.17", "structured_data": [
                     {"Sub-Process Name": "Video Translation", "Compliance Particulars": "Copyright law for background music", "Target Date": "Pre-publish"}
@@ -115,12 +113,8 @@ def clean_and_seed():
                     {"Abbreviation": "CMS", "Definition": "Content Management System"},
                     {"Abbreviation": "LMS", "Definition": "Learning Management System"}
                 ]},
-                {"id": "1.20", "structured_data": [
-                    {"Sub-Process Name": "Video Translation", "Best Practice Followed": "Glossary of terms", "Envisaged/Planned": "AI translation pre-pass", "Tentative Timelines": "Q4 2026"}
-                ]},
-                {"id": "1.21", "structured_data": [
-                    {"Sub-Process Name": "Rubrics Evaluation", "Innovations Implemented": "Automated excel scoring template", "Envisaged/Planned": "LMS integration", "Tentative Timelines": "Q1 2027"}
-                ]},
+                {"id": "1.20", "structured_data": []},
+                {"id": "1.21", "structured_data": []},
                 {"id": "1.22", "structured_data": [
                     {"Sub-Process Name": "Video Translation", "Supplier (Dept)": "Content Team", "Input": "English Script", "Key Process Step": "Translate", "Output": "Local Script", "Customer (Dept)": "Students"}
                 ]}

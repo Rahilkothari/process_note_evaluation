@@ -23,7 +23,7 @@ class MockProvider(LLMProvider):
         issues = []
         recommendations = []
         status = "PASS"
-        score = 95.0
+        score = 100.0
         severity = "LOW"
 
         # Simulate detecting generic filler
@@ -31,14 +31,14 @@ class MockProvider(LLMProvider):
             issues.append("Contains generic or filler language.")
             recommendations.append("Remove generic background and focus on process specifics.")
             status = "WARNING"
-            score = 75.0
+            score = 50.0
             severity = "MEDIUM"
 
         if len(section_content) < 10 and not section_rules.get("allow_short", False):
             issues.append("Response seems too brief to adequately address the section.")
             recommendations.append("Expand the description with more relevant details.")
             status = "NEEDS_REVISION"
-            score = 50.0
+            score = 0.0
             severity = "HIGH"
 
         return SectionValidationResult(
@@ -167,10 +167,18 @@ Do NOT wrap the JSON in markdown code blocks. Just return the raw JSON string.
                 
             data = json.loads(text)
 
+            status = data.get("status", "PASS")
+            if status == "PASS":
+                score = 100.0
+            elif status == "WARNING":
+                score = 50.0
+            else:
+                score = 0.0
+
             return SectionValidationResult(
                 section=section_rules.get("name", "Unknown Section"),
-                status=data.get("status", "PASS"),
-                score=float(data.get("score", 100.0)),
+                status=status,
+                score=score,
                 issues=data.get("issues", []),
                 recommendations=data.get("recommendations", []),
                 severity=data.get("severity", "LOW")
@@ -247,6 +255,11 @@ Please generate a professional, concise, and highly relevant draft for this sect
             return f"Error generating suggestion: {str(e)}"
 
 def get_llm_provider() -> LLMProvider:
+    from dotenv import load_dotenv
+    import os
+    env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+    load_dotenv(dotenv_path=env_path)
+    
     provider_name = os.getenv("LLM_PROVIDER", "mock").lower()
     
     if provider_name == "gemini":
