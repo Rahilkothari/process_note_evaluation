@@ -257,8 +257,10 @@ Please generate a professional, concise, and highly relevant draft for this sect
 def get_llm_provider() -> LLMProvider:
     from dotenv import load_dotenv
     import os
-    env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
-    load_dotenv(dotenv_path=env_path)
+    try:
+        load_dotenv(dotenv_path='.env')
+    except Exception:
+        pass
     
     provider_name = os.getenv("LLM_PROVIDER", "mock").lower()
     
