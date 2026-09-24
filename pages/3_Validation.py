@@ -226,8 +226,8 @@ try:
                         warnings = sum([1 for res in all_f if (res.severity == "MEDIUM" or res.status == "WARNING")])
                         sections_needing_revision = sum([1 for res in all_f if res.status == "NEEDS_REVISION"])
                     
-                        pass_threshold = float(os.getenv("PASS_THRESHOLD", 75))
-                        warning_threshold = float(os.getenv("WARNING_THRESHOLD", 65))
+                        pass_threshold = 75.0
+                        warning_threshold = 65.0
                     
                         if critical_issues > 0 or sections_needing_revision > 0 or latest_run.overall_score < warning_threshold:
                             latest_run.status = "NEEDS_REVISION"
