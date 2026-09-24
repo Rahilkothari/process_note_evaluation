@@ -144,7 +144,10 @@ try:
     latest_run = db.query(ValidationRun).filter(ValidationRun.process_note_id == current_note.id).order_by(ValidationRun.timestamp.desc()).first()
 
     if latest_run:
-        st.markdown(f"### Latest Validation Results (<span style='white-space: nowrap;'>{latest_run.timestamp.strftime('%Y-%m-%d %H:%M')}</span>)", unsafe_allow_html=True)
+        from datetime import timedelta
+        # Convert UTC to IST (+5:30)
+        local_time = latest_run.timestamp + timedelta(hours=5, minutes=30)
+        st.markdown(f"### Latest Validation Results (<span style='white-space: nowrap;'>{local_time.strftime('%Y-%m-%d %H:%M')}</span>)", unsafe_allow_html=True)
     
         status_class = "badge-pass" if latest_run.status == "PASS" else ("badge-warning" if latest_run.status == "WARNING" else "badge-fail")
         score_bar_class = "score-pass" if latest_run.status == "PASS" else ("score-warn" if latest_run.status == "WARNING" else "score-fail")
