@@ -131,18 +131,24 @@ Strict Evaluation Criteria:
 Content to validate:
 {section_content}
 
-Evaluate the content against the rules. Be practical and highly lenient. If the core requirement of the section is met, award a PASS and a high score (75-100). 
-Do NOT penalize the content for being brief, concise, or lacking excessive detail as long as the necessary basic information is provided. 
-Only give a WARNING (Score 60-74) or NEEDS_REVISION (Score < 60) if critical compliance rules for the team are actively violated, egregiously missing, or if the input is complete gibberish.
+Evaluate the content against the rules. Be practical and highly lenient.
+CRITICAL INSTRUCTIONS FOR SCORING AND OUTPUT:
+You MUST output exactly one of the following fixed scores and statuses based on this strict rubric:
 
-CRITICAL INSTRUCTIONS FOR OUTPUT:
-1. If the evaluation results in a "PASS", you MUST leave the "issues" and "recommendations" lists COMPLETELY EMPTY. Do not invent reasons or explain the pass.
-2. If the evaluation results in "WARNING" or "NEEDS_REVISION", provide very brief issues and recommendations (maximum 1 short sentence per point).
+1. PASS (Score: 100):
+   - All required fields are filled correctly, logic is sound, and any "N/A"s are perfectly justified given the process scale.
+   - Leave "issues" and "recommendations" COMPLETELY EMPTY.
+
+2. WARNING (Score: 50):
+   - Data is mostly there, but minor ambiguity exists (e.g., vague KPI, unclear TAT).
+
+3. NEEDS_REVISION (Score: 0):
+   - Missing critical information, illogical steps, missing sub-processes, or unacceptable "N/A"s.
 
 Return your evaluation as a valid JSON object matching this schema exactly:
 {{
     "status": "PASS" | "WARNING" | "NEEDS_REVISION",
-    "score": float (0-100),
+    "score": 100 | 50 | 0,
     "severity": "LOW" | "MEDIUM" | "HIGH",
     "issues": [list of specific problems found, empty if none],
     "recommendations": [list of actionable advice, empty if none]

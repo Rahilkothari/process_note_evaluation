@@ -57,16 +57,11 @@ class ValidationEngine:
                 ai_result.section = section_name # Ensure name is set
                 
                 # Documenting intended relationship:
-                # A score >= 60 is a PASS for individual sections.
-                # A score between 50 and 60 is a WARNING.
-                # A score < 50 means NEEDS_REVISION.
-                section_pass = float(os.getenv("SECTION_PASS_THRESHOLD", 60))
-                section_warn = float(os.getenv("SECTION_WARNING_THRESHOLD", 50))
-                
-                if ai_result.score >= section_pass:
+                # The LLM now returns fixed scores: 100 (PASS), 50 (WARNING), 0 (NEEDS_REVISION)
+                if ai_result.score == 100:
                     ai_result.status = "PASS"
                     ai_result.severity = "LOW"
-                elif ai_result.score >= section_warn:
+                elif ai_result.score == 50:
                     ai_result.status = "WARNING"
                     ai_result.severity = "MEDIUM"
                 else:
