@@ -35,14 +35,15 @@ sections = config.get("sections", [])
 db: Session = SessionLocal()
 try:
 
-    st.markdown("### Note Selection")
-    
-    action = st.radio("What would you like to do?", ["Create New Process Note", "Edit Existing Process Note"], horizontal=True)
+    if "action_radio" not in st.session_state:
+        st.session_state["action_radio"] = "Create New Process Note"
+
+    action = st.radio("What would you like to do?", ["Create New Process Note", "Edit Existing Process Note"], horizontal=True, key="action_radio")
     
     if action == "Create New Process Note":
         current_note = None
     else:
-        existing_notes = db.query(ProcessNote).filter(ProcessNote.status.in_(["DRAFT", "NEEDS_REVISION", "WARNING", "PASS"])).all()
+        existing_notes = db.query(ProcessNote).filter(ProcessNote.status.in_(["DRAFT", "NEEDS_REVISION", "WARNING", "PASS"])).order_by(ProcessNote.id.desc()).all()
         if not existing_notes:
             st.info("You don't have any existing drafts to edit.")
             st.stop()
@@ -51,8 +52,17 @@ try:
         for n in existing_notes:
             note_options[f"[{n.id}] {n.process_name} (v{n.version}) - {n.status}"] = n
             
-        selected_option = st.selectbox("Select a Note to Edit", list(note_options.keys()))
+        note_keys = list(note_options.keys())
+        default_idx = 0
+        if "selected_note_key" in st.session_state:
+            try:
+                default_idx = note_keys.index(st.session_state.selected_note_key)
+            except ValueError:
+                pass
+                
+        selected_option = st.selectbox("Select a Note to Edit", note_keys, index=default_idx)
         current_note = note_options[selected_option]
+        st.session_state.selected_note_key = selected_option
 
     st.markdown("<br>", unsafe_allow_html=True)
     
@@ -129,6 +139,7 @@ try:
             db.add(current_note)
             db.commit()
             db.refresh(current_note)
+            st.session_state["action_radio"] = "Edit Existing Process Note"
             st.session_state.selected_note_key = f"[{current_note.id}] {current_note.process_name} (v{current_note.version}) - {current_note.status}"
             st.success("Draft created! You can now fill in the 22 sections below.")
             st.rerun()
