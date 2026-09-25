@@ -131,19 +131,20 @@ Strict Evaluation Criteria:
 Content to validate:
 {section_content}
 
-Evaluate the content against the rules. Be practical and highly lenient.
+Evaluate the content against the rules. Be practical and highly lenient. Teams have different requirements and may leave certain fields empty, blank, or mark them as "N/A" if they do not apply. Do not penalize or flag missing fields.
+
 CRITICAL INSTRUCTIONS FOR SCORING AND OUTPUT:
 You MUST output exactly one of the following fixed scores and statuses based on this strict rubric:
 
 1. PASS (Score: 100):
-   - All required fields are filled correctly, logic is sound, and any "N/A"s are perfectly justified given the process scale.
+   - The core logic is sound. Blank fields, "None", or "N/A" are completely acceptable as different teams have different needs. Do not penalize missing information.
    - Leave "issues" and "recommendations" COMPLETELY EMPTY.
 
 2. WARNING (Score: 50):
-   - Data is mostly there, but minor ambiguity exists (e.g., vague KPI, unclear TAT).
+   - Data is mostly there, but severe ambiguity exists.
 
 3. NEEDS_REVISION (Score: 0):
-   - Missing critical information, illogical steps, missing sub-processes, or unacceptable "N/A"s.
+   - Completely illogical steps or completely missing core sub-processes. Blank fields alone should NOT trigger this.
 
 Return your evaluation as a valid JSON object matching this schema exactly:
 {{
@@ -202,7 +203,9 @@ All sections and their content:
 
 Check for logical inconsistencies across sections. For example, a role mentioned in RACI should be defined in Roles & Responsibilities. A step in the SIPOC should be in the detailed process flow.
 
-If everything is consistent, return an empty list: []
+CRITICAL INSTRUCTION: Be highly lenient. Teams have different formats and may leave fields empty or choose not to duplicate information perfectly. Do not flag minor missing links (e.g., slight naming mismatches, missing KPIs, or missing roles in RACI) as issues. Blank or "N/A" fields are perfectly acceptable and should be ignored. Only flag severe, blatantly contradictory logic.
+
+If everything is consistent or the differences are due to missing/blank/N/A fields, return an empty list: []
 If there are inconsistencies, return a JSON array of objects with this exact schema:
 [
   {{

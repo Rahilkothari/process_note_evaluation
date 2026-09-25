@@ -216,16 +216,9 @@ try:
         help_text = sec_config.get('help_text', 'No instructions provided.')
         example_text = sec_config.get('example', '')
 
-        example_html = ""
+        st.info(f"**Instructions for {sec_config['name']}:** {help_text}")
         if example_text:
-            example_html = f"""<div style="margin-top: 12px; background-color: #EEF2FF; padding: 8px 12px; border-radius: 6px; font-style: italic; color: #3730A3; white-space: pre-wrap; font-size: 13px;">
-    {example_text}
-    </div>"""
-
-        st.markdown(f"""<div style="background-color: #F8FAFC; border-left: 4px solid #4F46E5; padding: 12px 16px; border-radius: 0 8px 8px 0; margin-bottom: 16px; font-size: 14px; color: #334155;">
-    <div style="margin-bottom: 4px;"><b>Instructions for {sec_config['name']}:</b> {help_text}</div>
-    {example_html}
-    </div>""", unsafe_allow_html=True)
+            st.markdown(f"> *{example_text}*")
 
         sec_id = sec_config['id']
         existing_sec = existing_sections.get(sec_id)

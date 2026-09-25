@@ -52,7 +52,7 @@ def clean_and_seed():
             "team": "PedTech",
             "sme": "Jane Doe",
             "owner": "John Smith",
-            "status": "DRAFT",  # Set to DRAFT so user can test UI
+            "status": "DRAFT",
             "sections": [
                 {"id": "1.1", "structured_data": [
                     {"Name": "John Smith", "Role": "Process Owner", "Function": "PedTech Lead", "Sign": "JS", "Date": "2026-10-01"},
@@ -66,89 +66,141 @@ def clean_and_seed():
                     {"Effective Date": "2026-10-01", "Next Review Date": "2027-10-01", "Process Owner": "John Smith", "Name": "John Smith", "Sign": "JS"}
                 ]},
                 {"id": "1.4", "structured_data": [
-                    {"Process / Policy ID": "N/A", "Document Name": "N/A"}
+                    {"Process / Policy ID": "PT-001", "Document Name": "PedTech Content Management Policy"}
                 ]},
                 {"id": "1.5", "structured_data": [
                     {"Description": "Video Translation TAT", "Owner": "Translator", "Target": "48 Hours", "Maker": "Translator", "Checker": "Lead", "Data Source": "CMS", "Report Name": "Translation Metrics", "Report Frequency": "Weekly", "Review Frequency": "Monthly"},
                     {"Description": "Rubric Accuracy", "Owner": "Evaluator", "Target": "95%", "Maker": "Evaluator", "Checker": "Quality", "Data Source": "LMS", "Report Name": "Quality Report", "Report Frequency": "Monthly", "Review Frequency": "Quarterly"}
                 ]},
-                {"id": "1.6", "content": "This process note covers two main sub-processes: 'Video Translation' and 'Rubrics Evaluation'."},
+                {"id": "1.6", "content": "This process note comprehensively covers the workflows for 'Video Translation' and 'Rubrics Evaluation' ensuring consistency across all pedagogical technologies deployed in the organization."},
                 {"id": "1.7", "structured_data": [
-                    {"Sub-Process Name": "Video Translation", "Activity": "Receive English Video", "Entry Criteria": "Final video uploaded to CMS"},
-                    {"Sub-Process Name": "Rubrics Evaluation", "Activity": "Receive Course Plan", "Entry Criteria": "Curriculum finalized"}
+                    {"Activity": "Receive English Video", "Entry Criteria": "Final English video uploaded to CMS by production team"},
+                    {"Activity": "Receive Course Plan", "Entry Criteria": "Curriculum plan finalized and approved by academic head"}
                 ]},
                 {"id": "1.8", "structured_data": [
-                    {"Sub-Process Name": "Video Translation", "Activity": "Publish Localized Video", "Exit Criteria": "Video live on LMS"},
-                    {"Sub-Process Name": "Rubrics Evaluation", "Activity": "Upload Rubric", "Exit Criteria": "Rubric attached to course modules"}
+                    {"Activity": "Publish Localized Video", "Exit Criteria": "Translated video is live on LMS and verified"},
+                    {"Activity": "Upload Rubric", "Exit Criteria": "Rubric is attached to course modules in LMS"}
                 ]},
-                {"id": "1.9", "content": "PedTech frequently creates localized video content and complex evaluation rubrics to ensure standardized learning across all centers."},
-                {"id": "1.10", "content": "To standardize the translation of educational videos and the creation of learning rubrics within the PedTech team."},
-                {"id": "1.11", "content": ""},
+                {"id": "1.9", "content": "PedTech frequently creates localized video content and complex evaluation rubrics to ensure standardized learning across all centers globally. Quality and speed are paramount to ensure smooth academic operations."},
+                {"id": "1.10", "content": "The objective is to standardize the translation of educational videos and the creation of learning rubrics within the PedTech team, reducing turnaround time while improving overall educational outcomes."},
+                {"id": "1.11", "content": "The scope of this process covers all internal PedTech translation efforts for global courses, and rubric creations for internal assessments. Excludes external vendor translations."},
                 {"id": "1.12", "structured_data": [
-                    {"Sub-Process Name": "Video Translation", "Activity": "Draft Script", "Description": "", "Owner/Role": "Translator", "TAT": ""},
-                    {"Sub-Process Name": "Rubrics Evaluation", "Activity": "", "Description": "Identify key scoring areas.", "Owner/Role": "", "TAT": "1 day"}
+                    {"Activity": "Draft Script", "Description": "Translate the original English script to local language.", "Owner/Role": "Translator", "TAT": "24 hours"},
+                    {"Activity": "Draft Rubric", "Description": "Identify key scoring areas and draft the evaluation rubric.", "Owner/Role": "Evaluator", "TAT": "48 hours"}
                 ]},
                 {"id": "1.13", "structured_data": [
-                    {"Sub-Process Name": "Video Translation", "Roles": "Translator", "Responsible (R)": "Yes", "Accountable (A)": "Yes", "Consulted (C)": "No", "Informed (I)": "No", "TAT": "2 days"},
-                    {"Sub-Process Name": "Rubrics Evaluation", "Roles": "Evaluator", "Responsible (R)": "Yes", "Accountable (A)": "Yes", "Consulted (C)": "No", "Informed (I)": "No", "TAT": "2 days"}
+                    {"Roles": "Translator", "Responsible ( R )": "Yes", "Accountable ( A )": "Yes", "Consulted ( C )": "No", "Informed ( I )": "No", "TAT": "24 hours"},
+                    {"Roles": "Evaluator", "Responsible ( R )": "Yes", "Accountable ( A )": "Yes", "Consulted ( C )": "No", "Informed ( I )": "No", "TAT": "48 hours"}
                 ]},
                 {"id": "1.14", "structured_data": [
-                    {"Sub-Process Name": "Video Translation", "Business Rule": "All translated scripts must pass a peer grammar check before recording."},
-                    {"Sub-Process Name": "Rubrics Evaluation", "Business Rule": "N/A"}
+                    {"Business Rules": "All translated scripts must pass a peer grammar check before recording."},
+                    {"Business Rules": "Rubrics must cover at least 4 learning outcomes per course."}
                 ]},
                 {"id": "1.15", "structured_data": [
-                    {"Sub-Process Name": "Video Translation", "Area of Exception": "Voice Artist Unavailable", "Exception Description": "Artist is sick.", "Exception Mitigation": "Use AI voice generator temporarily.", "Proposed By": "Translator", "Recommended By": "Lead", "Approved By": "Director", "Informed To": "Team", "Remarks": "Only for non-flagship courses."}
+                    {"Area of Exception": "Voice Artist Unavailable", "Exception Description": "Assigned voice artist is sick or on leave.", "Exception Mitigation": "Use AI voice generator temporarily.", "Prop By": "Translator", "Recom By": "Lead", "Approved By": "Director", "Informed to": "Team", "Remarks": "Only applicable for non-flagship, supplementary courses."}
                 ]},
                 {"id": "1.16", "structured_data": [
-                    {"Sub-Process Name": "Video Translation", "Risk Description": "Inaccurate translation", "Root Cause": "Lack of context", "Type of Risk": "Quality", "Risk Impact": "High", "Level of Risk": "Medium", "Control Description": "", "Control Frequency": ""},
-                    {"Sub-Process Name": "Rubrics Evaluation", "Risk Description": "Subjective scoring", "Root Cause": "", "Type of Risk": "", "Risk Impact": "Medium", "Level of Risk": "Low", "Control Description": "Standardized metric templates", "Control Frequency": ""}
+                    {"Sub Process": "Video Translation", "Risk Description": "Inaccurate translation", "Root Cause": "Lack of context or poor language skills", "Type of Risk": "Quality", "Risk Impact": "High", "Level of Risk": "Medium", "Control Description": "Peer review and SME sign-off", "Control frequency": "Per video"},
+                    {"Sub Process": "Rubrics Evaluation", "Risk Description": "Subjective scoring", "Root Cause": "Vague rubric descriptors", "Type of Risk": "Quality", "Risk Impact": "Medium", "Level of Risk": "Low", "Control Description": "Standardized metric templates and calibration sessions", "Control frequency": "Quarterly"}
                 ]},
                 {"id": "1.17", "structured_data": [
-                    {"Sub-Process Name": "Video Translation", "Compliance Particulars": "Copyright law for background music", "Target Date": "Pre-publish"}
+                    {"Sub Process": "Video Translation", "Compliance particulars": "Adhere to regional accessibility guidelines (e.g., Closed Captions)", "Target date": "Pre-publish"}
                 ]},
                 {"id": "1.18", "structured_data": [
-                    {"Sub-Process Name": "Video Translation", "Financial Year": "2026-27", "Document Title": "Translated Video", "Criticality": "High", "Storage Type": "Soft", "Cut-off Period": "1 Year", "Retention Period": "5 Years", "Location - hard copy": "N/A", "Folder link - soft copy": "/pedtech/videos"}
+                    {"Sub Process": "Video Translation", "Financial Year": "2026-27", "Document Title": "Translated Video File", "Criticality": "High", "Storage Type": "Soft", "Cut off Period": "1 Year", "Retention period": "5 Years", "Location - hard copy": "Not Applicable", "Folder link - soft copy": "/pedtech/videos/translated"}
                 ]},
                 {"id": "1.19", "structured_data": [
                     {"Abbreviation": "CMS", "Definition": "Content Management System"},
-                    {"Abbreviation": "LMS", "Definition": "Learning Management System"}
+                    {"Abbreviation": "LMS", "Definition": "Learning Management System"},
+                    {"Abbreviation": "TAT", "Definition": "Turn Around Time"}
                 ]},
-                {"id": "1.20", "structured_data": []},
-                {"id": "1.21", "structured_data": []},
+                {"id": "1.20", "structured_data": [
+                    {"Best Practices Followed (suggested list)": "Use of Translation Memory tools", "Envisaged/Planned": "Implement fully automated initial translation", "Tentative Timelines": "Q4 2026"}
+                ]},
+                {"id": "1.21", "structured_data": [
+                    {"Innovations Implemented": "Dynamic rubrics integration in LMS", "Envisaged/Planned": "AI-assisted rubric generation", "TENTATIVE TIMELINES": "Q1 2027"}
+                ]},
                 {"id": "1.22", "structured_data": [
-                    {"Sub-Process Name": "Video Translation", "Supplier (Dept)": "Content Team", "Input": "English Script", "Key Process Step": "Translate", "Output": "Local Script", "Customer (Dept)": "Students"}
+                    {"Supplier (Dept)": "Content Production Team", "Input": "Approved English Script & Video", "Key Process Step": "Translate & Voiceover", "Output": "Localized Video", "Customer (dept)": "Regional Student Body"}
                 ]}
             ]
         },
         {
-            "name": "CCT Annual Training Camp",
+            "name": "CCT Annual Training Camp Workflow",
             "team": "CCT Training",
             "sme": "Alice Johnson",
             "owner": "Bob Martin",
             "status": "DRAFT",
             "sections": [
-                {"id": "1.1", "structured_data": [{"Name": "Bob", "Role": "Process Owner", "Function": "Training", "Sign": "BM", "Date": "2026-10-01"}]},
-                {"id": "1.2", "structured_data": [{"Version No.": "1.0", "Effective Date": "2026-10-01", "Change Date": "2026-10-01", "Change Request By": "Bob", "Change Made By": "Alice", "Amendment": "Initial"}]},
-                {"id": "1.3", "structured_data": [{"Effective Date": "2026-10-01", "Next Review Date": "2027-10-01", "Process Owner": "Bob", "Name": "Bob", "Sign": "BM"}]},
-                {"id": "1.4", "structured_data": [{"Process / Policy ID": "N/A", "Document Name": "N/A"}]},
-                {"id": "1.5", "structured_data": [{"Description": "Attendance", "Owner": "Trainer", "Target": "100%", "Maker": "Trainer", "Checker": "Manager", "Data Source": "Register", "Report Name": "Daily Attendance", "Report Frequency": "Daily", "Review Frequency": "Weekly"}]},
-                {"id": "1.6", "content": "This note covers the single main process of organizing the annual CCT training camp."},
-                {"id": "1.7", "structured_data": [{"Sub-Process Name": "N/A", "Activity": "Approve Budget", "Entry Criteria": "Annual budget cleared"}]},
-                {"id": "1.8", "structured_data": [{"Sub-Process Name": "N/A", "Activity": "Camp Concludes", "Exit Criteria": "Feedback forms collected"}]},
-                {"id": "1.9", "content": "The annual training camp aligns all educators on the latest curriculum updates."},
-                {"id": "1.10", "content": "To successfully organize and execute the 5-day annual training camp for all new hires."},
-                {"id": "1.11", "content": "N/A"},
-                {"id": "1.12", "structured_data": [{"Sub-Process Name": "N/A", "Activity": "Book Venue", "Description": "Book the hotel.", "Owner/Role": "Logistics", "TAT": "10 days"}]},
-                {"id": "1.13", "structured_data": [{"Sub-Process Name": "N/A", "Roles": "Logistics", "Responsible (R)": "Yes", "Accountable (A)": "Yes", "Consulted (C)": "No", "Informed (I)": "No", "TAT": "10 days"}]},
-                {"id": "1.14", "structured_data": [{"Sub-Process Name": "N/A", "Business Rule": "All venues must be within 10km of head office."}]},
-                {"id": "1.15", "structured_data": [{"Sub-Process Name": "N/A", "Area of Exception": "N/A", "Exception Description": "N/A", "Exception Mitigation": "N/A", "Proposed By": "N/A", "Recommended By": "N/A", "Approved By": "N/A", "Informed To": "N/A", "Remarks": "N/A"}]},
-                {"id": "1.16", "structured_data": [{"Sub-Process Name": "N/A", "Risk Description": "Venue cancels", "Root Cause": "Overbooking", "Type of Risk": "Logistics", "Risk Impact": "High", "Level of Risk": "Low", "Control Description": "Sign strict SLA", "Control Frequency": "Annual"}]},
-                {"id": "1.17", "structured_data": [{"Sub-Process Name": "N/A", "Compliance Particulars": "Fire safety code", "Target Date": "Pre-camp"}]},
-                {"id": "1.18", "structured_data": [{"Sub-Process Name": "N/A", "Financial Year": "2026-27", "Document Title": "Attendance", "Criticality": "Medium", "Storage Type": "Soft", "Cut-off Period": "1 Yr", "Retention Period": "3 Yrs", "Location - hard copy": "N/A", "Folder link - soft copy": "/camp"}]},
-                {"id": "1.19", "structured_data": [{"Abbreviation": "CCT", "Definition": "Core Content Team"}]},
-                {"id": "1.20", "structured_data": [{"Sub-Process Name": "N/A", "Best Practice Followed": "Digital feedback", "Envisaged/Planned": "N/A", "Tentative Timelines": "N/A"}]},
-                {"id": "1.21", "structured_data": [{"Sub-Process Name": "N/A", "Innovations Implemented": "App-based agenda", "Envisaged/Planned": "N/A", "Tentative Timelines": "N/A"}]},
-                {"id": "1.22", "structured_data": [{"Sub-Process Name": "N/A", "Supplier (Dept)": "HR", "Input": "Headcount", "Key Process Step": "Book Hotel", "Output": "Confirmed rooms", "Customer (Dept)": "Attendees"}]}
+                {"id": "1.1", "structured_data": [
+                    {"Name": "Bob Martin", "Role": "Process Owner", "Function": "Training Lead", "Sign": "BM", "Date": "2026-10-01"},
+                    {"Name": "Alice Johnson", "Role": "Process Reviewer", "Function": "SME", "Sign": "AJ", "Date": "2026-10-02"},
+                    {"Name": "Charlie Director", "Role": "Process Approver", "Function": "Director", "Sign": "CD", "Date": "2026-10-03"}
+                ]},
+                {"id": "1.2", "structured_data": [
+                    {"Version No.": "1.0", "Effective Date": "2026-10-01", "Change Date": "2026-10-01", "Change Request By": "Bob Martin", "Change Made By": "Alice Johnson", "Amendment": "Initial Document Creation"}
+                ]},
+                {"id": "1.3", "structured_data": [
+                    {"Effective Date": "2026-10-01", "Next Review Date": "2027-10-01", "Process Owner": "Bob Martin", "Name": "Bob Martin", "Sign": "BM"}
+                ]},
+                {"id": "1.4", "structured_data": [
+                    {"Process / Policy ID": "CCT-TR-002", "Document Name": "CCT Training Camp Guidelines"}
+                ]},
+                {"id": "1.5", "structured_data": [
+                    {"Description": "Trainer Attendance", "Owner": "Trainer", "Target": "100%", "Maker": "Trainer", "Checker": "Manager", "Data Source": "Attendance Register", "Report Name": "Daily Attendance", "Report Frequency": "Daily", "Review Frequency": "Weekly"},
+                    {"Description": "Trainee Satisfaction", "Owner": "Feedback Coordinator", "Target": "90%", "Maker": "Coordinator", "Checker": "Training Lead", "Data Source": "Survey tool", "Report Name": "Feedback Summary", "Report Frequency": "Post-Camp", "Review Frequency": "Annual"}
+                ]},
+                {"id": "1.6", "content": "This note details the end-to-end process for planning, executing, and evaluating the annual CCT training camp for educators."},
+                {"id": "1.7", "structured_data": [
+                    {"Activity": "Approve Budget", "Entry Criteria": "Annual training budget cleared and allocated by Finance"},
+                    {"Activity": "Participant Check-in", "Entry Criteria": "Participants arrive at venue on Day 1"}
+                ]},
+                {"id": "1.8", "structured_data": [
+                    {"Activity": "Finalize Venue", "Exit Criteria": "Venue contract signed and advance paid"},
+                    {"Activity": "Camp Concludes", "Exit Criteria": "All feedback forms collected and departure confirmed"}
+                ]},
+                {"id": "1.9", "content": "The annual training camp aligns all educators on the latest curriculum updates, teaching methodologies, and organizational goals. It is a critical event for maintaining educational quality."},
+                {"id": "1.10", "content": "The objective is to successfully organize and execute the 5-day annual training camp for all new and existing educators within the approved budget and schedule."},
+                {"id": "1.11", "content": "The scope includes venue booking, travel logistics, content creation, session delivery, and post-camp feedback analysis. Excludes regular weekly training sessions."},
+                {"id": "1.12", "structured_data": [
+                    {"Activity": "Book Venue", "Description": "Identify, negotiate, and book the training venue.", "Owner/Role": "Logistics Coordinator", "TAT": "10 days"},
+                    {"Activity": "Deliver Sessions", "Description": "Execute the training sessions as per the agenda.", "Owner/Role": "Master Trainer", "TAT": "5 days"},
+                    {"Activity": "Collect Feedback", "Description": "Gather trainee satisfaction feedback.", "Owner/Role": "Feedback Coordinator", "TAT": "1 day"}
+                ]},
+                {"id": "1.13", "structured_data": [
+                    {"Roles": "Logistics Coordinator", "Responsible ( R )": "Yes", "Accountable ( A )": "Yes", "Consulted ( C )": "No", "Informed ( I )": "No", "TAT": "10 days"},
+                    {"Roles": "Master Trainer", "Responsible ( R )": "Yes", "Accountable ( A )": "Yes", "Consulted ( C )": "Yes", "Informed ( I )": "No", "TAT": "5 days"},
+                    {"Roles": "Feedback Coordinator", "Responsible ( R )": "Yes", "Accountable ( A )": "Yes", "Consulted ( C )": "No", "Informed ( I )": "Yes", "TAT": "1 day"}
+                ]},
+                {"id": "1.14", "structured_data": [
+                    {"Business Rules": "All selected venues must be within 10km of a major transport hub and within the budget limit per head."}
+                ]},
+                {"id": "1.15", "structured_data": [
+                    {"Area of Exception": "Venue Cost Exceeds Budget", "Exception Description": "No suitable venue available within the standard per-head budget.", "Exception Mitigation": "Reduce camp duration by half a day to offset costs.", "Prop By": "Logistics Coordinator", "Recom By": "Training Lead", "Approved By": "Finance Director", "Informed to": "Participants", "Remarks": "Requires written justification."}
+                ]},
+                {"id": "1.16", "structured_data": [
+                    {"Sub Process": "Camp Planning", "Risk Description": "Venue cancels last minute", "Root Cause": "Overbooking by hotel", "Type of Risk": "Operational", "Risk Impact": "High", "Level of Risk": "Medium", "Control Description": "Sign strict SLA with penalty clauses and identify backup venue", "Control frequency": "Annual"},
+                    {"Sub Process": "Camp Execution", "Risk Description": "Low participant attendance", "Root Cause": "Travel delays or illness", "Type of Risk": "Operational", "Risk Impact": "Medium", "Level of Risk": "Low", "Control Description": "Mandatory RSVP and travel coordination assistance", "Control frequency": "Annual"}
+                ]},
+                {"id": "1.17", "structured_data": [
+                    {"Sub Process": "Camp Execution", "Compliance particulars": "Local fire and safety codes at the venue, plus health guidelines", "Target date": "Pre-camp Day 1"}
+                ]},
+                {"id": "1.18", "structured_data": [
+                    {"Sub Process": "Camp Execution", "Financial Year": "2026-27", "Document Title": "Participant Attendance Record", "Criticality": "Medium", "Storage Type": "Soft", "Cut off Period": "1 Year", "Retention period": "3 Years", "Location - hard copy": "Not Applicable", "Folder link - soft copy": "/cct/camp_attendance_2026"}
+                ]},
+                {"id": "1.19", "structured_data": [
+                    {"Abbreviation": "CCT", "Definition": "Core Content Team"},
+                    {"Abbreviation": "SLA", "Definition": "Service Level Agreement"}
+                ]},
+                {"id": "1.20", "structured_data": [
+                    {"Best Practices Followed (suggested list)": "Digital feedback collection at the end of each day", "Envisaged/Planned": "Real-time feedback dashboards", "Tentative Timelines": "Next Camp Cycle"}
+                ]},
+                {"id": "1.21", "structured_data": [
+                    {"Innovations Implemented": "App-based personalized agenda for participants", "Envisaged/Planned": "Gamified learning modules during camp", "TENTATIVE TIMELINES": "Next Year"}
+                ]},
+                {"id": "1.22", "structured_data": [
+                    {"Supplier (Dept)": "HR / Recruitment", "Input": "Final Headcount of New Hires", "Key Process Step": "Book Hotel & Logistics", "Output": "Confirmed room allocation", "Customer (dept)": "Camp Attendees"}
+                ]}
             ]
         }
     ]

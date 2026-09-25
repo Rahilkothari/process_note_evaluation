@@ -42,8 +42,10 @@ try:
                 default_idx = i
                 break
 
-    selected = st.selectbox("Select Process Note to Validate", list(note_options.keys()), index=default_idx)
+    dynamic_key = f"val_select_{st.session_state.get('selected_note_id', 'default')}"
+    selected = st.selectbox("Select Process Note to Validate", list(note_options.keys()), index=default_idx, key=dynamic_key)
     current_note = note_options[selected]
+    st.session_state.selected_note_id = current_note.id
 
     status_class = "badge-draft"
     if current_note.status == "PASS": status_class = "badge-pass"
