@@ -131,20 +131,25 @@ Strict Evaluation Criteria:
 Content to validate:
 {section_content}
 
-Evaluate the content against the rules. Be practical and highly lenient. Teams have different requirements and may leave certain fields empty, blank, or mark them as "N/A" if they do not apply. Do not penalize or flag missing fields.
+Evaluate the content against the provided rules and criteria. Be thorough and objective in your assessment.
 
 CRITICAL INSTRUCTIONS FOR SCORING AND OUTPUT:
 You MUST output exactly one of the following fixed scores and statuses based on this strict rubric:
 
 1. PASS (Score: 100):
-   - The core logic is sound. Blank fields, "None", or "N/A" are completely acceptable as different teams have different needs. Do not penalize missing information.
+   - The content fully addresses the section requirements and meets all evaluation criteria.
+   - The logic is sound and there are no missing critical details.
    - Leave "issues" and "recommendations" COMPLETELY EMPTY.
 
 2. WARNING (Score: 50):
-   - Data is mostly there, but severe ambiguity exists.
+   - The content partially addresses the requirements but lacks sufficient detail.
+   - There is ambiguity in the process steps or some non-critical fields/information are missing.
+   - Provide specific issues and actionable recommendations.
 
 3. NEEDS_REVISION (Score: 0):
-   - Completely illogical steps or completely missing core sub-processes. Blank fields alone should NOT trigger this.
+   - The content is completely missing, illogical, or fails to address the core requirements of the section.
+   - Major structural or logical flaws exist in the described process.
+   - Provide specific issues and actionable recommendations.
 
 Return your evaluation as a valid JSON object matching this schema exactly:
 {{
