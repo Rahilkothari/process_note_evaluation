@@ -31,7 +31,8 @@ def get_role_for_email(email: str) -> str:
     admin_emails = ["rahilkk07@gmail.com", "rahilkko+07@gmail.com"]
     reviewer_emails = [
         "jayati.kapadia@kotakeducationfoundation.org", 
-        "tanvi.parulekar@kotakeducationfoundation.org"
+        "tanvi.parulekar@kotakeducationfoundation.org",
+        "karishma.agrawal@kotakeducationfoundation.org"
     ]
     
     if email in admin_emails:
@@ -66,14 +67,7 @@ def require_login():
     if "user" not in st.session_state:
         st.session_state.user = None
 
-    # Session restore
-    if st.session_state.user is None:
-        try:
-            session = supabase.auth.get_session()
-            if session:
-                st.session_state.user = session.user
-        except Exception:
-            pass
+    # Removed global session restore to prevent state leakage across users
 
     if st.session_state.user is not None and "current_user_name" not in st.session_state:
         try:

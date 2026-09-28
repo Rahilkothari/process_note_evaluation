@@ -89,9 +89,6 @@ class ValidationEngine:
         cross_section_issues = self.cross_validator.validate(all_sections_dict)
 
         # 3. Aggregate scores
-        pass_threshold = 75.0
-        warning_threshold = 65.0
-        
         total_score = sum([res.score for res in section_results]) if section_results else 0
         overall_score = total_score / len(section_results) if section_results else 0
         

@@ -35,11 +35,11 @@ def test_validation_engine_thresholds(mock_getenv):
     
     from models.schemas import SectionValidationResult
     
-    # Test PASS (Score >= 85)
+    # Test PASS (Overall Score 100 >= 85)
     mock_ai_result = SectionValidationResult(
         section="Test Section",
         status="PASS",
-        score=80.0,
+        score=100.0,
         severity="LOW",
         issues=[],
         recommendations=[]
@@ -50,19 +50,36 @@ def test_validation_engine_thresholds(mock_getenv):
     assert result.overall_status == "PASS"
     assert result.section_results[0].status == "PASS"
     
-    # Test WARNING (65 <= Score < 75)
-    mock_ai_result.score = 70.0
-    mock_ai_result.issues = ["Minor issue"]
+    # Test WARNING (Overall Score 75: one 100, one 50. 65 <= 75 < 85)
+    note.sections.append(ProcessSectionSchema(section_id="1.2", content="Test content 2", structured_data=[]))
+    
+    def mock_validate(section, *args):
+        if section.section_id == "1.1":
+            return SectionValidationResult(section="Test Section 1", status="PASS", score=100.0, severity="LOW", issues=[], recommendations=[])
+        else:
+            return SectionValidationResult(section="Test Section 2", status="WARNING", score=50.0, severity="MEDIUM", issues=["Minor issue"], recommendations=[])
+            
+    engine.ai_validator.validate = MagicMock(side_effect=mock_validate)
     result = engine.run_validation(note)
     assert result.overall_status == "WARNING"
-    assert result.section_results[0].status == "WARNING"
+    # One is PASS, one is WARNING
+    statuses = [s.status for s in result.section_results]
+    assert "PASS" in statuses
+    assert "WARNING" in statuses
     
-    # Test NEEDS_REVISION (Score < 65)
-    mock_ai_result.score = 50.0
-    mock_ai_result.issues = ["Major issue"]
+    # Test NEEDS_REVISION (Overall Score 25: one 50, one 0. 25 < 65)
+    def mock_validate_fail(section, *args):
+        if section.section_id == "1.1":
+            return SectionValidationResult(section="Test Section 1", status="WARNING", score=50.0, severity="MEDIUM", issues=[], recommendations=[])
+        else:
+            return SectionValidationResult(section="Test Section 2", status="NEEDS_REVISION", score=0.0, severity="HIGH", issues=["Major issue"], recommendations=[])
+            
+    engine.ai_validator.validate = MagicMock(side_effect=mock_validate_fail)
     result = engine.run_validation(note)
     assert result.overall_status == "NEEDS_REVISION"
-    assert result.section_results[0].status == "NEEDS_REVISION"
+    statuses = [s.status for s in result.section_results]
+    assert "WARNING" in statuses
+    assert "NEEDS_REVISION" in statuses
 
 def test_rule_validator_basic():
     from core.rule_validator import RuleValidator
