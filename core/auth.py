@@ -32,7 +32,8 @@ def get_role_for_email(email: str) -> str:
     reviewer_emails = [
         "jayati.kapadia@kotakeducationfoundation.org", 
         "tanvi.parulekar@kotakeducationfoundation.org",
-        "karishma.agrawal@kotakeducationfoundation.org"
+        "karishma.agrawal@kotakeducationfoundation.org",
+        "gopi.naik@kotakeducationfoundation.org"
     ]
     
     if email in admin_emails:
