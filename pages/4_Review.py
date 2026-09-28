@@ -33,16 +33,26 @@ try:
         st.stop()
 
     note_options = {f"[{n['id']}] {n['process_name']} (v{n['version']}) - {n['status'].replace('_', ' ')}": n['id'] for n in notes_meta}
-    default_idx = 0
+    # Sync widget state with selected_note_id
     if "selected_note_id" in st.session_state:
-        for i, key in enumerate(note_options.keys()):
-            if note_options[key] == st.session_state.selected_note_id:
-                default_idx = i
+        for key, note_id in note_options.items():
+            if note_id == st.session_state.selected_note_id:
+                st.session_state.review_selectbox = key
                 break
 
-    selected = st.selectbox("Select Process Note", list(note_options.keys()), index=default_idx)
+    def on_review_note_change():
+        selected_str = st.session_state.review_selectbox
+        st.session_state.selected_note_id = note_options[selected_str]
+
+    selected = st.selectbox(
+        "Select Process Note", 
+        list(note_options.keys()), 
+        key="review_selectbox",
+        on_change=on_review_note_change
+    )
     selected_id = note_options[selected]
     current_note = db.query(ProcessNote).filter(ProcessNote.id == selected_id).first()
+    st.session_state.selected_note_id = current_note.id
 
     status_class = "badge-review"
     if current_note.status == "APPROVED": status_class = "badge-pass"
@@ -177,9 +187,14 @@ try:
         
             col_btn1, col_btn2 = st.columns([1, 4])
             with col_btn1:
-                file_stream = generate_docx(current_note)
+                from services.export_service import generate_docx
+                @st.cache_data(show_spinner=False)
+                def get_cached_docx(note_id, updated_at_str, _note):
+                    return generate_docx(_note).getvalue()
+                
+                docx_data = get_cached_docx(current_note.id, str(current_note.updated_at), current_note)
                 filename = f"Process_Note_{current_note.id}.docx"
-                st.download_button("Export to Docx", file_stream, file_name=filename, type="primary", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                st.download_button("Export to Docx", docx_data, file_name=filename, type="primary", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
             with col_btn2:
                 if st.button("Revert Approval", type="secondary"):
                     from models.database import ReviewHistory
@@ -211,12 +226,15 @@ try:
             </div>
             """, unsafe_allow_html=True)
         
-            import yaml
-            try:
-                with open("config/sections.yaml", "r") as f_yaml:
-                    sections_config = yaml.safe_load(f_yaml).get("sections", [])
-            except Exception:
-                sections_config = []
+            @st.cache_data
+            def load_sections_config():
+                import yaml
+                try:
+                    with open("config/sections.yaml", "r") as f_yaml:
+                        return yaml.safe_load(f_yaml).get("sections", [])
+                except Exception:
+                    return []
+            sections_config = load_sections_config()
 
             findings = db.query(ValidationFinding).filter(ValidationFinding.validation_id == latest_run.id).all()
             for f in findings:
@@ -305,12 +323,15 @@ try:
         if not current_note.sections:
             st.info("No sections have been filled for this process note yet, showing blank template.")
         
-        import yaml
-        try:
-            with open("config/sections.yaml", "r") as f:
-                sections_config = yaml.safe_load(f).get("sections", [])
-        except Exception:
-            sections_config = []
+        @st.cache_data
+        def load_sections_config_tab3():
+            import yaml
+            try:
+                with open("config/sections.yaml", "r") as f:
+                    return yaml.safe_load(f).get("sections", [])
+            except Exception:
+                return []
+        sections_config = load_sections_config_tab3()
 
         filled_sections = {s.section_id: s for s in current_note.sections}
 

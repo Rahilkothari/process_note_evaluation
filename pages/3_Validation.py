@@ -35,15 +35,23 @@ try:
         st.info("No draft process notes available for validation.")
         st.stop()
 
-    default_idx = 0
+    # Sync widget state with selected_note_id
     if "selected_note_id" in st.session_state:
-        for i, key in enumerate(note_options.keys()):
-            if note_options[key].id == st.session_state.selected_note_id:
-                default_idx = i
+        for key, note in note_options.items():
+            if note.id == st.session_state.selected_note_id:
+                st.session_state.validation_selectbox = key
                 break
 
-    dynamic_key = f"val_select_{st.session_state.get('selected_note_id', 'default')}"
-    selected = st.selectbox("Select Process Note to Validate", list(note_options.keys()), index=default_idx, key=dynamic_key)
+    def on_note_change():
+        selected_str = st.session_state.validation_selectbox
+        st.session_state.selected_note_id = note_options[selected_str].id
+
+    selected = st.selectbox(
+        "Select Process Note to Validate", 
+        list(note_options.keys()), 
+        key="validation_selectbox",
+        on_change=on_note_change
+    )
     current_note = note_options[selected]
     st.session_state.selected_note_id = current_note.id
 
@@ -62,12 +70,16 @@ try:
             st.info(latest_review.comments)
             st.markdown("<br>", unsafe_allow_html=True)
 
-    import yaml
-    try:
-        with open("config/sections.yaml", "r") as f:
-            sections_config = yaml.safe_load(f).get("sections", [])
-    except Exception:
-        sections_config = []
+    @st.cache_data
+    def load_sections_config():
+        import yaml
+        try:
+            with open("config/sections.yaml", "r") as f:
+                return yaml.safe_load(f).get("sections", [])
+        except Exception:
+            return []
+    
+    sections_config = load_sections_config()
 
     if st.button("Run AI Validation", type="primary"):
         with st.spinner("AI Evaluation in process..."):

@@ -80,6 +80,8 @@ try:
                 base_query = base_query.filter(ProcessNote.status.in_(["DRAFT", "NEEDS_REVISION", "WARNING", "PASS"]))
             else:
                 base_query = base_query.filter(ProcessNote.status == status_filter)
+        else:
+            base_query = base_query.filter(ProcessNote.status != "ARCHIVED")
         
         notes = base_query.order_by(ProcessNote.updated_at.desc()).all()
         return [{"id": n.id, "process_name": n.process_name, "version": n.version, "team": n.team, "status": n.status, "updated_at": n.updated_at} for n in notes]
@@ -93,9 +95,9 @@ try:
     total_notes, drafts, needs_revision, warning, pass_notes, under_review, approved, avg_score = get_dashboard_stats(db, current_role, current_user_id)
 
     query_status = st.query_params.get("status", "All")
-    status_options = ["All", "ACTIVE_DRAFTS", "UNDER_REVIEW", "APPROVED"]
+    status_options = ["All", "ACTIVE_DRAFTS", "UNDER_REVIEW", "APPROVED", "ARCHIVED"]
     if current_role == "reviewer":
-        status_options = ["All", "UNDER_REVIEW", "APPROVED"]
+        status_options = ["All", "UNDER_REVIEW", "APPROVED", "ARCHIVED"]
 
     default_idx = status_options.index(query_status) if query_status in status_options else 0
 
@@ -155,11 +157,17 @@ try:
             with col1:
                 if st.button(f"{note['process_name']} (v{note['version']})", key=f"btn_{note['id']}", use_container_width=True):
                     st.session_state.selected_note_id = note['id']
-                    if current_role == "creator" and note['status'] in ["DRAFT", "NEEDS_REVISION"]:
-                        st.switch_page("pages/3_Validation.py")
+                    if current_role == "creator" and note['status'] in ["DRAFT", "NEEDS_REVISION", "WARNING", "PASS"]:
+                        st.session_state.action_radio = "Edit Existing Process Note"
+                        st.session_state.selected_note_key = f"[{note['id']}] {note['process_name']} (v{note['version']}) - {note['status']}"
+                        st.switch_page("pages/2_Create_Process.py")
                     elif current_role in ["reviewer", "admin"] and note['status'] == "UNDER_REVIEW":
                         st.switch_page("pages/4_Review.py")
                     else:
+                        if note['status'] == 'ARCHIVED':
+                            st.session_state.view_type_radio = "Archived Notes"
+                        else:
+                            st.session_state.view_type_radio = "Active Notes"
                         st.switch_page("pages/5_View_All_Notes.py")
             with col2: 
                 st.markdown(f"<div style='padding-top: 8px;'>{note['team']}</div>", unsafe_allow_html=True)

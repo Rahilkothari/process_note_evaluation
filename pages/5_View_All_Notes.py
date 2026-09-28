@@ -14,30 +14,67 @@ st.markdown("Read-only access to all process notes in the system.")
 db: Session = SessionLocal()
 try:
 
+    current_role = st.session_state.get("current_user_role", "creator")
+    current_user_id = st.session_state.get("current_user_id")
+
     @st.cache_data(ttl=60)
-    def get_all_notes_metadata(_db: Session):
-        notes = _db.query(ProcessNote.id, ProcessNote.process_name, ProcessNote.version, ProcessNote.status).all()
+    def get_all_notes_metadata(_db: Session, role: str, user_id: int):
+        query = _db.query(ProcessNote.id, ProcessNote.process_name, ProcessNote.version, ProcessNote.status)
+        if role == "admin":
+            notes = query.all()
+        elif role == "reviewer":
+            notes = query.filter(ProcessNote.status.in_(["UNDER_REVIEW", "APPROVED", "ARCHIVED"])).all()
+        else:
+            notes = query.filter(ProcessNote.created_by == user_id).all()
+        
         return [{"id": n.id, "process_name": n.process_name, "version": n.version, "status": n.status} for n in notes]
 
-    notes_meta = get_all_notes_metadata(db)
+    notes_meta = get_all_notes_metadata(db, current_role, current_user_id)
 
     if not notes_meta:
         st.info("No process notes found in the database.")
         st.stop()
 
-    note_options = {f"[{n['id']}] {n['process_name']} (v{n['version']}) - {n['status'].replace('_', ' ')}": n['id'] for n in notes_meta}
+    def on_view_type_change():
+        st.session_state.selected_note_id = None
 
-    default_idx = 0
+    if "view_type_radio" not in st.session_state:
+        st.session_state.view_type_radio = "Active Notes"
+
+    view_type = st.radio("Show", ["Active Notes", "Archived Notes"], horizontal=True, key="view_type_radio", on_change=on_view_type_change)
+
+    if view_type == "Active Notes":
+        filtered_meta = [n for n in notes_meta if n['status'] != "ARCHIVED"]
+    else:
+        filtered_meta = [n for n in notes_meta if n['status'] == "ARCHIVED"]
+
+    if not filtered_meta:
+        st.info(f"No {view_type.lower()} found.")
+        st.stop()
+
+    note_options = {f"[{n['id']}] {n['process_name']} (v{n['version']}) - {n['status'].replace('_', ' ')}": n['id'] for n in filtered_meta}
+
+    # Sync widget state with selected_note_id
     if "selected_note_id" in st.session_state:
-        for i, key in enumerate(note_options.keys()):
-            if note_options[key] == st.session_state.selected_note_id:
-                default_idx = i
+        for key, note_id in note_options.items():
+            if note_id == st.session_state.selected_note_id:
+                st.session_state.view_selectbox = key
                 break
-            
-    selected = st.selectbox("Select Process Note to View", list(note_options.keys()), index=default_idx)
+
+    def on_view_note_change():
+        selected_str = st.session_state.view_selectbox
+        st.session_state.selected_note_id = note_options[selected_str]
+
+    selected = st.selectbox(
+        "Select Process Note to View", 
+        list(note_options.keys()), 
+        key="view_selectbox",
+        on_change=on_view_note_change
+    )
     selected_id = note_options[selected]
 
     current_note = db.query(ProcessNote).filter(ProcessNote.id == selected_id).first()
+    st.session_state.selected_note_id = current_note.id
 
     st.markdown("<hr>", unsafe_allow_html=True)
 
@@ -54,7 +91,12 @@ try:
 
     st.markdown("### Export")
     from services.export_service import generate_docx
-    docx_data = generate_docx(current_note)
+    
+    @st.cache_data(show_spinner=False)
+    def get_cached_docx(note_id, updated_at_str, _note):
+        return generate_docx(_note).getvalue()
+        
+    docx_data = get_cached_docx(current_note.id, str(current_note.updated_at), current_note)
     st.download_button("Export as Word (.docx)", data=docx_data, file_name=f"{current_note.process_name}.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
     st.markdown("<br>", unsafe_allow_html=True)
@@ -77,12 +119,16 @@ try:
     if not current_note.sections:
         st.info("No sections have been filled for this process note yet, showing blank template.")
 
-    import yaml
-    try:
-        with open("config/sections.yaml", "r") as f:
-            sections_config = yaml.safe_load(f).get("sections", [])
-    except Exception:
-        sections_config = []
+    @st.cache_data
+    def load_sections_config():
+        import yaml
+        try:
+            with open("config/sections.yaml", "r") as f:
+                return yaml.safe_load(f).get("sections", [])
+        except Exception:
+            return []
+    
+    sections_config = load_sections_config()
 
     filled_sections = {s.section_id: s for s in current_note.sections}
 
