@@ -3,6 +3,7 @@ import streamlit as st
 from supabase import create_client, Client
 from models.database import SessionLocal, get_db, User
 from dotenv import load_dotenv
+from streamlit_cookies_controller import CookieController
 
 load_dotenv()
 
@@ -21,6 +22,9 @@ def init_supabase() -> Client:
     return create_client(supabase_url, supabase_key, options=options)
 
 supabase: Client = init_supabase()
+
+# Initialize CookieController
+controller = CookieController()
 
 def is_authorized_email(email: str) -> bool:
     return True
@@ -68,7 +72,17 @@ def require_login():
     if "user" not in st.session_state:
         st.session_state.user = None
 
-    # Removed global session restore to prevent state leakage across users
+    # Try to restore session from cookies if user is not in session_state
+    if st.session_state.user is None:
+        saved_email = controller.get('user_email')
+        if saved_email:
+            # We don't have the full Supabase user object, but we can recreate a mock one 
+            # for the session state since the app mainly relies on the email/DB.
+            class MockUser:
+                pass
+            mock_user = MockUser()
+            mock_user.email = saved_email
+            st.session_state.user = mock_user
 
     if st.session_state.user is not None and "current_user_name" not in st.session_state:
         try:
@@ -116,6 +130,8 @@ def require_login():
                                 response = supabase.auth.sign_in_with_password({"email": email, "password": password})
                                 st.session_state.user = response.user
                                 sync_user_to_db(response.user.email)
+                                # Save email in cookie for 30 days
+                                controller.set('user_email', response.user.email, max_age=30*24*60*60)
                                 login_container.empty()
                                 st.rerun()
                             except Exception as e:
@@ -158,5 +174,9 @@ def logout():
     st.session_state.user = None
     if "current_user_id" in st.session_state:
         del st.session_state.current_user_id
+    
+    # Clear the cookie
+    controller.remove('user_email')
+    
     st.query_params.clear()
     st.rerun()
