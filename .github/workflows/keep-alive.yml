@@ -2,9 +2,9 @@ name: Keep Streamlit App Awake
 
 on:
   schedule:
-    # Run every 8 hours
-    - cron: "0 */8 * * *"
-  workflow_dispatch: # Allows you to manually trigger it from the Actions tab
+    # Run every 15 minutes to ensure WebSocket connection stays active
+    - cron: "*/15 * * * *"
+  workflow_dispatch: # Allows manual trigger from Actions tab
 
 jobs:
   keep-alive:
