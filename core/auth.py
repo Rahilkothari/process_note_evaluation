@@ -1,30 +1,22 @@
 import os
 import streamlit as st
 from supabase import create_client, Client
-from models.database import SessionLocal, get_db, User
+from supabase.client import ClientOptions
+import httpx
+from models.database import SessionLocal, User
 from dotenv import load_dotenv
-from streamlit_cookies_controller import CookieController
 
 load_dotenv()
 
-# Initialize Supabase client
 supabase_url = os.getenv("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_KEY")
 
-from supabase.client import ClientOptions
-import httpx
-
-@st.cache_resource
-def init_supabase() -> Client:
+def get_supabase_client() -> Client:
+    """Create an un-cached, isolated Supabase client per request to guarantee user isolation."""
     options = ClientOptions(
         httpx_client=httpx.Client(timeout=60.0)
     )
     return create_client(supabase_url, supabase_key, options=options)
-
-supabase: Client = init_supabase()
-
-# Initialize CookieController
-controller = CookieController()
 
 def is_authorized_email(email: str) -> bool:
     return True
@@ -45,44 +37,33 @@ def get_role_for_email(email: str) -> str:
     elif email in reviewer_emails:
         return "reviewer"
         
-    # Default roles
     return "creator"
 
 def sync_user_to_db(email: str, name: str = None):
     db = SessionLocal()
-    user = db.query(User).filter(User.email == email).first()
-    
-    if not user:
-        role = get_role_for_email(email)
-        user = User(name=name or email.split("@")[0], email=email, role=role)
-        db.add(user)
-        db.commit()
-    else:
-        # Enforce admin role for hardcoded admins even if they were created earlier as creators
-        expected_role = get_role_for_email(email)
-        if expected_role == "admin" and user.role != "admin":
-            user.role = "admin"
+    try:
+        user = db.query(User).filter(User.email == email).first()
+        
+        if not user:
+            role = get_role_for_email(email)
+            user = User(name=name or email.split("@")[0], email=email, role=role)
+            db.add(user)
             db.commit()
-    
-    st.session_state.current_user_id = user.id
-    st.session_state.current_user_role = user.role
-    st.session_state.current_user_name = user.name
+        else:
+            expected_role = get_role_for_email(email)
+            if expected_role == "admin" and user.role != "admin":
+                user.role = "admin"
+                db.commit()
+        
+        st.session_state.current_user_id = user.id
+        st.session_state.current_user_role = user.role
+        st.session_state.current_user_name = user.name
+    finally:
+        db.close()
 
 def require_login():
     if "user" not in st.session_state:
         st.session_state.user = None
-
-    # Try to restore session from cookies if user is not in session_state
-    if st.session_state.user is None:
-        saved_email = controller.get('user_email')
-        if saved_email:
-            # We don't have the full Supabase user object, but we can recreate a mock one 
-            # for the session state since the app mainly relies on the email/DB.
-            class MockUser:
-                pass
-            mock_user = MockUser()
-            mock_user.email = saved_email
-            st.session_state.user = mock_user
 
     if st.session_state.user is not None and "current_user_name" not in st.session_state:
         try:
@@ -91,7 +72,7 @@ def require_login():
             st.session_state.user = None
 
     if st.session_state.user is not None:
-        # Render the logout button on the sidebar for EVERY page
+        # Render sidebar status and logout button for active logged in user
         with st.sidebar:
             st.markdown("---")
             display_name = st.session_state.current_user_name.title() if "current_user_name" in st.session_state and st.session_state.current_user_name else ""
@@ -127,11 +108,14 @@ def require_login():
                             st.error("Unauthorized email domain. Access denied.")
                         else:
                             try:
-                                response = supabase.auth.sign_in_with_password({"email": email, "password": password})
+                                # Clean state before login
+                                st.session_state.clear()
+
+                                sb = get_supabase_client()
+                                response = sb.auth.sign_in_with_password({"email": email, "password": password})
                                 st.session_state.user = response.user
                                 sync_user_to_db(response.user.email)
-                                # Save email in cookie for 30 days
-                                controller.set('user_email', response.user.email, max_age=30*24*60*60)
+
                                 login_container.empty()
                                 st.rerun()
                             except Exception as e:
@@ -148,7 +132,8 @@ def require_login():
                                 st.error("Unauthorized email domain. Access denied.")
                             else:
                                 try:
-                                    response = supabase.auth.sign_up({
+                                    sb = get_supabase_client()
+                                    response = sb.auth.sign_up({
                                         "email": new_email,
                                         "password": new_password,
                                         "options": {
@@ -164,19 +149,16 @@ def require_login():
                                 except Exception as e:
                                     st.error(f"Sign up failed: {str(e)}")
         
-        st.stop() # Halts execution of the rest of the app until logged in
+        st.stop()
 
 def logout():
     try:
-        supabase.auth.sign_out()
-    except:
+        sb = get_supabase_client()
+        sb.auth.sign_out()
+    except Exception:
         pass
-    st.session_state.user = None
-    if "current_user_id" in st.session_state:
-        del st.session_state.current_user_id
     
-    # Clear the cookie
-    controller.remove('user_email')
-    
+    # Completely reset session state
+    st.session_state.clear()
     st.query_params.clear()
     st.rerun()
