@@ -24,13 +24,15 @@ class AIValidator:
         elif section_config["type"] == "table":
             content_to_validate = json.dumps(section.structured_data) if section.structured_data else ""
         
-        if not content_to_validate:
-            # Let rule validator catch empty ones. We just pass here.
+        if not content_to_validate or not str(content_to_validate).strip():
              return SectionValidationResult(
                 section=section_config.get("name", section.section_id),
-                status="PASS",
-                score=100.0,
-                severity="LOW"
+                status="NEEDS_REVISION",
+                score=0.0,
+                severity="HIGH",
+                issues=["Section content is empty. Operational details must be provided."],
+                recommendations=["Use the AI Process Co-pilot above to draft this section with guided questions."],
+                questions=["What are the primary operational details for this section?"]
             )
 
         return self.llm_provider.validate_section(content_to_validate, section_config, rules_config, team_name)

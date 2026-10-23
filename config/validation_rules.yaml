@@ -38,12 +38,10 @@ rules:
 - section_id: '1.6'
   name: Process Coverage / Scope
   criteria:
-  - Specifies what is included and excluded from the process and the areas, teams,
-    or activities covered.
-  - Clearly describes boundaries. Who does it apply to? Which departments?
-  - Is specific to the process.
-  - Does not contain unrelated organizational background.
-  - Is concise and not unnecessarily verbose.
+  - Specifies what is included and excluded from the process and the areas, teams, or activities covered.
+  - Must explicitly delineate both IN-SCOPE activities/locations and OUT-OF-SCOPE exclusions.
+  - Clearly describes operational boundaries. Who does it apply to? Which departments/programs?
+  - Must not be overly brief, vague, or superficial (at least 20 words with clear boundary definitions).
   flag_generic: true
 - section_id: '1.7'
   name: Start Point
@@ -59,18 +57,17 @@ rules:
 - section_id: '1.9'
   name: Introduction
   criteria:
-  - Provides a brief overview and background of the process and explains why the process
-    is required.
-  - Avoids excessive background or generic corporate language.
+  - Provides a substantive background context and explains why standardizing this process is essential for the organization.
+  - Must cover the operational setting, challenges or risks addressed, and rationale for standardization.
+  - Must not be overly brief or superficial (at least 25 words).
   - Does not merely repeat the Objective.
-  - Does not contain information that belongs in Scope or Process Description.
 - section_id: '1.10'
   name: Objective
   criteria:
-  - States the purpose of the process and the intended outcome or goal to be achieved.
-  - Is specific and concise.
+  - States the substantive purpose of the process and the intended operational outcome or goal to be achieved.
+  - Must specify tangible, measurable business outcomes and targets (e.g., TAT thresholds, error reduction, quality benchmarks, compliance goals).
+  - Must not be superficial, generic, or overly brief (at least 20 words with clear success benchmarks).
   - Does not merely repeat the Introduction.
-  - Does not contain unrelated background or recommendations.
 - section_id: '1.11'
   name: Process Flowchart
   criteria:

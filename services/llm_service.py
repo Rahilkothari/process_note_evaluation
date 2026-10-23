@@ -50,16 +50,55 @@ class MockProvider(LLMProvider):
             score = 50.0
             severity = "MEDIUM"
 
+        content_words = len(section_content.split())
+
         if len(section_content.strip()) < 15 and not section_rules.get("allow_short", False):
             issues.append("Response is too brief to adequately document enterprise operational procedures.")
-            recommendations.append("Expand the section with complete details.")
+            recommendations.append("Expand the section with complete operational details.")
             questions.append("Can you provide the step-by-step breakdown and tools used for this section?")
             status = "NEEDS_REVISION"
             score = 0.0
             severity = "HIGH"
 
+        # Specific mock checks for 1.10 Objective: Must have substance & measurable outcomes
+        elif sec_id == "1.10":
+            if content_words < 20:
+                issues.append(f"Objective is too brief ({content_words} words). A professional process note objective must state the operational purpose and measurable business outcomes.")
+                recommendations.append("Expand the objective to specify tangible benchmarks (e.g., TAT targets, accuracy thresholds, compliance goals).")
+                questions.append("What specific measurable outcome or performance benchmark determines success for this process?")
+                status = "WARNING"
+                score = 50.0
+                severity = "MEDIUM"
+            elif not any(term in content_lower for term in ["target", "outcome", "ensure", "achieve", "deliver", "%", "tat", "timeline", "standard", "quality", "compliant"]):
+                issues.append("Objective lacks tangible, measurable performance targets or business outcomes.")
+                recommendations.append("Include quantitative benchmarks (e.g., TAT <= 5 days, 98% accuracy) to define success.")
+                questions.append("What is the exact target turnaround time or quality threshold for this objective?")
+                status = "WARNING"
+                score = 50.0
+                severity = "MEDIUM"
+
+        # Specific mock checks for 1.9 Introduction: Must have background & rationale
+        elif sec_id == "1.9":
+            if content_words < 25:
+                issues.append(f"Introduction is too brief ({content_words} words). Must articulate organizational context and the rationale for standardizing this process.")
+                recommendations.append("Provide context on why this process exists and what operational challenges or risks standardization solves.")
+                questions.append("What organizational necessity or operational risk led to the standardization of this process?")
+                status = "WARNING"
+                score = 50.0
+                severity = "MEDIUM"
+
+        # Specific mock checks for 1.6 Process Coverage / Scope: Must have boundaries & exclusions
+        elif sec_id == "1.6":
+            if content_words < 20 or not any(term in content_lower for term in ["exclude", "out-of-scope", "out of scope", "not cover", "boundary"]):
+                issues.append("Process Coverage / Scope must explicitly specify operational boundaries, including what is explicitly OUT-OF-SCOPE.")
+                recommendations.append("Add a distinct 'Out-of-Scope / Exclusions' section specifying activities not covered.")
+                questions.append("What related activities, programs, or stakeholder tasks are explicitly excluded from this process note?")
+                status = "WARNING"
+                score = 50.0
+                severity = "MEDIUM"
+
         # Specific mock check for 1.12 Process Description
-        if sec_id == "1.12":
+        elif sec_id == "1.12":
             if "input" not in content_lower and "tool" not in content_lower and "check" not in content_lower:
                 issues.append("Process Description lacks explicit details on data inputs, tools/systems used, and verification checks.")
                 recommendations.append("Document: 1) Data inputs, 2) Tools/systems, 3) Hand-offs, 4) Deliverables, 5) Approval checks.")
@@ -188,7 +227,43 @@ TEAM GOVERNANCE (FINANCE): Ensure Maker/Checker principles, delegation of author
 """
 
         section_specific_prompt = ""
-        if sec_id == "1.12":
+        if sec_id == "1.10":
+            section_specific_prompt = """
+MANDATORY AUDIT FOR SECTION 1.10 (OBJECTIVE):
+- Must articulate a substantive, comprehensive business objective.
+- MUST state:
+  1) The primary operational purpose of the process.
+  2) The tangible, measurable business outcomes and targets (e.g., turnaround time thresholds, accuracy rates, compliance adherence, error reduction).
+  3) Organizational value and alignment.
+- STRICT DEPTH ENFORCEMENT: If the objective is brief (fewer than 20-25 words), superficial, or merely states a generic intent without concrete measurable targets or deliverables:
+  DO NOT ASSIGN PASS (Score: 100).
+  You MUST assign WARNING (Score: 50) or NEEDS_REVISION (Score: 0).
+  Specifically state in 'issues' that the objective is too brief and lacks measurable targets, and formulate clarification questions asking for specific success benchmarks.
+"""
+        elif sec_id == "1.9":
+            section_specific_prompt = """
+MANDATORY AUDIT FOR SECTION 1.9 (INTRODUCTION):
+- Must provide substantive organizational context and background rationale.
+- MUST cover:
+  1) Operational context and background within the organization.
+  2) Why standardizing this specific process is critical (e.g. risk mitigation, consistency, auditability).
+- STRICT DEPTH ENFORCEMENT: If the introduction is merely 1-2 generic sentences (fewer than 25-30 words):
+  DO NOT ASSIGN PASS (Score: 100).
+  You MUST assign WARNING (Score: 50) or NEEDS_REVISION (Score: 0).
+  Request the Process Owner to detail the organizational necessity.
+"""
+        elif sec_id == "1.6":
+            section_specific_prompt = """
+MANDATORY AUDIT FOR SECTION 1.6 (PROCESS COVERAGE / SCOPE):
+- Must clearly define operational boundaries.
+- MUST explicitly specify BOTH:
+  1) IN-SCOPE: Specific activities, programs, locations, and teams covered.
+  2) OUT-OF-SCOPE: Related activities, handoffs, or teams explicitly excluded.
+- STRICT DEPTH ENFORCEMENT: If the scope is only a brief generic phrase or fails to explicitly state out-of-scope exclusions:
+  DO NOT ASSIGN PASS (Score: 100).
+  Assign WARNING (Score: 50). Ask what related activities are explicitly excluded.
+"""
+        elif sec_id == "1.12":
             section_specific_prompt = """
 MANDATORY 6-DIMENSION AUDIT FOR SECTION 1.12 (PROCESS DESCRIPTION):
 Evaluate whether the steps provide clear, actionable details across these 6 enterprise dimensions:
@@ -199,7 +274,7 @@ Evaluate whether the steps provide clear, actionable details across these 6 ente
 5. Expected outcome or deliverable of each activity and the overall process.
 6. Checks, validations, and approvals (who verifies, against what criteria).
 
-If ANY of these 6 dimensions are missing, vague, or incomplete:
+If ANY of these 6 dimensions are missing, vague, or if descriptions are brief 1-liners:
 - Assign status WARNING (score 50) or NEEDS_REVISION (score 0).
 - Specifically state the missing dimension in 'issues'.
 - Formulate 1 to 3 direct, probing CLARIFICATION QUESTIONS for the Process Owner to ask for the exact missing information.
@@ -234,10 +309,15 @@ Content to validate:
 
 CRITICAL INSTRUCTIONS FOR SCORING AND OUTPUT:
 Assess whether the content is complete, logical, and clearly documented from an organizational audit perspective.
+STRICT AUDIT RULE ON SUBSTANCE & DEPTH:
+- NEVER assign PASS (Score: 100) to brief, superficial, or shallow descriptions.
+- Sections requiring narrative explanation (e.g., Objective 1.10, Introduction 1.9, Scope 1.6, Process Description 1.12) must have comprehensive operational depth, clarity, and specific details.
+- If a section contains only 1-2 brief generic sentences (e.g. fewer than 20-25 words) or lacks concrete metrics, targets, or boundaries, you MUST assign WARNING (Score: 50) or NEEDS_REVISION (Score: 0).
+
 You MUST output exactly one of the following fixed scores and statuses:
 
 1. PASS (Score: 100):
-   - The content fully addresses the requirements and meets all evaluation criteria.
+   - The content fully addresses the requirements and meets all evaluation criteria with proper depth.
    - The logic is sound, end-to-end steps are documented, and no critical elements are missing.
    - Leave "issues", "recommendations", and "questions" COMPLETELY EMPTY.
 

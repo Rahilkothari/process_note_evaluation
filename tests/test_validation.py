@@ -93,7 +93,43 @@ def test_rule_validator_basic():
     assert len(issues) > 0
     assert "content is empty" in issues[0].lower()
     
-    # Test required text field filled
+    # Test required text field filled with brief text (should flag as too brief)
     section.content = "Some text"
     issues = validator.validate(section, config)
+    assert len(issues) > 0
+    assert "too brief" in issues[0].lower()
+
+    # Test substantive text passes
+    section.content = "This section establishes the operational protocol for onboarding partner schools with full stakeholder accountability and audit compliance across the foundation program."
+    issues = validator.validate(section, config)
     assert len(issues) == 0
+
+
+def test_objective_depth_validation():
+    from core.rule_validator import RuleValidator
+    validator = RuleValidator()
+    config = {"sections": [{"id": "1.10", "name": "Objective", "type": "text"}]}
+
+    # 1. Superficial objective (< 20 words)
+    short_sec = ProcessSectionSchema(section_id="1.10", content="To onboard schools.", structured_data=[])
+    issues = validator.validate(short_sec, config)
+    assert any("too brief" in iss.lower() for iss in issues)
+
+    # 2. Objective without measurable outcome
+    vague_sec = ProcessSectionSchema(
+        section_id="1.10",
+        content="The objective of this process note is to define how partner schools are managed and handled by our team members during each school term across the region.",
+        structured_data=[]
+    )
+    issues = validator.validate(vague_sec, config)
+    assert any("lacks tangible business outcomes" in iss.lower() or "measurable" in iss.lower() for iss in issues)
+
+    # 3. Substantive objective with measurable targets
+    good_sec = ProcessSectionSchema(
+        section_id="1.10",
+        content="To establish a standardized, error-free onboarding mechanism for 200+ partner schools, ensuring 100% compliance with statutory norms and delivering completed agreements within a target 5-day TAT.",
+        structured_data=[]
+    )
+    issues = validator.validate(good_sec, config)
+    assert len(issues) == 0
+

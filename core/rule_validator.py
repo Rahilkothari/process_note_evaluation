@@ -9,10 +9,38 @@ class RuleValidator:
         if not section_config:
             return issues
 
-        # Check for missing content
+        # Check for text sections depth and substance
         if section_config["type"] == "text":
-            if not section.content or not str(section.content).strip():
+            content_str = str(section.content or "").strip()
+            if not content_str:
                 issues.append("Section content is empty.")
+            else:
+                words = content_str.split()
+                word_count = len(words)
+                content_lower = content_str.lower()
+
+                # 1.10 Objective: Must not be superficial; must state purpose & measurable outcome
+                if section.section_id == "1.10":
+                    if word_count < 20:
+                        issues.append(f"Objective is too brief ({word_count} words). A professional process note objective must state the clear operational purpose, scope of impact, and measurable business outcomes (e.g., TAT targets, accuracy thresholds, compliance goals).")
+                    elif not any(term in content_lower for term in ["target", "outcome", "ensure", "achieve", "deliver", "%", "tat", "timeline", "standard", "quality", "compliant", "timely", "error"]):
+                        issues.append("Objective lacks tangible business outcomes or measurable performance targets. Specify what measurable success looks like.")
+
+                # 1.9 Introduction: Must articulate background context and rationale
+                elif section.section_id == "1.9":
+                    if word_count < 25:
+                        issues.append(f"Introduction is too brief ({word_count} words). Must articulate the organizational background, operational setting, and the rationale for standardizing this process.")
+
+                # 1.6 Process Coverage / Scope: Must define both in-scope and out-of-scope boundaries
+                elif section.section_id == "1.6":
+                    if word_count < 20:
+                        issues.append(f"Process Coverage / Scope is too brief ({word_count} words). Must define in-scope activities, covered locations/teams, and explicit exclusions.")
+                    if not any(term in content_lower for term in ["exclude", "out-of-scope", "out of scope", "not cover", "boundary", "limitation", "inclusion", "in-scope"]):
+                        issues.append("Process Coverage / Scope must explicitly specify operational boundaries (both what is INCLUDED and what is EXCLUDED).")
+
+                # General text section minimum
+                elif word_count < 15:
+                    issues.append(f"Section content is too brief ({word_count} words). Please provide adequate operational detail as required by organizational standards.")
 
         elif section_config["type"] in ["file", "flowchart"]:
             if not section.content or not str(section.content).strip():
@@ -31,6 +59,26 @@ class RuleValidator:
                         if not any(m_role in r_val for r_val in roles) and not any(m_role in n_val for n_val in names):
                             issues.append(f"Missing mandatory role: {m_role.title()}")
 
+                # 1.7 Start Point
+                elif section.section_id == "1.7":
+                    for idx, row in enumerate(section.structured_data, 1):
+                        act = str(row.get("Activity", "")).strip()
+                        crit = str(row.get("Entry Criteria", "")).strip()
+                        if not act:
+                            issues.append(f"Row {idx}: Initiating Activity is missing.")
+                        if not crit or len(crit.split()) < 4:
+                            issues.append(f"Row {idx}: Entry Criteria is too brief or missing. Specify prerequisites before process starts.")
+
+                # 1.8 End Point
+                elif section.section_id == "1.8":
+                    for idx, row in enumerate(section.structured_data, 1):
+                        act = str(row.get("Activity", "")).strip()
+                        crit = str(row.get("Exit Criteria", "")).strip()
+                        if not act:
+                            issues.append(f"Row {idx}: Concluding Activity is missing.")
+                        if not crit or len(crit.split()) < 4:
+                            issues.append(f"Row {idx}: Exit Criteria is too brief or missing. Specify deliverables/sign-offs required to complete.")
+
                 # 1.12 Process Description
                 elif section.section_id == "1.12":
                     for idx, row in enumerate(section.structured_data, 1):
@@ -40,12 +88,15 @@ class RuleValidator:
                             issues.append(f"Row {idx}: Activity title is missing.")
                         if not desc or desc.lower() in ["none", "nan"]:
                             issues.append(f"Row {idx}: Activity description is missing.")
+                        else:
+                            desc_words = len(desc.split())
+                            if desc_words < 15:
+                                issues.append(f"Row {idx} ('{act}'): Activity description is too brief ({desc_words} words). Sub-steps, tools, hand-offs, and verification checks must be clearly articulated.")
 
                 # 1.13 RACI Matrix
                 elif section.section_id == "1.13":
                     boolean_terms = {"yes", "no", "y", "n", "true", "false", "na", "n/a"}
                     for idx, row in enumerate(section.structured_data, 1):
-                        # Support both new standard format and legacy format
                         act_name = str(row.get("Activity name", row.get("Activity", row.get("Roles", "")))).strip()
                         resp = str(row.get("Responsible", row.get("Responsible ( R )", row.get("Responsible (R)", "")))).strip()
                         acct = str(row.get("Accountable", row.get("Accountable ( A )", row.get("Accountable (A)", "")))).strip()
@@ -57,5 +108,14 @@ class RuleValidator:
                             issues.append(f"Row {idx} ({act_name}): 'Responsible' specifies '{resp}'. Must specify a job title/designation (e.g. Manager, PH), not Yes/No.")
                         if acct.lower() in boolean_terms:
                             issues.append(f"Row {idx} ({act_name}): 'Accountable' specifies '{acct}'. Must specify a job title/designation (e.g. Manager, Vertical Lead), not Yes/No.")
+
+                # 1.14 Business Rules
+                elif section.section_id == "1.14":
+                    for idx, row in enumerate(section.structured_data, 1):
+                        rule_text = str(row.get("Business Rules", row.get("Business Rule", ""))).strip()
+                        if not rule_text or rule_text.lower() in ["none", "nan"]:
+                            issues.append(f"Row {idx}: Business Rule entry is empty.")
+                        elif len(rule_text.split()) < 8:
+                            issues.append(f"Row {idx}: Business Rule is too brief ('{rule_text}'). State the complete operational condition and enforcement boundary.")
 
         return issues
