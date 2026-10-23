@@ -238,46 +238,230 @@ try:
         sec_id = sec_config['id']
         existing_sec = existing_sections.get(sec_id)
 
-        # AI Process Co-pilot: Guided Q&A Assistant for Creator
-        from config.guided_questions import SECTION_GUIDED_QUESTIONS
-        gq = SECTION_GUIDED_QUESTIONS.get(sec_id)
-        if gq:
-            with st.expander(f"💡 Need Help? AI Process Co-pilot ({gq['title']})", expanded=False):
-                st.markdown("**Answer these simple questions to auto-generate this section:**")
-                for q in gq["questions"]:
-                    st.markdown(f"- *{q}*")
+        # AI Process Co-pilot: Interactive Guided Assistant for Creator
+        import datetime
+        from config.guided_questions import (
+            SECTION_GUIDED_SPECS,
+            compute_next_review_date,
+            build_table_rows_from_answers,
+            build_text_summary_from_answers,
+            build_mermaid_flowchart_from_answers
+        )
+        spec = SECTION_GUIDED_SPECS.get(sec_id)
+        if spec:
+            with st.expander(f"💡 Need Help? AI Process Co-pilot ({spec['title']})", expanded=False):
+                st.markdown(f"<p style='color: #4B5563; font-size: 14px; margin-bottom: 12px;'><i>{spec['intro']}</i></p>", unsafe_allow_html=True)
                 
-                qa_text = st.text_area(
-                    "Your rough notes / answers to the above questions:",
-                    placeholder=gq.get("placeholder", "Type your points or bullets here..."),
-                    key=f"qa_input_{sec_id}",
-                    height=110
-                )
-                if st.button("✨ Auto-Generate & Apply to Section", key=f"btn_qa_{sec_id}", type="secondary"):
-                    if not qa_text.strip():
-                        st.warning("Please type your rough notes or answers before generating.")
+                answers = {}
+                fields = spec.get("fields", [])
+                
+                # Special high-polish interactive wizard for Section 1.3: Document Review Cycle
+                if sec_id == "1.3":
+                    ex_data = existing_sec.structured_data[0] if (existing_sec and existing_sec.structured_data) else {}
+                    
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        eff_val = st.date_input(
+                            "1. Effective Date (When this process goes live):",
+                            value=datetime.date.today(),
+                            key=f"qa_{sec_id}_eff_date",
+                            help="The date from which this version of the process becomes binding."
+                        )
+                    with c2:
+                        freq_options = [
+                            "Annual (Every 12 months)",
+                            "Semi-Annual (Every 6 months)",
+                            "Quarterly (Every 3 months)",
+                            "Monthly",
+                            "Biennial (Every 2 years)",
+                            "Event-triggered / As needed"
+                        ]
+                        freq_val = st.selectbox(
+                            "2. How often must this document be reviewed?",
+                            options=freq_options,
+                            index=0,
+                            key=f"qa_{sec_id}_freq",
+                            help="Corporate governance standard review cycle frequency."
+                        )
+                    
+                    calculated_next = compute_next_review_date(eff_val, freq_val)
+                    combo_key = f"_combo_{sec_id}"
+                    curr_combo = f"{eff_val}_{freq_val}"
+                    if st.session_state.get(combo_key) != curr_combo:
+                        st.session_state[f"qa_{sec_id}_next_date"] = calculated_next
+                        st.session_state[combo_key] = curr_combo
+
+                    c3, c4 = st.columns(2)
+                    with c3:
+                        next_val = st.date_input(
+                            "3. Scheduled Next Review Date:",
+                            value=st.session_state.get(f"qa_{sec_id}_next_date", calculated_next),
+                            key=f"qa_{sec_id}_next_date",
+                            help="Auto-calculated from Effective Date + Frequency (you can adjust if needed)."
+                        )
+                    with c4:
+                        def_owner = ex_data.get("Process Owner") or "Program Head"
+                        owner_role = st.text_input(
+                            "4. Designated Process Owner (Role / Designation):",
+                            value=def_owner,
+                            placeholder="e.g. Program Head (or Operations Manager)",
+                            key=f"qa_{sec_id}_owner",
+                            help="Designation responsible for the periodic review."
+                        )
+                    
+                    c5, c6 = st.columns(2)
+                    with c5:
+                        user_name = st.session_state.get("current_user_name", "")
+                        def_name = ex_data.get("Name") or user_name
+                        owner_name = st.text_input(
+                            "5. Process Owner Name:",
+                            value=def_name,
+                            placeholder="e.g. John Doe",
+                            key=f"qa_{sec_id}_name"
+                        )
+                    with c6:
+                        def_sign = ex_data.get("Sign") or ("".join([p[0].upper() for p in def_name.split()[:2]]) if def_name else "PH")
+                        owner_sign = st.text_input(
+                            "6. Signature Code / Initials:",
+                            value=def_sign,
+                            placeholder="e.g. JD or PH",
+                            key=f"qa_{sec_id}_sign"
+                        )
+                    
+                    answers = {
+                        "eff_date": eff_val,
+                        "review_frequency": freq_val,
+                        "next_review_date": next_val,
+                        "process_owner": owner_role,
+                        "owner_name": owner_name,
+                        "owner_sign": owner_sign
+                    }
+                else:
+                    # General interactive questionnaire layout for all other sections
+                    i = 0
+                    while i < len(fields):
+                        f = fields[i]
+                        f_type = f.get("type", "text")
+                        
+                        next_f = fields[i+1] if i + 1 < len(fields) else None
+                        next_f_type = next_f.get("type", "text") if next_f else None
+                        
+                        can_pair = (f_type in ["text", "date", "select"]) and (next_f_type in ["text", "date", "select"] if next_f else False)
+                        
+                        if can_pair and next_f:
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                if f_type == "date":
+                                    answers[f["id"]] = st.date_input(f["label"], value=datetime.date.today(), key=f"qa_{sec_id}_{f['id']}", help=f.get("help"))
+                                elif f_type == "select":
+                                    answers[f["id"]] = st.selectbox(f["label"], options=f.get("options", []), key=f"qa_{sec_id}_{f['id']}", help=f.get("help"))
+                                else:
+                                    answers[f["id"]] = st.text_input(f["label"], placeholder=f.get("placeholder", ""), key=f"qa_{sec_id}_{f['id']}", help=f.get("help"))
+                            with col2:
+                                if next_f_type == "date":
+                                    answers[next_f["id"]] = st.date_input(next_f["label"], value=datetime.date.today(), key=f"qa_{sec_id}_{next_f['id']}", help=next_f.get("help"))
+                                elif next_f_type == "select":
+                                    answers[next_f["id"]] = st.selectbox(next_f["label"], options=next_f.get("options", []), key=f"qa_{sec_id}_{next_f['id']}", help=next_f.get("help"))
+                                else:
+                                    answers[next_f["id"]] = st.text_input(next_f["label"], placeholder=next_f.get("placeholder", ""), key=f"qa_{sec_id}_{next_f['id']}", help=next_f.get("help"))
+                            i += 2
+                        else:
+                            if f_type == "date":
+                                answers[f["id"]] = st.date_input(f["label"], value=datetime.date.today(), key=f"qa_{sec_id}_{f['id']}", help=f.get("help"))
+                            elif f_type == "select":
+                                answers[f["id"]] = st.selectbox(f["label"], options=f.get("options", []), key=f"qa_{sec_id}_{f['id']}", help=f.get("help"))
+                            elif f_type == "textarea":
+                                answers[f["id"]] = st.text_area(f["label"], placeholder=f.get("placeholder", ""), height=80, key=f"qa_{sec_id}_{f['id']}", help=f.get("help"))
+                            else:
+                                answers[f["id"]] = st.text_input(f["label"], placeholder=f.get("placeholder", ""), key=f"qa_{sec_id}_{f['id']}", help=f.get("help"))
+                            i += 1
+
+                st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
+                
+                # Action buttons depending on section type
+                if sec_config["type"] == "table":
+                    multi_row_sections = ["1.12", "1.13", "1.5", "1.14", "1.15", "1.16", "1.17", "1.18", "1.19", "1.20", "1.21", "1.22"]
+                    if sec_id in multi_row_sections:
+                        col_btn1, col_btn2 = st.columns([1, 1])
+                        with col_btn1:
+                            apply_btn = st.button("✨ Set / Overwrite Table", key=f"btn_apply_{sec_id}", type="primary", use_container_width=True)
+                        with col_btn2:
+                            append_btn = st.button("➕ Add as New Row to Table", key=f"btn_append_{sec_id}", use_container_width=True)
                     else:
+                        apply_btn = st.button(f"✨ Apply Answers to {sec_config['name']} Table", key=f"btn_apply_{sec_id}", type="primary")
+                        append_btn = False
+
+                    if apply_btn:
+                        new_rows = build_table_rows_from_answers(sec_id, answers)
+                        if not existing_sec:
+                            new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=new_rows)
+                            db.add(new_sec)
+                        else:
+                            existing_sec.structured_data = new_rows
+                        db.commit()
+                        st.success(f"✅ {sec_config['name']} table populated from your answers! Check the table below.")
+                        st.rerun()
+
+                    if append_btn:
+                        new_rows = build_table_rows_from_answers(sec_id, answers)
+                        existing_rows = existing_sec.structured_data if (existing_sec and existing_sec.structured_data) else []
+                        if sec_id == "1.13" and new_rows:
+                            new_rows[0]["Sr. No."] = len(existing_rows) + 1
+                        combined_rows = existing_rows + new_rows
+                        if not existing_sec:
+                            new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=combined_rows)
+                            db.add(new_sec)
+                        else:
+                            existing_sec.structured_data = combined_rows
+                        db.commit()
+                        st.success(f"✅ New row added to {sec_config['name']} table! Check below.")
+                        st.rerun()
+
+                elif sec_config["type"] == "flowchart":
+                    if st.button("✨ Auto-Generate Flowchart from Steps", key=f"btn_flow_{sec_id}", type="primary"):
+                        mermaid_code = build_mermaid_flowchart_from_answers(answers)
+                        if not existing_sec:
+                            new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=mermaid_code)
+                            db.add(new_sec)
+                        else:
+                            existing_sec.content = mermaid_code
+                        db.commit()
+                        st.success("✅ Flowchart updated from your steps! Check preview below.")
+                        st.rerun()
+
+                elif sec_config["type"] == "text":
+                    col_t1, col_t2 = st.columns([1, 1])
+                    with col_t1:
+                        apply_text_btn = st.button("✨ Apply Answers to Section", key=f"btn_apply_txt_{sec_id}", type="primary", use_container_width=True)
+                    with col_t2:
+                        ai_text_btn = st.button("🤖 Polish & Synthesize with AI", key=f"btn_ai_txt_{sec_id}", use_container_width=True)
+
+                    if apply_text_btn:
+                        formatted_content = build_text_summary_from_answers(sec_id, answers)
+                        if not existing_sec:
+                            new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=formatted_content)
+                            db.add(new_sec)
+                        else:
+                            existing_sec.content = formatted_content
+                        db.commit()
+                        st.success("✅ Section content updated from your answers! Check below.")
+                        st.rerun()
+
+                    if ai_text_btn:
                         with st.spinner("AI is synthesizing professional enterprise content..."):
                             from services.llm_service import get_llm_provider
                             llm = get_llm_provider()
-                            gen_result = llm.generate_section_from_qa(sec_id, sec_config, qa_text, team_name=current_note.team)
-                            
-                            if sec_config["type"] == "text":
-                                if not existing_sec:
-                                    new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=gen_result)
-                                    db.add(new_sec)
-                                else:
-                                    existing_sec.content = gen_result
-                                db.commit()
-                            elif sec_config["type"] == "table" and isinstance(gen_result, list):
-                                if not existing_sec:
-                                    new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=gen_result)
-                                    db.add(new_sec)
-                                else:
-                                    existing_sec.structured_data = gen_result
-                                db.commit()
-                            st.success("Section updated successfully from your answers! Review below.")
+                            raw_notes = build_text_summary_from_answers(sec_id, answers)
+                            gen_result = llm.generate_section_from_qa(sec_id, sec_config, raw_notes, team_name=current_note.team)
+                            if not existing_sec:
+                                new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=gen_result)
+                                db.add(new_sec)
+                            else:
+                                existing_sec.content = gen_result
+                            db.commit()
+                            st.success("✅ Section synthesized with AI! Check below.")
                             st.rerun()
+
 
         with st.container():
             if sec_config["type"] == "text":

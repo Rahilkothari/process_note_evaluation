@@ -1,195 +1,1112 @@
-# Guided questions registry for all 22 Process Note sections
-# Designed for creators to easily answer questions and auto-generate corporate-grade sections
+import datetime
+from typing import Dict, Any, List
 
-SECTION_GUIDED_QUESTIONS = {
+# Comprehensive Guided Questions & Interactive Assistant Specifications for all 22 Sections
+# Allows creators to fill structured, intuitive fields (date pickers, dropdowns, text inputs)
+# and automatically populate corporate-grade tables or text sections.
+
+def compute_next_review_date(eff_date: datetime.date, freq_str: str) -> datetime.date:
+    """Calculates the scheduled next review date based on effective date and review frequency."""
+    if not isinstance(eff_date, datetime.date):
+        eff_date = datetime.date.today()
+    freq_lower = freq_str.lower() if freq_str else ""
+    try:
+        if "semi-annual" in freq_lower or "6 months" in freq_lower or "half" in freq_lower:
+            month = eff_date.month + 6
+            year = eff_date.year + (month - 1) // 12
+            month = (month - 1) % 12 + 1
+            day = min(eff_date.day, 28)
+            return datetime.date(year, month, day)
+        elif "quarter" in freq_lower or "3 months" in freq_lower:
+            month = eff_date.month + 3
+            year = eff_date.year + (month - 1) // 12
+            month = (month - 1) % 12 + 1
+            day = min(eff_date.day, 28)
+            return datetime.date(year, month, day)
+        elif "monthly" in freq_lower or "1 month" in freq_lower:
+            month = eff_date.month + 1
+            year = eff_date.year + (month - 1) // 12
+            month = (month - 1) % 12 + 1
+            day = min(eff_date.day, 28)
+            return datetime.date(year, month, day)
+        elif "biennial" in freq_lower or "2 years" in freq_lower:
+            return datetime.date(eff_date.year + 2, eff_date.month, min(eff_date.day, 28))
+        else:
+            # Default Annual (12 months)
+            return datetime.date(eff_date.year + 1, eff_date.month, min(eff_date.day, 28))
+    except Exception:
+        return eff_date + datetime.timedelta(days=365)
+
+
+SECTION_GUIDED_SPECS: Dict[str, Dict[str, Any]] = {
     "1.1": {
         "title": "Approval Matrix Guided Assistant",
-        "questions": [
-            "Who is the Process Owner ultimately responsible for this process (Name, Designation, Function)?",
-            "Who is the Process Reviewer responsible for verifying the accuracy of this note?",
-            "Who is the Process Approver providing final leadership sign-off?"
-        ],
-        "placeholder": "e.g., Owner: John Doe (Manager, PedTech), Reviewer: Jane Smith (Quality Lead), Approver: Robert Brown (Director, Operations)"
+        "intro": "Specify the key individuals responsible for reviewing and approving this process note:",
+        "type": "table",
+        "fields": [
+            {
+                "id": "owner",
+                "label": "Process Owner (Name | Function | Sign):",
+                "type": "text",
+                "placeholder": "e.g., John Doe | PedTech Operations | JD",
+                "help": "Designation/Name, Functional Department, and Initials."
+            },
+            {
+                "id": "reviewer",
+                "label": "Process Reviewer (Name | Function | Sign):",
+                "type": "text",
+                "placeholder": "e.g., Jane Smith | Quality & Excellence | JS",
+                "help": "Reviewer responsible for checking quality and accuracy."
+            },
+            {
+                "id": "approver",
+                "label": "Process Approver (Name | Function | Sign):",
+                "type": "text",
+                "placeholder": "e.g., Robert Brown | Director, Operations | RB",
+                "help": "Leadership authority providing final sign-off."
+            },
+            {
+                "id": "sign_date",
+                "label": "Approval / Sign Date:",
+                "type": "date",
+                "help": "Date of final review and approval."
+            }
+        ]
     },
     "1.2": {
         "title": "Document Change History Guided Assistant",
-        "questions": [
-            "Is this the initial draft (v1.0), or are you revising an existing process note?",
-            "If revising, what specific changes or amendments were made and who requested them?"
-        ],
-        "placeholder": "e.g., Initial version 1.0 created for standardizing school onboarding process."
+        "intro": "Track the version number, effective date, and scope of changes:",
+        "type": "table",
+        "fields": [
+            {
+                "id": "version",
+                "label": "Version Number:",
+                "type": "select",
+                "options": ["1.0 (Initial Draft)", "1.1 (Minor Revision)", "1.2 (Periodic Review)", "2.0 (Major Overhaul)"],
+                "default": "1.0 (Initial Draft)"
+            },
+            {
+                "id": "eff_date",
+                "label": "Effective Date (when changes take effect):",
+                "type": "date"
+            },
+            {
+                "id": "change_date",
+                "label": "Change Date:",
+                "type": "date"
+            },
+            {
+                "id": "amendment",
+                "label": "Summary of Changes / Amendment:",
+                "type": "textarea",
+                "placeholder": "e.g., Initial baseline version created for standardizing partner school onboarding."
+            },
+            {
+                "id": "req_by",
+                "label": "Change Requested By:",
+                "type": "text",
+                "placeholder": "e.g., Program Director / Business Excellence"
+            },
+            {
+                "id": "made_by",
+                "label": "Change Made By:",
+                "type": "text",
+                "placeholder": "e.g., Program Head (Creator)"
+            }
+        ]
     },
     "1.3": {
         "title": "Document Review Cycle Guided Assistant",
-        "questions": [
-            "What is the effective date when this process goes live?",
-            "How often must this document be reviewed (e.g. Annually, Every 6 months)?",
-            "Who is the designated Process Owner responsible for the review?"
-        ],
-        "placeholder": "e.g., Effective: 2026-04-01, Review Cycle: Annual (Next Review: 2027-03-31), Owner: Program Head"
+        "intro": "Set the governance policy for when and how frequently this process note must be audited:",
+        "type": "table",
+        "fields": [
+            {
+                "id": "eff_date",
+                "label": "1. Effective Date (When this process goes live):",
+                "type": "date",
+                "help": "The date from which this version of the process becomes binding."
+            },
+            {
+                "id": "review_frequency",
+                "label": "2. How often must this document be reviewed?",
+                "type": "select",
+                "options": [
+                    "Annual (Every 12 months)",
+                    "Semi-Annual (Every 6 months)",
+                    "Quarterly (Every 3 months)",
+                    "Monthly",
+                    "Biennial (Every 2 years)",
+                    "Event-triggered / As needed"
+                ],
+                "default": "Annual (Every 12 months)",
+                "help": "Corporate standard is Annual or Semi-Annual."
+            },
+            {
+                "id": "next_review_date",
+                "label": "3. Scheduled Next Review Date:",
+                "type": "calculated_date",
+                "help": "Auto-calculated based on effective date and cycle. You can adjust if needed."
+            },
+            {
+                "id": "process_owner",
+                "label": "4. Designated Process Owner (Role / Designation):",
+                "type": "text",
+                "placeholder": "e.g., Program Head (or Operations Manager)",
+                "help": "Job title or designation responsible for the review."
+            },
+            {
+                "id": "owner_name",
+                "label": "5. Process Owner Name:",
+                "type": "text",
+                "placeholder": "e.g., John Doe",
+                "help": "Full name of the designated review owner."
+            },
+            {
+                "id": "owner_sign",
+                "label": "6. Signature Code / Initials:",
+                "type": "text",
+                "placeholder": "e.g., JD or PH",
+                "help": "Short signature abbreviation."
+            }
+        ]
     },
     "1.4": {
         "title": "Related Documents Guided Assistant",
-        "questions": [
-            "What organizational policies, SOPs, templates, or system manuals are linked to this process?",
-            "What are their document IDs and official names?"
-        ],
-        "placeholder": "e.g., SOP-OPS-012: School Partnership Policy, FORM-04: Onboarding Assessment Form"
+        "intro": "Link connected organizational policies, SOPs, and standard templates:",
+        "type": "table",
+        "fields": [
+            {
+                "id": "policy_id",
+                "label": "1. Policy or SOP Document ID:",
+                "type": "text",
+                "placeholder": "e.g., SOP-OPS-012"
+            },
+            {
+                "id": "doc_name",
+                "label": "2. Official Document Name:",
+                "type": "text",
+                "placeholder": "e.g., Partner School Onboarding Policy & Guidelines"
+            },
+            {
+                "id": "template_name",
+                "label": "3. Associated Assessment Forms / Templates (Optional):",
+                "type": "text",
+                "placeholder": "e.g., FORM-04 Due Diligence Assessment Scorecard"
+            }
+        ]
     },
     "1.5": {
         "title": "Process Performance Parameters / KPIs Guided Assistant",
-        "questions": [
-            "What measurable KPIs determine whether this process is successful (e.g., Turnaround Time < 48 hrs, Onboarding Accuracy > 95%)?",
-            "Who is the Maker and Checker for measuring each KPI?",
-            "What is the data source or report used, and how frequently is it reviewed?"
-        ],
-        "placeholder": "e.g., KPI 1: Onboarding TAT under 5 days, Owner: Manager, Target: 98%, Maker: Field Lead, Checker: Manager, Source: MIS Dashboard, Review: Monthly"
+        "intro": "Define measurable SMART KPIs to track operational performance and governance:",
+        "type": "table",
+        "fields": [
+            {
+                "id": "kpi_desc",
+                "label": "1. Measurable KPI Metric & Description:",
+                "type": "text",
+                "placeholder": "e.g., School Onboarding Turnaround Time (TAT) from application to MOU"
+            },
+            {
+                "id": "target",
+                "label": "2. Target Benchmark:",
+                "type": "text",
+                "placeholder": "e.g., <= 5 Business Days (Adherence >= 98%)"
+            },
+            {
+                "id": "owner",
+                "label": "3. KPI Owner (Role):",
+                "type": "text",
+                "placeholder": "e.g., Program Head"
+            },
+            {
+                "id": "maker",
+                "label": "4. Maker (Who records / inputs performance data):",
+                "type": "text",
+                "placeholder": "e.g., Field Officer"
+            },
+            {
+                "id": "checker",
+                "label": "5. Checker (Who audits / verifies performance data):",
+                "type": "text",
+                "placeholder": "e.g., Operations Manager"
+            },
+            {
+                "id": "report_freq",
+                "label": "6. Report Generation Frequency:",
+                "type": "select",
+                "options": ["Monthly", "Weekly", "Daily", "Quarterly"],
+                "default": "Monthly"
+            },
+            {
+                "id": "review_freq",
+                "label": "7. Leadership Review Frequency:",
+                "type": "select",
+                "options": ["Monthly", "Quarterly", "Semi-Annually", "Annually"],
+                "default": "Monthly"
+            },
+            {
+                "id": "data_source",
+                "label": "8. Data Source & Report Name:",
+                "type": "text",
+                "placeholder": "e.g., MIS Onboarding Portal Dashboard"
+            }
+        ]
     },
     "1.6": {
         "title": "Process Coverage / Scope Guided Assistant",
-        "questions": [
-            "What specific activities, programs, teams, or locations are INCLUDED in this process?",
-            "What related activities or teams are explicitly EXCLUDED from this process note?"
-        ],
-        "placeholder": "e.g., INCLUDES: Identification, due diligence, and registration of partner schools across Maharashtra. EXCLUDES: Teacher payroll and curriculum delivery."
+        "intro": "Clearly delineate operational boundaries, covered regions, and exclusions:",
+        "type": "text",
+        "fields": [
+            {
+                "id": "in_scope",
+                "label": "1. In-Scope Activities (What is explicitly INCLUDED?):",
+                "type": "textarea",
+                "placeholder": "e.g., Identification, feasibility study, due diligence, MOU signing, and orientation for partner schools across Maharashtra."
+            },
+            {
+                "id": "out_of_scope",
+                "label": "2. Out-of-Scope / Exclusions (What is explicitly EXCLUDED?):",
+                "type": "textarea",
+                "placeholder": "e.g., Teacher payroll, infrastructure capital grants, and curriculum design (handled under separate SOPs)."
+            },
+            {
+                "id": "stakeholders",
+                "label": "3. Covered Teams / Beneficiaries:",
+                "type": "text",
+                "placeholder": "e.g., Urban and rural government-aided schools, Field Operations Team, Program Leads."
+            }
+        ]
     },
     "1.7": {
         "title": "Start Point Guided Assistant",
-        "questions": [
-            "What specific trigger, event, or incoming request initiates this process?",
-            "What entry criteria or prerequisite documents must be available before work begins?"
-        ],
-        "placeholder": "e.g., Trigger: Receipt of approved School Expansion Plan from Program Director. Entry Criteria: Signed budget authorization and target school list."
+        "intro": "Specify the precise operational trigger and entry criteria that initiate this process:",
+        "type": "table",
+        "fields": [
+            {
+                "id": "activity",
+                "label": "1. Initiating Event / Incoming Request:",
+                "type": "text",
+                "placeholder": "e.g., Receipt of approved Annual School Expansion Plan from Program Director"
+            },
+            {
+                "id": "entry_criteria",
+                "label": "2. Mandatory Entry Criteria & Prerequisites:",
+                "type": "textarea",
+                "placeholder": "e.g., Signed budget allocation, verified target school list, and Field Officer assignment."
+            }
+        ]
     },
     "1.8": {
         "title": "End Point Guided Assistant",
-        "questions": [
-            "What specific final deliverable or event marks the official conclusion of this process?",
-            "What exit criteria must be met before the process is considered complete?"
-        ],
-        "placeholder": "e.g., Deliverable: Final signed MOU uploaded to ERP. Exit Criteria: Welcome orientation kit delivered and verified by Program Head."
+        "intro": "Specify the final deliverable and exit criteria that mark process completion:",
+        "type": "table",
+        "fields": [
+            {
+                "id": "activity",
+                "label": "1. Concluding Activity / Deliverable:",
+                "type": "text",
+                "placeholder": "e.g., Final signed MOU uploaded to ERP and welcome orientation kit delivered"
+            },
+            {
+                "id": "exit_criteria",
+                "label": "2. Mandatory Exit Criteria & Sign-off:",
+                "type": "textarea",
+                "placeholder": "e.g., Verification of onboarding checklist in MIS by Program Head, confirmation email sent."
+            }
+        ]
     },
     "1.9": {
         "title": "Introduction Guided Assistant",
-        "questions": [
-            "What is the background context and organizational necessity for this process?",
-            "Why is standardizing this process essential for the organization?"
-        ],
-        "placeholder": "e.g., Kotak Education Foundation partners with municipal and rural schools. Standardizing onboarding ensures uniform quality, regulatory compliance, and seamless stakeholder alignment."
+        "intro": "Provide the background context and organizational rationale for this process:",
+        "type": "text",
+        "fields": [
+            {
+                "id": "background",
+                "label": "1. Organizational Background & Context:",
+                "type": "textarea",
+                "placeholder": "e.g., Kotak Education Foundation partners with municipal and rural schools to enhance foundational learning. This process establishes standard operating protocols."
+            },
+            {
+                "id": "importance",
+                "label": "2. Strategic Importance / Rationale:",
+                "type": "textarea",
+                "placeholder": "e.g., Standardizing ensures uniform partner quality, transparent accountability, regulatory compliance, and seamless stakeholder hand-offs."
+            }
+        ]
     },
     "1.10": {
         "title": "Objective Guided Assistant",
-        "questions": [
-            "What is the single primary objective and measurable business outcome this process aims to achieve?"
-        ],
-        "placeholder": "e.g., To establish an error-free, timely, and compliant onboarding mechanism for 200+ partner schools within a standard 10-day TAT."
+        "intro": "State the primary business purpose and tangible outcomes of this process:",
+        "type": "text",
+        "fields": [
+            {
+                "id": "primary_obj",
+                "label": "1. Primary Business Objective:",
+                "type": "textarea",
+                "placeholder": "e.g., To establish an error-free, timely, and compliant onboarding mechanism for 200+ partner schools within a standard 10-day TAT."
+            },
+            {
+                "id": "measurable_outcome",
+                "label": "2. Key Measurable Outcome / Target:",
+                "type": "text",
+                "placeholder": "e.g., 100% compliant documentation, zero audit findings, and prompt stakeholder communication."
+            }
+        ]
     },
     "1.11": {
         "title": "Process Flowchart Guided Assistant",
-        "questions": [
-            "What is the sequential journey from start to finish?",
-            "What are the major decision points (e.g., If approved -> step X; If rejected -> step Y)?",
-            "Which team does each hand-off go to?"
-        ],
-        "placeholder": "e.g., Step 1: Field Lead submits form -> Step 2: Manager reviews -> Decision: If criteria met, proceed to MOU drafting; If rejected, send back with remarks -> Step 3: MOU signed."
+        "intro": "Map sequential steps, decision branches, and hand-offs to auto-generate a Mermaid flowchart:",
+        "type": "flowchart",
+        "fields": [
+            {
+                "id": "steps",
+                "label": "1. Step-by-Step Flow (Start to End):",
+                "type": "textarea",
+                "placeholder": "Step 1: Field Lead submits application\nStep 2: Manager conducts initial screening\nStep 3: Verification Lead performs due diligence\nStep 4: Director reviews & signs MOU"
+            },
+            {
+                "id": "decisions",
+                "label": "2. Key Decision Points (If Approved / If Rejected):",
+                "type": "textarea",
+                "placeholder": "Decision at Step 2: If criteria met -> Proceed to Step 3; If rejected -> Return with remarks.\nDecision at Step 4: If budget approved -> Sign MOU; If rejected -> Escalate."
+            },
+            {
+                "id": "roles",
+                "label": "3. Hand-off Stakeholders Involved:",
+                "type": "text",
+                "placeholder": "Field Officer, Manager, Quality Lead, Program Director"
+            }
+        ]
     },
     "1.12": {
-        "title": "Process Description Guided Assistant (BE Enterprise Standard)",
-        "questions": [
-            "1. Major Activities & Sub-steps: What are the main activities from start to finish? Break each major activity down into specific numbered sub-steps.",
-            "2. Inputs & Data Sources: What documents, lists, or records are required to start each activity?",
-            "3. Tools & Systems: What specific applications, ERP modules, portals, or spreadsheets are used?",
-            "4. Stakeholders & Hand-offs: Who does the work, and to which team/role is the outcome handed over?",
-            "5. Expected Deliverables: What is the tangible output produced by each activity?",
-            "6. Checks & Validations: What approvals, verifications, or quality checks are performed and by whom?"
-        ],
-        "placeholder": "e.g., Activity: School Due Diligence\n1. Inputs: Gov school registry, application form.\n2. Sub-steps: Verify infrastructure, check teacher ratio, inspect sanitation.\n3. Tools: KEF Field App, Google Sheets.\n4. Stakeholders: Field Officer conducts check, hands report to Program Manager.\n5. Output: Due Diligence Scorecard.\n6. Check: Manager reviews scorecard; must score >80% to qualify."
+        "title": "Process Description Guided Assistant (BE 6 Enterprise Dimensions)",
+        "intro": "Provide detailed operational mechanics covering all 6 mandatory enterprise dimensions:",
+        "type": "table",
+        "fields": [
+            {
+                "id": "activity_name",
+                "label": "Activity Name:",
+                "type": "text",
+                "placeholder": "e.g., School Selection and Due Diligence"
+            },
+            {
+                "id": "inputs",
+                "label": "1. Inputs & Data Sources (What records/documents are needed to start?):",
+                "type": "text",
+                "placeholder": "e.g., District school registry, principal application form, budget allocation sheet"
+            },
+            {
+                "id": "sub_steps",
+                "label": "2. Step-by-Step Sub-activities (Break down into numbered sub-steps):",
+                "type": "textarea",
+                "placeholder": "1. Filter applications in Excel based on eligibility criteria.\n2. Field Officer conducts physical on-ground infrastructure audit.\n3. Verify teacher-student ratio and basic sanitation facilities."
+            },
+            {
+                "id": "tools",
+                "label": "3. Tools, Systems & Applications (ERP, portals, Excel, field apps):",
+                "type": "text",
+                "placeholder": "e.g., KEF Field Mobile App, Google Sheets, State Education Portal"
+            },
+            {
+                "id": "handoffs",
+                "label": "4. Stakeholders & Hand-offs (Who performs work and to whom is it handed?):",
+                "type": "text",
+                "placeholder": "e.g., Field Officer executes inspection, hands dossier to Operations Manager"
+            },
+            {
+                "id": "deliverables",
+                "label": "5. Expected Deliverables / Outputs (Tangible output produced):",
+                "type": "text",
+                "placeholder": "e.g., Completed Due Diligence Scorecard & Recommendation Report"
+            },
+            {
+                "id": "validations",
+                "label": "6. Checks, Validations & Approvals (Who verifies and against what criteria?):",
+                "type": "text",
+                "placeholder": "e.g., Manager verifies scorecard; minimum 80% score required for qualification sign-off"
+            },
+            {
+                "id": "owner_role",
+                "label": "Owner / Role executing this activity:",
+                "type": "text",
+                "placeholder": "e.g., Field Officer & Program Head"
+            },
+            {
+                "id": "tat",
+                "label": "Timeline / TAT:",
+                "type": "text",
+                "placeholder": "e.g., 5 Business Days"
+            }
+        ]
     },
     "1.13": {
-        "title": "RACI Matrix Guided Assistant (Standard Format)",
-        "questions": [
-            "For each key activity described in Section 1.12:",
-            "- What is the Activity Name and brief Description?",
-            "- What is the Timeline / TAT?",
-            "- Responsible: Which specific job title/designation executes this (e.g. PH, Field Officer)?",
-            "- Accountable: Which single designation owns the final sign-off (e.g. Manager, Vertical Lead)?",
-            "- Consulted by: Who provides inputs/advice (e.g. Director, Legal)?",
-            "- Informed to: Who is kept updated on progress (e.g. CEO Project teams, SCD internal teams)?"
-        ],
-        "placeholder": "e.g., Activity: School Onboarding Plan | Desc: Location selection and liaison | Timeline: 5 days | R: PH | A: Manager | C: Director | I: CEO Project teams"
+        "title": "RACI Matrix Guided Assistant (Standard 8-Column Format)",
+        "intro": "Map roles and responsibilities. Ensure exact designations are specified without Yes/No values:",
+        "type": "table",
+        "fields": [
+            {
+                "id": "activity_name",
+                "label": "Activity Name (matching Section 1.12):",
+                "type": "text",
+                "placeholder": "e.g., Plan of the Onboarding of the schools"
+            },
+            {
+                "id": "activity_desc",
+                "label": "Activity Description / Key Steps:",
+                "type": "textarea",
+                "placeholder": "1. Geographical location selection.\n2. Liaison with government authority.\n3. Filter analysis of potential schools."
+            },
+            {
+                "id": "timeline",
+                "label": "Timeline / TAT:",
+                "type": "text",
+                "placeholder": "e.g., Given timeline (5 days)"
+            },
+            {
+                "id": "responsible",
+                "label": "Responsible (Specific designation executing work, e.g. PH, Field Officer):",
+                "type": "text",
+                "placeholder": "e.g., PH"
+            },
+            {
+                "id": "accountable",
+                "label": "Accountable (Single designation owning final sign-off, e.g. Manager):",
+                "type": "text",
+                "placeholder": "e.g., Manager"
+            },
+            {
+                "id": "consulted",
+                "label": "Consulted by (Designation advising/consulted, e.g. Director):",
+                "type": "text",
+                "placeholder": "e.g., Director"
+            },
+            {
+                "id": "informed",
+                "label": "Informed to (Designations kept updated, e.g. CEO Project teams):",
+                "type": "text",
+                "placeholder": "e.g., CEO Project teams"
+            }
+        ]
     },
     "1.14": {
         "title": "Business Rules Guided Assistant",
-        "questions": [
-            "What strict operational, financial, or policy rules must NEVER be bypassed?",
-            "How is each rule practically enforced in the process (who checks it, when, and using what tool)?"
-        ],
-        "placeholder": "e.g., Rule 1: No school can be onboarded without an on-ground physical inspection verified by Manager. Rule 2: All translated scripts must pass a peer grammar check before recording."
+        "intro": "Formulate strict operational boundaries that must be backed by enforcement in Section 1.12:",
+        "type": "table",
+        "fields": [
+            {
+                "id": "rule_statement",
+                "label": "1. Mandatory Rule Statement (Policy / Operational boundary):",
+                "type": "textarea",
+                "placeholder": "e.g., All translated scripts must pass a peer grammar check before recording."
+            },
+            {
+                "id": "enforcement",
+                "label": "2. Operational Enforcement (Who verifies, when, and using what tool in 1.12?):",
+                "type": "textarea",
+                "placeholder": "e.g., Quality Lead verifies against standard translation rubric before releasing to studio."
+            }
+        ]
     },
     "1.15": {
         "title": "Exception & Change Management Guided Assistant",
-        "questions": [
-            "What potential exceptions or deviations can occur during this process?",
-            "How is each exception mitigated, who proposes the deviation, and who has approval authority?"
-        ],
-        "placeholder": "e.g., Exception: School does not meet standard teacher-student ratio. Mitigation: Special waiver recommendation by PH with justification, approved by Program Director."
+        "intro": "Document potential operational deviations, mitigation controls, and approval authorities:",
+        "type": "table",
+        "fields": [
+            {
+                "id": "area",
+                "label": "1. Area of Exception:",
+                "type": "text",
+                "placeholder": "e.g., School Eligibility Criteria"
+            },
+            {
+                "id": "desc",
+                "label": "2. Exception Description / Deviation:",
+                "type": "textarea",
+                "placeholder": "e.g., Target school has fewer students than the minimum enrollment threshold."
+            },
+            {
+                "id": "mitigation",
+                "label": "3. Exception Mitigation & Compensatory Controls:",
+                "type": "textarea",
+                "placeholder": "e.g., Cluster onboarding with adjacent rural school to meet collective threshold."
+            },
+            {
+                "id": "prop_by",
+                "label": "4. Proposed By:",
+                "type": "text",
+                "placeholder": "e.g., Field Officer"
+            },
+            {
+                "id": "recom_by",
+                "label": "5. Recommended By:",
+                "type": "text",
+                "placeholder": "e.g., Program Head"
+            },
+            {
+                "id": "approved_by",
+                "label": "6. Approved By (Sign-off Authority):",
+                "type": "text",
+                "placeholder": "e.g., Program Director"
+            },
+            {
+                "id": "informed_to",
+                "label": "7. Informed To:",
+                "type": "text",
+                "placeholder": "e.g., Vertical Lead, Finance Team"
+            }
+        ]
     },
     "1.16": {
         "title": "Risk Management Guided Assistant",
-        "questions": [
-            "What operational, reputational, or compliance risks exist for this process?",
-            "What is the root cause, risk impact, risk level (High/Med/Low), and what specific control prevents it?"
-        ],
-        "placeholder": "e.g., Risk: Inaccurate school student data. Root Cause: Manual entry by school staff. Level: Medium. Control: Mandatory cross-verification against government attendance records every quarter."
+        "intro": "Identify operational and compliance risks along with root causes and preventive controls:",
+        "type": "table",
+        "fields": [
+            {
+                "id": "sub_process",
+                "label": "1. Sub Process & Activity:",
+                "type": "text",
+                "placeholder": "e.g., School Due Diligence & Data Verification"
+            },
+            {
+                "id": "desc",
+                "label": "2. Risk Description:",
+                "type": "text",
+                "placeholder": "e.g., Inaccurate school student enrollment figures"
+            },
+            {
+                "id": "root_cause",
+                "label": "3. Root Cause:",
+                "type": "text",
+                "placeholder": "e.g., Manual record keeping by partner school without secondary verification"
+            },
+            {
+                "id": "risk_type",
+                "label": "4. Type of Risk:",
+                "type": "select",
+                "options": ["Operational", "Compliance", "Financial", "Reputational"],
+                "default": "Operational"
+            },
+            {
+                "id": "level_of_risk",
+                "label": "5. Level of Risk:",
+                "type": "select",
+                "options": ["High", "Medium", "Low"],
+                "default": "Medium"
+            },
+            {
+                "id": "impact",
+                "label": "6. Risk Impact:",
+                "type": "text",
+                "placeholder": "e.g., Misallocation of learning materials and budget"
+            },
+            {
+                "id": "control",
+                "label": "7. Preventive Control Description:",
+                "type": "textarea",
+                "placeholder": "e.g., Mandatory physical cross-verification against government attendance registers"
+            },
+            {
+                "id": "freq",
+                "label": "8. Control Frequency:",
+                "type": "select",
+                "options": ["Every Transaction", "Daily", "Weekly", "Monthly", "Quarterly", "Annual"],
+                "default": "Every Transaction"
+            }
+        ]
     },
     "1.17": {
         "title": "Compliance Management Guided Assistant",
-        "questions": [
-            "What statutory regulations, child safety/POCSO guidelines, or internal foundation policies apply?",
-            "What is the compliance target date or review schedule?"
-        ],
-        "placeholder": "e.g., POCSO Compliance: Annual background check verification of all on-ground personnel by April 30."
+        "intro": "List statutory, child safety (POCSO), and institutional compliance obligations:",
+        "type": "table",
+        "fields": [
+            {
+                "id": "sub_process",
+                "label": "1. Sub Process / Compliance Area:",
+                "type": "text",
+                "placeholder": "e.g., Child Safety & Personnel Background Checks"
+            },
+            {
+                "id": "compliance",
+                "label": "2. Compliance Particulars & Policy Norms:",
+                "type": "textarea",
+                "placeholder": "e.g., Mandatory POCSO guidelines compliance and police verification for all field trainers."
+            },
+            {
+                "id": "target_date",
+                "label": "3. Target Date / Schedule:",
+                "type": "text",
+                "placeholder": "e.g., Annual verification completed by April 30"
+            }
+        ]
     },
     "1.18": {
         "title": "Data Archival Guided Assistant",
-        "questions": [
-            "What documents/records must be archived (e.g. MOUs, Inspection reports, Approvals)?",
-            "What is the storage type (hard/soft copy folder link), cut-off period, and retention period?"
-        ],
-        "placeholder": "e.g., Document: Signed School MOUs | Criticality: High | Storage: Soft copy (SharePoint/KEF_MOU_Archive) & Hard copy (Central Operations Cabinet) | Retention: 7 Years"
+        "intro": "Define record retention, archival formats, and repository locations:",
+        "type": "table",
+        "fields": [
+            {
+                "id": "doc_title",
+                "label": "1. Document / Record Title:",
+                "type": "text",
+                "placeholder": "e.g., Signed Partner School MOUs & Due Diligence Dossiers"
+            },
+            {
+                "id": "fy",
+                "label": "2. Financial Year:",
+                "type": "text",
+                "placeholder": "e.g., FY 2025-26"
+            },
+            {
+                "id": "criticality",
+                "label": "3. Criticality:",
+                "type": "select",
+                "options": ["High", "Medium", "Low"],
+                "default": "High"
+            },
+            {
+                "id": "storage_type",
+                "label": "4. Storage Type:",
+                "type": "select",
+                "options": ["Both Soft & Hard copy", "Soft copy", "Hard copy"],
+                "default": "Both Soft & Hard copy"
+            },
+            {
+                "id": "retention",
+                "label": "5. Retention Period:",
+                "type": "select",
+                "options": ["7 Years", "5 Years", "3 Years", "10 Years", "Permanent"],
+                "default": "7 Years"
+            },
+            {
+                "id": "soft_link",
+                "label": "6. Soft Copy Folder Link / System Location:",
+                "type": "text",
+                "placeholder": "e.g., SharePoint/KEF_MOU_Archive"
+            },
+            {
+                "id": "hard_loc",
+                "label": "7. Hard Copy Location:",
+                "type": "text",
+                "placeholder": "e.g., Central Operations Cabinet #3"
+            }
+        ]
     },
     "1.19": {
         "title": "Abbreviations & Acronyms Guided Assistant",
-        "questions": [
-            "What acronyms or technical abbreviations are used in this process note?"
-        ],
-        "placeholder": "e.g., TAT: Turnaround Time, PH: Program Head, MOU: Memorandum of Understanding, MIS: Management Information System, POCSO: Protection of Children from Sexual Offences"
+        "intro": "List abbreviations and technical terminology used across this document:",
+        "type": "table",
+        "fields": [
+            {
+                "id": "abbrev",
+                "label": "1. Abbreviation / Acronym:",
+                "type": "text",
+                "placeholder": "e.g., PH"
+            },
+            {
+                "id": "definition",
+                "label": "2. Full Expanded Definition:",
+                "type": "text",
+                "placeholder": "e.g., Program Head"
+            },
+            {
+                "id": "bulk",
+                "label": "Or paste multiple acronyms at once (one per line):",
+                "type": "textarea",
+                "placeholder": "TAT: Turnaround Time\nMOU: Memorandum of Understanding\nMIS: Management Information System\nPOCSO: Protection of Children from Sexual Offences"
+            }
+        ]
     },
     "1.20": {
         "title": "Best Practices Summary Guided Assistant",
-        "questions": [
-            "What industry or internal best practices are currently followed in this process?",
-            "What planned best practices are envisaged for future implementation, and by when?"
-        ],
-        "placeholder": "e.g., Followed: Dual verification of school credentials before agreement. Planned: Automated geo-tagged photo verification on mobile app by Q3 2026."
+        "intro": "Document proven industry methodologies and planned procedural improvements:",
+        "type": "table",
+        "fields": [
+            {
+                "id": "followed",
+                "label": "1. Best Practice Currently Followed:",
+                "type": "textarea",
+                "placeholder": "e.g., Dual maker-checker verification of school infrastructure prior to MOU execution."
+            },
+            {
+                "id": "envisaged",
+                "label": "2. Envisaged / Planned Future Best Practice:",
+                "type": "textarea",
+                "placeholder": "e.g., Automated geo-tagged photo verification on mobile app."
+            },
+            {
+                "id": "timeline",
+                "label": "3. Tentative Timelines:",
+                "type": "text",
+                "placeholder": "e.g., Q3 FY 2026-27"
+            }
+        ]
     },
     "1.21": {
         "title": "Innovations Guided Assistant",
-        "questions": [
-            "What innovations, digital tools, automation, or process re-engineering have been implemented?",
-            "What innovations are planned for the future?"
-        ],
-        "placeholder": "e.g., Implemented: QR-code based school profile verification. Planned: AI-assisted rubric evaluation for school infrastructure readiness."
+        "intro": "Capture digital transformations, automation, and continuous innovation initiatives:",
+        "type": "table",
+        "fields": [
+            {
+                "id": "implemented",
+                "label": "1. Innovation Implemented:",
+                "type": "textarea",
+                "placeholder": "e.g., QR-code based school profile verification."
+            },
+            {
+                "id": "planned",
+                "label": "2. Envisaged / Planned Innovation:",
+                "type": "textarea",
+                "placeholder": "e.g., AI-assisted rubric evaluation for school infrastructure readiness."
+            },
+            {
+                "id": "timeline",
+                "label": "3. Tentative Timelines:",
+                "type": "text",
+                "placeholder": "e.g., Q4 FY 2026-27"
+            }
+        ]
     },
     "1.22": {
         "title": "SIPOC Guided Assistant",
-        "questions": [
-            "Supplier: Who provides the inputs (which internal/external departments)?",
-            "Input: What data/materials are received?",
-            "Key Process Step: What are the 4-6 primary stages (matching Process Description)?",
-            "Output: What products/deliverables are produced?",
-            "Customer: Who receives the outputs?"
-        ],
-        "placeholder": "e.g., Supplier: Education Dept | Input: Approved School List | Process: Eligibility Check, Due Diligence, MOU Signing, Orientation | Output: Active Onboarded School | Customer: Program Delivery Team"
+        "intro": "Map Suppliers, Inputs, Process Steps, Outputs, and Customers at a high level:",
+        "type": "table",
+        "fields": [
+            {
+                "id": "supplier",
+                "label": "1. Supplier (Department / External Source):",
+                "type": "text",
+                "placeholder": "e.g., State Education Department"
+            },
+            {
+                "id": "input",
+                "label": "2. Input (Data / Material received):",
+                "type": "textarea",
+                "placeholder": "e.g., Approved partner school application & infrastructure records"
+            },
+            {
+                "id": "process",
+                "label": "3. Key Process Step (matching Process Description):",
+                "type": "textarea",
+                "placeholder": "e.g., Eligibility Check, Feasibility Audit, MOU Signing & Orientation"
+            },
+            {
+                "id": "output",
+                "label": "4. Output (Deliverables produced):",
+                "type": "textarea",
+                "placeholder": "e.g., Signed MOU Dossier & Active Onboarded School"
+            },
+            {
+                "id": "customer",
+                "label": "5. Customer (Receiving Department / Beneficiaries):",
+                "type": "text",
+                "placeholder": "e.g., Program Delivery Team & Operations Lead"
+            }
+        ]
     }
+}
+
+
+def build_table_rows_from_answers(sec_id: str, answers: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Converts structured questionnaire answers directly into the exact schema required for table sections."""
+    today_str = str(datetime.date.today())
+
+    if sec_id == "1.1":
+        sign_date = str(answers.get("sign_date", today_str))
+        def parse_role_entry(text: str, default_role: str):
+            parts = [p.strip() for p in text.split("|")]
+            name = parts[0] if len(parts) > 0 and parts[0] else "TBD"
+            func = parts[1] if len(parts) > 1 and parts[1] else "Operations"
+            sign = parts[2] if len(parts) > 2 and parts[2] else name[:2].upper()
+            return {"Name": name, "Role": default_role, "Function": func, "Sign": sign, "Date": sign_date}
+        return [
+            parse_role_entry(str(answers.get("owner", "Process Owner | Operations | PO")), "Process Owner"),
+            parse_role_entry(str(answers.get("reviewer", "Quality Lead | Business Excellence | QL")), "Process Reviewer"),
+            parse_role_entry(str(answers.get("approver", "Program Director | Leadership | DIR")), "Process Approver")
+        ]
+
+    elif sec_id == "1.2":
+        return [{
+            "Version No.": str(answers.get("version", "1.0")).split()[0],
+            "Effective Date": str(answers.get("eff_date", today_str)),
+            "Change Date": str(answers.get("change_date", today_str)),
+            "Change Request By": str(answers.get("req_by", "Process Owner")),
+            "Change Made By": str(answers.get("made_by", "Process Creator")),
+            "Amendment": str(answers.get("amendment", "Initial baseline version"))
+        }]
+
+    elif sec_id == "1.3":
+        eff_date = answers.get("eff_date", datetime.date.today())
+        freq = str(answers.get("review_frequency", "Annual (Every 12 months)"))
+        next_date = answers.get("next_review_date") or compute_next_review_date(eff_date, freq)
+        owner_role = str(answers.get("process_owner", "Program Head")).strip() or "Program Head"
+        owner_name = str(answers.get("owner_name", "")).strip() or "Process Owner"
+        sign = str(answers.get("owner_sign", "")).strip()
+        if not sign:
+            sign = "".join([p[0].upper() for p in owner_name.split()[:2]]) or "PO"
+
+        return [{
+            "Effective Date": str(eff_date),
+            "Next Review Date": str(next_date),
+            "Process Owner": owner_role,
+            "Name": owner_name,
+            "Sign": sign
+        }]
+
+    elif sec_id == "1.4":
+        rows = [{
+            "Process / Policy ID": str(answers.get("policy_id", "SOP-OPS-012")),
+            "Document Name": str(answers.get("doc_name", "Partner School Onboarding Policy"))
+        }]
+        template = str(answers.get("template_name", "")).strip()
+        if template:
+            rows.append({
+                "Process / Policy ID": "FORM-01",
+                "Document Name": template
+            })
+        return rows
+
+    elif sec_id == "1.5":
+        return [{
+            "Description": str(answers.get("kpi_desc", "Turnaround Time (TAT)")),
+            "Owner": str(answers.get("owner", "Program Head")),
+            "Target": str(answers.get("target", "<= 5 Business Days")),
+            "Maker": str(answers.get("maker", "Field Officer")),
+            "Checker": str(answers.get("checker", "Operations Manager")),
+            "Data Source": str(answers.get("data_source", "MIS Dashboard")),
+            "Report Name": str(answers.get("data_source", "Onboarding Performance MIS")),
+            "Report Frequency": str(answers.get("report_freq", "Monthly")),
+            "Review Frequency": str(answers.get("review_freq", "Monthly"))
+        }]
+
+    elif sec_id == "1.7":
+        return [{
+            "Activity": str(answers.get("activity", "Receipt of incoming process initiation request")),
+            "Entry Criteria": str(answers.get("entry_criteria", "Signed authorization and verified prerequisite documents"))
+        }]
+
+    elif sec_id == "1.8":
+        return [{
+            "Activity": str(answers.get("activity", "Final signed deliverable completed")),
+            "Exit Criteria": str(answers.get("exit_criteria", "Verification sign-off and stakeholder acknowledgment"))
+        }]
+
+    elif sec_id == "1.12":
+        # Delineates all 6 mandatory BE dimensions in Description
+        act_name = str(answers.get("activity_name", "Core Operational Activity")).strip()
+        inputs = str(answers.get("inputs", "Standard input documents")).strip()
+        sub_steps = str(answers.get("sub_steps", "1. Execute operational steps.")).strip()
+        tools = str(answers.get("tools", "MIS Portal, Google Workspace")).strip()
+        handoffs = str(answers.get("handoffs", "Handed off to Next Stage Lead")).strip()
+        deliverables = str(answers.get("deliverables", "Completed Operational Deliverable")).strip()
+        validations = str(answers.get("validations", "Checker verification & approval sign-off")).strip()
+        owner = str(answers.get("owner_role", "Field Officer & Program Head")).strip()
+        tat = str(answers.get("tat", "5 Business Days")).strip()
+
+        desc_formatted = (
+            f"1. Inputs: {inputs}\n"
+            f"2. Sub-steps:\n{sub_steps}\n"
+            f"3. Tools & Systems: {tools}\n"
+            f"4. Stakeholders & Hand-offs: {handoffs}\n"
+            f"5. Expected Deliverable: {deliverables}\n"
+            f"6. Checks & Validations: {validations}"
+        )
+        return [{
+            "Activity": act_name,
+            "Description": desc_formatted,
+            "Owner/Role": owner,
+            "TAT": tat
+        }]
+
+    elif sec_id == "1.13":
+        return [{
+            "Sr. No.": 1,
+            "Activity name": str(answers.get("activity_name", "Plan of the Onboarding of the schools")),
+            "Activity description": str(answers.get("activity_desc", "1. Location selection. 2. Liaison. 3. Filter analysis.")),
+            "Timeline": str(answers.get("timeline", "Given timeline")),
+            "Responsible": str(answers.get("responsible", "PH")),
+            "Accountable": str(answers.get("accountable", "Manager")),
+            "Consulted by": str(answers.get("consulted", "Director")),
+            "Informed to": str(answers.get("informed", "CEO Project teams"))
+        }]
+
+    elif sec_id == "1.14":
+        rule = str(answers.get("rule_statement", "Mandatory operational rule")).strip()
+        enforcement = str(answers.get("enforcement", "")).strip()
+        full_rule = f"{rule} (Enforced by {enforcement})" if enforcement else rule
+        return [{"Business Rules": full_rule}]
+
+    elif sec_id == "1.15":
+        return [{
+            "Area of Exception": str(answers.get("area", "Eligibility Criteria")),
+            "Exception Description": str(answers.get("desc", "Standard criteria deviation")),
+            "Exception Mitigation": str(answers.get("mitigation", "Special compensatory approval")),
+            "Prop By": str(answers.get("prop_by", "Field Officer")),
+            "Recom By": str(answers.get("recom_by", "Program Head")),
+            "Approved By": str(answers.get("approved_by", "Program Director")),
+            "Informed to": str(answers.get("informed_to", "Vertical Lead")),
+            "Remarks": "Documented in exception register"
+        }]
+
+    elif sec_id == "1.16":
+        return [{
+            "Sub Process": str(answers.get("sub_process", "Core Field Operations")),
+            "Risk Description": str(answers.get("desc", "Data discrepancy during field execution")),
+            "Root Cause": str(answers.get("root_cause", "Manual record keeping")),
+            "Type of Risk": str(answers.get("risk_type", "Operational")),
+            "Risk Impact": str(answers.get("impact", "Operational delay")),
+            "Level of Risk": str(answers.get("level_of_risk", "Medium")),
+            "Control Description": str(answers.get("control", "Mandatory Maker-Checker cross verification")),
+            "Control frequency": str(answers.get("freq", "Every Transaction"))
+        }]
+
+    elif sec_id == "1.17":
+        return [{
+            "Sub Process": str(answers.get("sub_process", "Operational Governance")),
+            "Compliance particulars": str(answers.get("compliance", "Adherence to statutory policy and child safety regulations")),
+            "Target date": str(answers.get("target_date", "Annual Audit / April 30"))
+        }]
+
+    elif sec_id == "1.18":
+        return [{
+            "Sub Process": "Documentation & Records",
+            "Financial Year": str(answers.get("fy", "FY 2025-26")),
+            "Document Title": str(answers.get("doc_title", "Signed MOUs & Verification Reports")),
+            "Criticality": str(answers.get("criticality", "High")),
+            "Storage Type": str(answers.get("storage_type", "Both Soft & Hard copy")),
+            "Cut off Period": "Financial Year End",
+            "Retention period": str(answers.get("retention", "7 Years")),
+            "Location - hard copy": str(answers.get("hard_loc", "Central Operations Cabinet")),
+            "Folder link - soft copy": str(answers.get("soft_link", "SharePoint/Operations_Archive"))
+        }]
+
+    elif sec_id == "1.19":
+        rows = []
+        bulk = str(answers.get("bulk", "")).strip()
+        if bulk:
+            for line in bulk.split("\n"):
+                line = line.strip()
+                if ":" in line:
+                    abbr, defn = line.split(":", 1)
+                    rows.append({"Abbreviation": abbr.strip(), "Definition": defn.strip()})
+                elif "-" in line:
+                    abbr, defn = line.split("-", 1)
+                    rows.append({"Abbreviation": abbr.strip(), "Definition": defn.strip()})
+        abbr = str(answers.get("abbrev", "")).strip()
+        defn = str(answers.get("definition", "")).strip()
+        if abbr and defn:
+            rows.insert(0, {"Abbreviation": abbr, "Definition": defn})
+        if not rows:
+            rows = [{"Abbreviation": "PH", "Definition": "Program Head"}]
+        return rows
+
+    elif sec_id == "1.20":
+        return [{
+            "Best Practices Followed (suggested list)": str(answers.get("followed", "Dual maker-checker verification")),
+            "Envisaged/Planned": str(answers.get("envisaged", "Automated geo-tagged mobile verification")),
+            "Tentative Timelines": str(answers.get("timeline", "Q3 FY 2026-27"))
+        }]
+
+    elif sec_id == "1.21":
+        return [{
+            "Innovations Implemented": str(answers.get("implemented", "QR-code based digital verification")),
+            "Envisaged/Planned": str(answers.get("planned", "AI-assisted rubric evaluation")),
+            "TENTATIVE TIMELINES": str(answers.get("timeline", "Q4 FY 2026-27"))
+        }]
+
+    elif sec_id == "1.22":
+        return [{
+            "Supplier (Dept)": str(answers.get("supplier", "Education Department")),
+            "Input": str(answers.get("input", "Approved application and school records")),
+            "Key Process Step": str(answers.get("process", "Feasibility Audit, MOU Signing & Orientation")),
+            "Output": str(answers.get("output", "Active Onboarded School")),
+            "Customer (dept)": str(answers.get("customer", "Program Delivery Team"))
+        }]
+
+    return []
+
+
+def build_text_summary_from_answers(sec_id: str, answers: Dict[str, Any]) -> str:
+    """Formats structured questionnaire answers into clean, corporate markdown text for text sections."""
+    if sec_id == "1.6":
+        in_scope = answers.get("in_scope", "All operational activities as detailed in this note.")
+        out_scope = answers.get("out_of_scope", "Any external activities not explicitly mentioned.")
+        stakeholders = answers.get("stakeholders", "All partner stakeholders.")
+        return (
+            "### 1. In-Scope Activities & Coverage\n"
+            f"{in_scope}\n\n"
+            "### 2. Out-of-Scope Activities & Exclusions\n"
+            f"{out_scope}\n\n"
+            "### 3. Target Stakeholders & Beneficiaries\n"
+            f"{stakeholders}"
+        )
+
+    elif sec_id == "1.9":
+        bg = answers.get("background", "Standard operating protocol established for operational excellence.")
+        imp = answers.get("importance", "Standardization ensures compliance, transparency, and accountability.")
+        return (
+            "### Background Context\n"
+            f"{bg}\n\n"
+            "### Strategic Organizational Importance\n"
+            f"{imp}"
+        )
+
+    elif sec_id == "1.10":
+        obj = answers.get("primary_obj", "To execute operational activities in a timely, compliant manner.")
+        outcome = answers.get("measurable_outcome", "Zero-defect delivery and 100% adherence to timelines.")
+        return (
+            "### Primary Business Objective\n"
+            f"{obj}\n\n"
+            "### Expected Measurable Outcomes\n"
+            f"{outcome}"
+        )
+
+    # General fallback
+    summary_lines = []
+    for k, v in answers.items():
+        if v:
+            summary_lines.append(f"- **{k.replace('_', ' ').title()}:** {v}")
+    return "\n".join(summary_lines)
+
+
+def build_mermaid_flowchart_from_answers(answers: Dict[str, Any]) -> str:
+    """Generates a clean Mermaid flowchart from structured wizard answers."""
+    steps_raw = str(answers.get("steps", "")).strip()
+    decisions_raw = str(answers.get("decisions", "")).strip()
+    roles = str(answers.get("roles", "")).strip()
+
+    lines = ["flowchart TD"]
+    lines.append("    Start([Process Start]) --> Step1[1. Process Initiation]")
+    
+    step_items = [s.strip() for s in steps_raw.split("\n") if s.strip()]
+    if not step_items:
+        step_items = ["Initial Request Submission", "Document Review & Screening", "Operational Execution & Verification", "Final Sign-off & Delivery"]
+
+    prev_node = "Step1"
+    for idx, item in enumerate(step_items, start=2):
+        node_id = f"Step{idx}"
+        # clean label
+        clean_label = item.replace("[", "").replace("]", "").replace('"', "")
+        lines.append(f"    {prev_node} --> {node_id}[\"{clean_label}\"]")
+        prev_node = node_id
+
+    if decisions_raw:
+        lines.append(f"    {prev_node} --> Dec1{{\"Decision Criteria Met?\"}}")
+        lines.append("    Dec1 -- Yes --> StepAppr[\"Approval & Sign-off\"]")
+        lines.append("    Dec1 -- No --> StepRej[\"Rejection & Return with Remarks\"]")
+        lines.append("    StepRej -.-> Step1")
+        lines.append("    StepAppr --> EndNode([Process End])")
+    else:
+        lines.append(f"    {prev_node} --> EndNode([Process End])")
+
+    return "\n".join(lines)
+
+
+# Backward compatibility dictionary
+SECTION_GUIDED_QUESTIONS = {
+    sec_id: {
+        "title": spec["title"],
+        "questions": [f["label"] for f in spec["fields"]],
+        "placeholder": spec["fields"][0].get("placeholder", "") if spec["fields"] else ""
+    }
+    for sec_id, spec in SECTION_GUIDED_SPECS.items()
 }
