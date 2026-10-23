@@ -215,20 +215,51 @@ SECTION_GUIDED_SPECS: Dict[str, Dict[str, Any]] = {
             {
                 "id": "owner",
                 "label": "3. KPI Owner (Role):",
-                "type": "text",
-                "placeholder": "e.g., Program Head"
+                "type": "select",
+                "options": [
+                    "Program Head (PH)",
+                    "Operations Manager",
+                    "Project Manager",
+                    "Vertical Lead",
+                    "Quality & Excellence Lead",
+                    "Program Director",
+                    "Other (Specify custom role...)"
+                ],
+                "default": "Program Head (PH)",
+                "help": "Select standard organizational role responsible for KPI achievement."
             },
             {
                 "id": "maker",
                 "label": "4. Maker (Who records / inputs performance data):",
-                "type": "text",
-                "placeholder": "e.g., Field Officer"
+                "type": "select",
+                "options": [
+                    "Field Officer",
+                    "Field Executive",
+                    "Operations Executive",
+                    "Program Associate",
+                    "Project Executive",
+                    "Trainer / Facilitator",
+                    "Program Head (PH)",
+                    "Other (Specify custom role...)"
+                ],
+                "default": "Field Officer",
+                "help": "Select designation of person entering/measuring performance data."
             },
             {
                 "id": "checker",
                 "label": "5. Checker (Who audits / verifies performance data):",
-                "type": "text",
-                "placeholder": "e.g., Operations Manager"
+                "type": "select",
+                "options": [
+                    "Operations Manager",
+                    "Program Head (PH)",
+                    "Vertical Lead",
+                    "Quality & Business Excellence Lead",
+                    "Project Manager",
+                    "Program Director",
+                    "Other (Specify custom role...)"
+                ],
+                "default": "Operations Manager",
+                "help": "Select designation of person verifying and validating KPI accuracy."
             },
             {
                 "id": "report_freq",
@@ -428,8 +459,19 @@ SECTION_GUIDED_SPECS: Dict[str, Dict[str, Any]] = {
             {
                 "id": "owner_role",
                 "label": "Owner / Role executing this activity:",
-                "type": "text",
-                "placeholder": "e.g., Field Officer & Program Head"
+                "type": "select",
+                "options": [
+                    "Field Officer & Program Head",
+                    "Field Officer",
+                    "Program Head (PH)",
+                    "Operations Manager",
+                    "Vertical Lead",
+                    "Quality & Excellence Lead",
+                    "Trainer / Facilitator",
+                    "Other (Specify custom role...)"
+                ],
+                "default": "Field Officer & Program Head",
+                "help": "Select standard organizational role responsible for executing this activity."
             },
             {
                 "id": "tat",
@@ -464,27 +506,66 @@ SECTION_GUIDED_SPECS: Dict[str, Dict[str, Any]] = {
             },
             {
                 "id": "responsible",
-                "label": "Responsible (Specific designation executing work, e.g. PH, Field Officer):",
-                "type": "text",
-                "placeholder": "e.g., PH"
+                "label": "Responsible (Executes activity - specific designation):",
+                "type": "select",
+                "options": [
+                    "PH",
+                    "Field Officer",
+                    "Operations Manager",
+                    "Vertical Lead",
+                    "Project Manager",
+                    "Trainer",
+                    "Finance Lead",
+                    "HR Lead",
+                    "Other (Specify custom role...)"
+                ],
+                "default": "PH",
+                "help": "Specific job designation executing the work. Do NOT enter Yes/No."
             },
             {
                 "id": "accountable",
-                "label": "Accountable (Single designation owning final sign-off, e.g. Manager):",
-                "type": "text",
-                "placeholder": "e.g., Manager"
+                "label": "Accountable (Single final sign-off owner):",
+                "type": "select",
+                "options": [
+                    "Manager",
+                    "PH",
+                    "Vertical Lead",
+                    "Director",
+                    "Quality Lead",
+                    "Other (Specify custom role...)"
+                ],
+                "default": "Manager",
+                "help": "Single designation owning final sign-off. Do NOT enter Yes/No."
             },
             {
                 "id": "consulted",
-                "label": "Consulted by (Designation advising/consulted, e.g. Director):",
-                "type": "text",
-                "placeholder": "e.g., Director"
+                "label": "Consulted by (Advising stakeholders):",
+                "type": "select",
+                "options": [
+                    "Director",
+                    "Quality Lead",
+                    "Vertical Lead",
+                    "Legal & Compliance",
+                    "Finance Lead",
+                    "Other (Specify custom role...)"
+                ],
+                "default": "Director",
+                "help": "Designation providing advice/inputs."
             },
             {
                 "id": "informed",
-                "label": "Informed to (Designations kept updated, e.g. CEO Project teams):",
-                "type": "text",
-                "placeholder": "e.g., CEO Project teams"
+                "label": "Informed to (Teams kept updated):",
+                "type": "select",
+                "options": [
+                    "CEO Project teams",
+                    "SCD internal teams",
+                    "Operations Team",
+                    "Program Director",
+                    "Finance Team",
+                    "Other (Specify custom role...)"
+                ],
+                "default": "CEO Project teams",
+                "help": "Teams or roles kept updated on progress."
             }
         ]
     },
@@ -533,26 +614,52 @@ SECTION_GUIDED_SPECS: Dict[str, Dict[str, Any]] = {
             {
                 "id": "prop_by",
                 "label": "4. Proposed By:",
-                "type": "text",
-                "placeholder": "e.g., Field Officer"
+                "type": "select",
+                "options": [
+                    "Field Officer",
+                    "Operations Executive",
+                    "Program Head (PH)",
+                    "Operations Manager",
+                    "Other (Specify custom role...)"
+                ],
+                "default": "Field Officer"
             },
             {
                 "id": "recom_by",
                 "label": "5. Recommended By:",
-                "type": "text",
-                "placeholder": "e.g., Program Head"
+                "type": "select",
+                "options": [
+                    "Program Head (PH)",
+                    "Operations Manager",
+                    "Vertical Lead",
+                    "Other (Specify custom role...)"
+                ],
+                "default": "Program Head (PH)"
             },
             {
                 "id": "approved_by",
                 "label": "6. Approved By (Sign-off Authority):",
-                "type": "text",
-                "placeholder": "e.g., Program Director"
+                "type": "select",
+                "options": [
+                    "Program Director",
+                    "Vertical Lead",
+                    "CEO / Leadership",
+                    "Other (Specify custom role...)"
+                ],
+                "default": "Program Director"
             },
             {
                 "id": "informed_to",
                 "label": "7. Informed To:",
-                "type": "text",
-                "placeholder": "e.g., Vertical Lead, Finance Team"
+                "type": "select",
+                "options": [
+                    "Vertical Lead, Finance Team",
+                    "CEO Project teams",
+                    "Operations Team",
+                    "Program Director",
+                    "Other (Specify custom role...)"
+                ],
+                "default": "Vertical Lead, Finance Team"
             }
         ]
     },

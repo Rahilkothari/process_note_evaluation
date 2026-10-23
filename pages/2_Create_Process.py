@@ -300,14 +300,31 @@ try:
                             help="Auto-calculated from Effective Date + Frequency (you can adjust if needed)."
                         )
                     with c4:
-                        def_owner = ex_data.get("Process Owner") or "Program Head"
-                        owner_role = st.text_input(
-                            "4. Designated Process Owner (Role / Designation):",
-                            value=def_owner,
-                            placeholder="e.g. Program Head (or Operations Manager)",
-                            key=f"qa_{sec_id}_owner",
-                            help="Designation responsible for the periodic review."
+                        def_owner = ex_data.get("Process Owner") or "Program Head (PH)"
+                        owner_options = [
+                            "Program Head (PH)",
+                            "Operations Manager",
+                            "Vertical Lead",
+                            "Program Director",
+                            "Quality & Excellence Lead",
+                            "Other (Specify custom role...)"
+                        ]
+                        owner_idx = owner_options.index(def_owner) if def_owner in owner_options else 0
+                        owner_sel = st.selectbox(
+                            "4. Designated Process Owner Role:",
+                            options=owner_options,
+                            index=owner_idx,
+                            key=f"qa_{sec_id}_owner_sel",
+                            help="Select standard organizational designation responsible for periodic review."
                         )
+                        if "other" in owner_sel.lower():
+                            owner_role = st.text_input(
+                                "↳ Specify custom owner role:",
+                                placeholder="e.g. Operations Director",
+                                key=f"qa_{sec_id}_owner_custom"
+                            )
+                        else:
+                            owner_role = owner_sel
                     
                     c5, c6 = st.columns(2)
                     with c5:
@@ -337,7 +354,31 @@ try:
                         "owner_sign": owner_sign
                     }
                 else:
-                    # General interactive questionnaire layout for all other sections
+                    # General interactive questionnaire layout with role dropdown support
+                    def render_qa_widget(field_dict):
+                        ftype = field_dict.get("type", "text")
+                        fid = field_dict["id"]
+                        flabel = field_dict["label"]
+                        fhelp = field_dict.get("help")
+                        k = f"qa_{sec_id}_{fid}"
+                        
+                        if ftype == "date":
+                            return st.date_input(flabel, value=datetime.date.today(), key=k, help=fhelp)
+                        elif ftype == "select":
+                            opts = field_dict.get("options", [])
+                            d_idx = 0
+                            if field_dict.get("default") and field_dict["default"] in opts:
+                                d_idx = opts.index(field_dict["default"])
+                            sel = st.selectbox(flabel, options=opts, index=d_idx, key=k, help=fhelp)
+                            if "other" in str(sel).lower():
+                                custom = st.text_input(f"↳ Specify custom {flabel.split('(')[0].strip()}:", placeholder="e.g. Lead Coordinator / External Auditor", key=f"{k}_custom")
+                                return custom.strip() if custom.strip() else sel
+                            return sel
+                        elif ftype == "textarea":
+                            return st.text_area(flabel, placeholder=field_dict.get("placeholder", ""), height=80, key=k, help=fhelp)
+                        else:
+                            return st.text_input(flabel, placeholder=field_dict.get("placeholder", ""), key=k, help=fhelp)
+
                     i = 0
                     while i < len(fields):
                         f = fields[i]
@@ -351,29 +392,12 @@ try:
                         if can_pair and next_f:
                             col1, col2 = st.columns(2)
                             with col1:
-                                if f_type == "date":
-                                    answers[f["id"]] = st.date_input(f["label"], value=datetime.date.today(), key=f"qa_{sec_id}_{f['id']}", help=f.get("help"))
-                                elif f_type == "select":
-                                    answers[f["id"]] = st.selectbox(f["label"], options=f.get("options", []), key=f"qa_{sec_id}_{f['id']}", help=f.get("help"))
-                                else:
-                                    answers[f["id"]] = st.text_input(f["label"], placeholder=f.get("placeholder", ""), key=f"qa_{sec_id}_{f['id']}", help=f.get("help"))
+                                answers[f["id"]] = render_qa_widget(f)
                             with col2:
-                                if next_f_type == "date":
-                                    answers[next_f["id"]] = st.date_input(next_f["label"], value=datetime.date.today(), key=f"qa_{sec_id}_{next_f['id']}", help=next_f.get("help"))
-                                elif next_f_type == "select":
-                                    answers[next_f["id"]] = st.selectbox(next_f["label"], options=next_f.get("options", []), key=f"qa_{sec_id}_{next_f['id']}", help=next_f.get("help"))
-                                else:
-                                    answers[next_f["id"]] = st.text_input(next_f["label"], placeholder=next_f.get("placeholder", ""), key=f"qa_{sec_id}_{next_f['id']}", help=next_f.get("help"))
+                                answers[next_f["id"]] = render_qa_widget(next_f)
                             i += 2
                         else:
-                            if f_type == "date":
-                                answers[f["id"]] = st.date_input(f["label"], value=datetime.date.today(), key=f"qa_{sec_id}_{f['id']}", help=f.get("help"))
-                            elif f_type == "select":
-                                answers[f["id"]] = st.selectbox(f["label"], options=f.get("options", []), key=f"qa_{sec_id}_{f['id']}", help=f.get("help"))
-                            elif f_type == "textarea":
-                                answers[f["id"]] = st.text_area(f["label"], placeholder=f.get("placeholder", ""), height=80, key=f"qa_{sec_id}_{f['id']}", help=f.get("help"))
-                            else:
-                                answers[f["id"]] = st.text_input(f["label"], placeholder=f.get("placeholder", ""), key=f"qa_{sec_id}_{f['id']}", help=f.get("help"))
+                            answers[f["id"]] = render_qa_widget(f)
                             i += 1
 
                 st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
@@ -603,7 +627,49 @@ try:
                         df[f] = pd.to_numeric(df[f], errors='coerce')
                     elif "level of risk" in f_lower:
                         column_config[f] = st.column_config.SelectboxColumn(f, options=["High", "Medium", "Low"])
-                    elif f in ["Responsible", "Accountable", "Consulted by", "Informed to"]:
+                    elif sec_id == "1.13" and f == "Responsible":
+                        r_opts = ["PH", "Field Officer", "Operations Manager", "Vertical Lead", "Project Manager", "Trainer", "Finance Lead", "HR Lead"]
+                        exist_r = [str(x) for x in df[f].dropna().unique() if str(x).strip()]
+                        column_config[f] = st.column_config.SelectboxColumn(f, options=sorted(list(set(r_opts + exist_r))), help="Select designation executing the work")
+                    elif sec_id == "1.13" and f == "Accountable":
+                        a_opts = ["Manager", "PH", "Vertical Lead", "Director", "Quality Lead"]
+                        exist_a = [str(x) for x in df[f].dropna().unique() if str(x).strip()]
+                        column_config[f] = st.column_config.SelectboxColumn(f, options=sorted(list(set(a_opts + exist_a))), help="Select single Accountable owner")
+                    elif sec_id == "1.13" and f == "Consulted by":
+                        c_opts = ["Director", "Quality Lead", "Vertical Lead", "Legal & Compliance", "Finance Lead"]
+                        exist_c = [str(x) for x in df[f].dropna().unique() if str(x).strip()]
+                        column_config[f] = st.column_config.SelectboxColumn(f, options=sorted(list(set(c_opts + exist_c))), help="Select consulted stakeholder")
+                    elif sec_id == "1.13" and f == "Informed to":
+                        i_opts = ["CEO Project teams", "SCD internal teams", "Operations Team", "Program Director", "Finance Team"]
+                        exist_i = [str(x) for x in df[f].dropna().unique() if str(x).strip()]
+                        column_config[f] = st.column_config.SelectboxColumn(f, options=sorted(list(set(i_opts + exist_i))), help="Select informed team")
+                    elif sec_id == "1.5" and f == "Owner":
+                        kpi_o = ["Program Head (PH)", "Operations Manager", "Vertical Lead", "Program Director", "Quality & Excellence Lead", "Project Manager"]
+                        exist_o = [str(x) for x in df[f].dropna().unique() if str(x).strip()]
+                        column_config[f] = st.column_config.SelectboxColumn(f, options=sorted(list(set(kpi_o + exist_o))), help="Select KPI Owner")
+                    elif sec_id == "1.5" and f == "Maker":
+                        kpi_m = ["Field Officer", "Field Executive", "Operations Executive", "Program Associate", "Project Executive", "Trainer / Facilitator", "Program Head (PH)"]
+                        exist_m = [str(x) for x in df[f].dropna().unique() if str(x).strip()]
+                        column_config[f] = st.column_config.SelectboxColumn(f, options=sorted(list(set(kpi_m + exist_m))), help="Select Maker")
+                    elif sec_id == "1.5" and f == "Checker":
+                        kpi_c = ["Operations Manager", "Program Head (PH)", "Vertical Lead", "Quality & Business Excellence Lead", "Project Manager", "Program Director"]
+                        exist_c = [str(x) for x in df[f].dropna().unique() if str(x).strip()]
+                        column_config[f] = st.column_config.SelectboxColumn(f, options=sorted(list(set(kpi_c + exist_c))), help="Select Checker")
+                    elif sec_id == "1.5" and f in ["Report Frequency", "Review Frequency"]:
+                        freq_opts = ["Daily", "Weekly", "Monthly", "Quarterly", "Semi-Annually", "Annually"]
+                        exist_fr = [str(x) for x in df[f].dropna().unique() if str(x).strip()]
+                        column_config[f] = st.column_config.SelectboxColumn(f, options=sorted(list(set(freq_opts + exist_fr))))
+                    elif sec_id == "1.15" and f in ["Prop By", "Recom By", "Approved By", "Informed to"]:
+                        exc_opts = ["Field Officer", "Operations Executive", "Program Head (PH)", "Operations Manager", "Vertical Lead", "Program Director", "CEO / Leadership", "CEO Project teams", "Finance Team"]
+                        exist_exc = [str(x) for x in df[f].dropna().unique() if str(x).strip()]
+                        column_config[f] = st.column_config.SelectboxColumn(f, options=sorted(list(set(exc_opts + exist_exc))))
+                    elif sec_id == "1.18" and f == "Storage Type":
+                        column_config[f] = st.column_config.SelectboxColumn(f, options=["Both Soft & Hard copy", "Soft copy", "Hard copy"])
+                    elif sec_id == "1.18" and f == "Retention period":
+                        column_config[f] = st.column_config.SelectboxColumn(f, options=["7 Years", "5 Years", "3 Years", "10 Years", "Permanent"])
+                    elif sec_id == "1.18" and f == "Criticality":
+                        column_config[f] = st.column_config.SelectboxColumn(f, options=["High", "Medium", "Low"])
+                    elif f in ["Responsible", "Accountable", "Consulted by", "Informed to", "Owner/Role", "Process Owner"]:
                         column_config[f] = st.column_config.TextColumn(f, help=f"Enter designation/job title for {f} (e.g. Manager, PH, Vertical Lead)")
                     else:
                         column_config[f] = st.column_config.TextColumn(f)
