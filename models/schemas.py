@@ -8,6 +8,7 @@ class SectionValidationResult(BaseModel):
     score: float
     issues: List[str] = []
     recommendations: List[str] = []
+    questions: List[str] = []  # Clarification questions for Process Owner
     severity: str  # LOW, MEDIUM, HIGH
 
 class ValidationResponse(BaseModel):
@@ -18,7 +19,7 @@ class ValidationResponse(BaseModel):
     sections_passed: int
     sections_needing_revision: int
     section_results: List[SectionValidationResult]
-    cross_section_issues: List[Dict[str, str]] = [] # [{'issue': '...', 'severity': '...'}]
+    cross_section_issues: List[Dict[str, Any]] = []
 
 class ProcessSectionSchema(BaseModel):
     section_id: str

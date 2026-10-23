@@ -19,7 +19,7 @@ class AIValidator:
 
         # Prepare content for LLM
         content_to_validate = ""
-        if section_config["type"] == "text":
+        if section_config["type"] in ["text", "file", "flowchart"]:
             content_to_validate = section.content or ""
         elif section_config["type"] == "table":
             content_to_validate = json.dumps(section.structured_data) if section.structured_data else ""

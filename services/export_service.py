@@ -47,7 +47,22 @@ def generate_docx(note: ProcessNote) -> io.BytesIO:
         doc.add_heading(f"{section.section_id} {sec_name}", level=1)
         
         if section.content:
-            doc.add_paragraph(section.content)
+            if section.content.lower().endswith(('.png', '.jpg', '.jpeg')):
+                img_path = os.path.join("uploads", section.content)
+                if os.path.exists(img_path):
+                    try:
+                        from docx.shared import Inches
+                        doc.add_picture(img_path, width=Inches(5.8))
+                    except Exception:
+                        doc.add_paragraph(f"Flowchart Image: {section.content}")
+                else:
+                    doc.add_paragraph(f"Flowchart Image: {section.content}")
+            elif "graph TD" in section.content or "mermaid" in section.content.lower():
+                doc.add_paragraph("Process Flowchart (Diagram Definition):")
+                p = doc.add_paragraph(section.content)
+                p.style = 'Quote'
+            else:
+                doc.add_paragraph(section.content)
             
         if section.structured_data:
             if isinstance(section.structured_data, list) and len(section.structured_data) > 0:

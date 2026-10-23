@@ -108,8 +108,9 @@ def require_login():
                             st.error("Unauthorized email domain. Access denied.")
                         else:
                             try:
-                                # Clean state before login
-                                st.session_state.clear()
+                                # Clean user state before login without breaking Streamlit SessionInfo
+                                for k in ["user", "current_user_id", "current_user_role", "current_user_name"]:
+                                    st.session_state.pop(k, None)
 
                                 sb = get_supabase_client()
                                 response = sb.auth.sign_in_with_password({"email": email, "password": password})
@@ -158,7 +159,10 @@ def logout():
     except Exception:
         pass
     
-    # Completely reset session state
-    st.session_state.clear()
+    # Reset app state safely without destroying Streamlit SessionInfo
+    for k in list(st.session_state.keys()):
+        if not k.startswith("_"):
+            st.session_state.pop(k, None)
+    st.session_state.user = None
     st.query_params.clear()
     st.rerun()

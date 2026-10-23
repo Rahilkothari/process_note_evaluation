@@ -74,35 +74,34 @@ rules:
 - section_id: '1.11'
   name: Process Flowchart
   criteria:
-  - Provides a visual representation of the process steps, sequence, decision points,
-    and flow.
-  - The major steps in the chart must logically match the steps detailed in the Process
-    Description.
+  - Must depict the actual operational process flow rather than a theoretical or high-level explanation.
+  - Must visually represent the actual steps, sequence, decision points, and hand-offs described in the Process Description (1.12).
+  - Sequence and flow logic must match the operational timeline.
 - section_id: '1.12'
   name: Process Description
   criteria:
-  - Provides a detailed description of each step in the process, including activities,
-    responsibilities, inputs, and outputs.
-  - Steps are in a logical sequence.
-  - Is complete and avoids duplication.
-  - Avoids unnecessary system explanations and generic filler.
-  - Clearly distinguishes activities from descriptions.
+  - Provides a clear, detailed, and easy-to-understand end-to-end description of the process.
+  - Each major activity must be broken down into sub-activities to ensure the end-to-end process is adequately documented.
+  - Must cover the source of data or inputs required for each activity.
+  - Must provide detailed steps explaining how each activity is performed.
+  - Must specify the tools, applications, and systems used at each stage (e.g., portals, software, ERP, spreadsheets).
+  - Must specify the teams or stakeholders involved and the hand-offs between them.
+  - Must specify the expected outcome or deliverable of each activity and the overall process.
+  - Must specify checks, validations, and approvals wherever applicable.
   - Each step must have an owner/role assigned and a defined Turn-Around Time (TAT).
 - section_id: '1.13'
   name: RACI Matrix
   criteria:
-  - Defines the roles and responsibilities of stakeholders using Responsible, Accountable,
-    Consulted, and Informed categories.
-  - Has an accountable role for the process.
-  - Roles are not incorrectly duplicated across everything.
-  - Roles appear relevant to the process.
+  - RACI Matrix must follow the standard format: Sr. No., Activity name, Activity description, Timeline, Responsible, Accountable, Consulted by, Informed to.
+  - Activities mentioned in the Process Description (1.12) must also be reflected in the RACI Matrix.
+  - Relevant designations and job titles (e.g. PH, Manager, Vertical Lead, Director, CEO Project teams) must be specified for R, A, C, and I roles instead of Yes/No responses or checkmarks.
+  - Every activity must have clear single Accountable (A) ownership.
 - section_id: '1.14'
   name: Business Rules
   criteria:
-  - Lists the strict rules, conditions, or guidelines that must be followed while
-    carrying out the process.
-  - Entries are actual business rules, not process descriptions, recommendations,
-    or general statements.
+  - Lists the strict operational rules, policies, and conditions that govern the process.
+  - Every Business Rule must be adequately supported and implemented by operational steps in the Process Description (1.12).
+  - If a rule is stated (e.g., peer grammar check, multi-level sign-off), the process for conducting that check, who performs it, and how it is completed must be documented in Section 1.12. Gaps must be flagged.
 - section_id: '1.15'
   name: Exception and Change Management
   criteria:

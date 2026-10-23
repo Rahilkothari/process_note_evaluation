@@ -36,10 +36,13 @@ sections = config.get("sections", [])
 db: Session = SessionLocal()
 try:
 
-    if "action_radio" not in st.session_state:
-        st.session_state["action_radio"] = "Create New Process Note"
+    action_options = ["Create New Process Note", "Edit Existing Process Note"]
+    default_action_idx = 0
+    if st.session_state.get("action_radio") == "Edit Existing Process Note":
+        default_action_idx = 1
 
-    action = st.radio("What would you like to do?", ["Create New Process Note", "Edit Existing Process Note"], horizontal=True, key="action_radio")
+    action = st.radio("What would you like to do?", action_options, index=default_action_idx, horizontal=True)
+    st.session_state["action_radio"] = action
     
     if action == "Create New Process Note":
         current_note = None
@@ -135,7 +138,7 @@ try:
                 process_approver=process_approver,
                 effective_date=effective_date,
                 next_review_date=next_review_date,
-                created_by=st.session_state.current_user_id
+                created_by=st.session_state.get("current_user_id")
             )
             db.add(current_note)
             db.commit()
@@ -235,9 +238,50 @@ try:
         sec_id = sec_config['id']
         existing_sec = existing_sections.get(sec_id)
 
+        # AI Process Co-pilot: Guided Q&A Assistant for Creator
+        from config.guided_questions import SECTION_GUIDED_QUESTIONS
+        gq = SECTION_GUIDED_QUESTIONS.get(sec_id)
+        if gq:
+            with st.expander(f"💡 Need Help? AI Process Co-pilot ({gq['title']})", expanded=False):
+                st.markdown("**Answer these simple questions to auto-generate this section:**")
+                for q in gq["questions"]:
+                    st.markdown(f"- *{q}*")
+                
+                qa_text = st.text_area(
+                    "Your rough notes / answers to the above questions:",
+                    placeholder=gq.get("placeholder", "Type your points or bullets here..."),
+                    key=f"qa_input_{sec_id}",
+                    height=110
+                )
+                if st.button("✨ Auto-Generate & Apply to Section", key=f"btn_qa_{sec_id}", type="secondary"):
+                    if not qa_text.strip():
+                        st.warning("Please type your rough notes or answers before generating.")
+                    else:
+                        with st.spinner("AI is synthesizing professional enterprise content..."):
+                            from services.llm_service import get_llm_provider
+                            llm = get_llm_provider()
+                            gen_result = llm.generate_section_from_qa(sec_id, sec_config, qa_text, team_name=current_note.team)
+                            
+                            if sec_config["type"] == "text":
+                                if not existing_sec:
+                                    new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=gen_result)
+                                    db.add(new_sec)
+                                else:
+                                    existing_sec.content = gen_result
+                                db.commit()
+                            elif sec_config["type"] == "table" and isinstance(gen_result, list):
+                                if not existing_sec:
+                                    new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=gen_result)
+                                    db.add(new_sec)
+                                else:
+                                    existing_sec.structured_data = gen_result
+                                db.commit()
+                            st.success("Section updated successfully from your answers! Review below.")
+                            st.rerun()
+
         with st.container():
-            with st.form(f"form_{sec_id}"):
-                if sec_config["type"] == "text":
+            if sec_config["type"] == "text":
+                with st.form(f"form_{sec_id}"):
                     val = existing_sec.content if existing_sec else ""
                     content = st.text_area("Provide your detailed response below:", value=val, height=250)
                     
@@ -276,69 +320,111 @@ try:
                                 existing_sec.content = content
                             db.commit()
                             st.success(f"Section {sec_id} saved successfully!")
-    
-                elif sec_config["type"] == "table":
-                    fields = sec_config.get("fields", [])
-        
-                    if existing_sec and existing_sec.structured_data:
-                        df = pd.DataFrame(existing_sec.structured_data)
-                        df.index = df.index + 1
-            
-                        render_fields = list(fields)
-                        if "Reviewer Comment" in df.columns:
-                            render_fields.append("Reviewer Comment")
-                
-                        for f in render_fields:
-                            if f not in df.columns:
-                                df[f] = None
-                        df = df[render_fields]
-                    else:
-                        df = pd.DataFrame(columns=fields)
-                        if sec_id == "1.1":
-                            df.loc[1] = [None for _ in fields]
-                            df.loc[2] = [None for _ in fields]
-                            df.loc[3] = [None for _ in fields]
-                            if "Role" in df.columns:
-                                df.at[1, "Role"] = "Process Owner"
-                                df.at[2, "Role"] = "Process Reviewer"
-                                df.at[3, "Role"] = "Process Approver"
-                        elif sec_id == "1.2":
-                            df.loc[1] = [None for _ in fields]
-                            if "Version No." in df.columns:
-                                df.at[1, "Version No."] = "1.0"
-                            if "Amendment" in df.columns:
-                                df.at[1, "Amendment"] = "Initial Draft"
-                        elif sec_id == "1.13":
-                            roles = ["Process Owner", "Process Reviewer", "Process Approver", "Maker", "Checker"]
-                            for i, role in enumerate(roles, start=1):
-                                df.loc[i] = [None for _ in fields]
-                                if "Roles" in df.columns:
-                                    df.at[i, "Roles"] = role
-                                if role == "Process Owner" and "Accountable (A)" in df.columns:
-                                    df.at[i, "Accountable (A)"] = "Yes"
-                        elif sec_id == "1.15":
-                            df.loc[1] = [None for _ in fields]
-                            if "Exception Description" in df.columns:
-                                df.at[1, "Exception Description"] = "No known exceptions identified"
-                        else:
-                            df.loc[1] = [None for _ in fields]
-        
-                    column_config = {}
-                    for f in fields:
-                        f_lower = f.lower()
-                        if "date" in f_lower:
-                            column_config[f] = st.column_config.DateColumn(f, format="YYYY-MM-DD")
-                            df[f] = pd.to_datetime(df[f], errors='coerce').dt.date
-                        elif "no." in f_lower or f_lower == "tat" or " tat " in f_lower:
-                            column_config[f] = st.column_config.NumberColumn(f, step=1)
-                            df[f] = pd.to_numeric(df[f], errors='coerce')
-                        elif f in ["Responsible (R)", "Accountable (A)", "Consulted (C)", "Informed (I)"]:
-                            column_config[f] = st.column_config.SelectboxColumn(f, options=["Yes", "No"])
-                        elif "level of risk" in f_lower:
-                            column_config[f] = st.column_config.SelectboxColumn(f, options=["High", "Medium", "Low"])
-                        else:
-                            column_config[f] = st.column_config.TextColumn(f)
 
+            elif sec_config["type"] == "table":
+                # Special Quick-Action for RACI Matrix (1.13)
+                if sec_id == "1.13":
+                    st.markdown("""
+                    <div style="background-color: #EFF6FF; border: 1px solid #BFDBFE; padding: 12px; border-radius: 6px; margin-bottom: 12px;">
+                        <span style="color: #1E40AF; font-weight: 600;">📋 Standard RACI Matrix Format (BE Standard):</span>
+                        <p style="color: #1E40AF; font-size: 13px; margin: 4px 0 0 0;">
+                        Activities must match Section 1.12. Specify exact job titles/designations (e.g. PH, Manager, Vertical Lead) under R, A, C, and I. Do NOT use Yes/No.
+                        </p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    desc_sec = existing_sections.get("1.12")
+                    if desc_sec and desc_sec.structured_data:
+                        if st.button("🔄 Auto-Populate Activities from Process Description (1.12)", key="btn_sync_raci"):
+                            new_raci_data = []
+                            for i, row in enumerate(desc_sec.structured_data, start=1):
+                                new_raci_data.append({
+                                    "Sr. No.": i,
+                                    "Activity name": row.get("Activity", f"Activity {i}"),
+                                    "Activity description": row.get("Description", ""),
+                                    "Timeline": row.get("TAT", "Given timeline"),
+                                    "Responsible": row.get("Owner/Role", ""),
+                                    "Accountable": "",
+                                    "Consulted by": "",
+                                    "Informed to": ""
+                                })
+                            if not existing_sec:
+                                new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=new_raci_data)
+                                db.add(new_sec)
+                            else:
+                                existing_sec.structured_data = new_raci_data
+                            db.commit()
+                            st.success("Activities synced from Section 1.12! Now assign the Accountable, Consulted, and Informed designations.")
+                            st.rerun()
+
+                fields = sec_config.get("fields", [])
+    
+                if existing_sec and existing_sec.structured_data:
+                    df = pd.DataFrame(existing_sec.structured_data)
+                    df.index = df.index + 1
+        
+                    render_fields = list(fields)
+                    if "Reviewer Comment" in df.columns:
+                        render_fields.append("Reviewer Comment")
+            
+                    for f in render_fields:
+                        if f not in df.columns:
+                            df[f] = None
+                    df = df[render_fields]
+                else:
+                    df = pd.DataFrame(columns=fields)
+                    if sec_id == "1.1":
+                        df.loc[1] = [None for _ in fields]
+                        df.loc[2] = [None for _ in fields]
+                        df.loc[3] = [None for _ in fields]
+                        if "Role" in df.columns:
+                            df.at[1, "Role"] = "Process Owner"
+                            df.at[2, "Role"] = "Process Reviewer"
+                            df.at[3, "Role"] = "Process Approver"
+                    elif sec_id == "1.2":
+                        df.loc[1] = [None for _ in fields]
+                        if "Version No." in df.columns:
+                            df.at[1, "Version No."] = "1.0"
+                        if "Amendment" in df.columns:
+                            df.at[1, "Amendment"] = "Initial Draft"
+                    elif sec_id == "1.13":
+                        # Check if Section 1.12 has activities
+                        desc_sec = existing_sections.get("1.12")
+                        if desc_sec and desc_sec.structured_data:
+                            for i, row in enumerate(desc_sec.structured_data, start=1):
+                                df.loc[i] = [None for _ in fields]
+                                if "Sr. No." in df.columns: df.at[i, "Sr. No."] = i
+                                if "Activity name" in df.columns: df.at[i, "Activity name"] = row.get("Activity", "")
+                                if "Activity description" in df.columns: df.at[i, "Activity description"] = row.get("Description", "")
+                                if "Timeline" in df.columns: df.at[i, "Timeline"] = row.get("TAT", "Given timeline")
+                                if "Responsible" in df.columns: df.at[i, "Responsible"] = row.get("Owner/Role", "")
+                        else:
+                            df.loc[1] = [None for _ in fields]
+                            if "Sr. No." in df.columns: df.at[1, "Sr. No."] = 1
+                    elif sec_id == "1.15":
+                        df.loc[1] = [None for _ in fields]
+                        if "Exception Description" in df.columns:
+                            df.at[1, "Exception Description"] = "No known exceptions identified"
+                    else:
+                        df.loc[1] = [None for _ in fields]
+    
+                column_config = {}
+                for f in fields:
+                    f_lower = f.lower()
+                    if "date" in f_lower:
+                        column_config[f] = st.column_config.DateColumn(f, format="YYYY-MM-DD")
+                        df[f] = pd.to_datetime(df[f], errors='coerce').dt.date
+                    elif f == "Sr. No." or "no." in f_lower or f_lower == "tat":
+                        column_config[f] = st.column_config.NumberColumn(f, step=1)
+                        df[f] = pd.to_numeric(df[f], errors='coerce')
+                    elif "level of risk" in f_lower:
+                        column_config[f] = st.column_config.SelectboxColumn(f, options=["High", "Medium", "Low"])
+                    elif f in ["Responsible", "Accountable", "Consulted by", "Informed to"]:
+                        column_config[f] = st.column_config.TextColumn(f, help=f"Enter designation/job title for {f} (e.g. Manager, PH, Vertical Lead)")
+                    else:
+                        column_config[f] = st.column_config.TextColumn(f)
+
+                with st.form(f"form_table_{sec_id}"):
                     st.markdown("Edit the table below:")
                     disabled_cols = ["Reviewer Comment"] if "Reviewer Comment" in df.columns else False
                     edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, key=f"editor_{sec_id}", column_config=column_config, disabled=disabled_cols)
@@ -373,15 +459,79 @@ try:
                                 existing_sec.structured_data = json_data
                             db.commit()
                             st.success(f"Section {sec_id} saved successfully!")
-    
-                elif sec_config["type"] == "file":
-                    uploaded_file = st.file_uploader("Upload Process Flowchart", type=["png", "jpg", "jpeg", "pdf", "vsdx", "drawio", "docx"])
-                    if existing_sec and existing_sec.content:
-                        st.info(f"Currently uploaded: {existing_sec.content}")
-            
-                    if st.form_submit_button("Save Section", type="primary"):
+
+            elif sec_config["type"] in ["file", "flowchart"]:
+                flow_tab1, flow_tab2 = st.tabs(["📊 Visual Flowchart (AI Generated / Mermaid)", "📁 Upload Diagram File"])
+                
+                with flow_tab1:
+                    st.markdown("""
+                    <div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; padding: 12px; border-radius: 6px; margin-bottom: 12px;">
+                        <span style="color: #0F172A; font-weight: 600;">Process Flowchart Generator:</span>
+                        <p style="color: #64748B; font-size: 13px; margin: 4px 0 0 0;">
+                        Depicts the actual process flow, decision points, and hand-offs directly aligned with Section 1.12.
+                        </p>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    desc_sec = existing_sections.get("1.12")
+                    col_f1, col_f2 = st.columns([1, 1])
+                    with col_f1:
+                        if st.button("✨ Auto-Generate Flowchart from Process Description (1.12)", key="btn_gen_flowchart"):
+                            if not desc_sec or not desc_sec.structured_data:
+                                st.warning("Please fill out Section 1.12 (Process Description) first so the AI can map the steps into a flowchart.")
+                            else:
+                                with st.spinner("Generating operational process flowchart..."):
+                                    from services.llm_service import get_llm_provider
+                                    llm = get_llm_provider()
+                                    mermaid_code = llm.generate_flowchart_mermaid(desc_sec.structured_data)
+                                    if not existing_sec:
+                                        new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=mermaid_code)
+                                        db.add(new_sec)
+                                    else:
+                                        existing_sec.content = mermaid_code
+                                    db.commit()
+                                    st.success("Flowchart generated successfully!")
+                                    st.rerun()
+
+                    current_chart = existing_sec.content if existing_sec else ""
+                    with st.form(f"form_flow_{sec_id}"):
+                        chart_content = st.text_area(
+                            "Flowchart Definition (Mermaid Syntax):", 
+                            value=current_chart if current_chart and not current_chart.endswith(('.png', '.jpg', '.pdf', '.docx', '.vsdx')) else "graph TD\n    A[Start Process] --> B[Execute Key Steps] --> C[End Process]", 
+                            height=200,
+                            help="Edit the diagram nodes, decision branches, and handoffs."
+                        )
+                        save_chart_btn = st.form_submit_button("Save Flowchart Diagram", type="primary")
+                        if save_chart_btn:
+                            if not existing_sec:
+                                new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=chart_content)
+                                db.add(new_sec)
+                            else:
+                                existing_sec.content = chart_content
+                            db.commit()
+                            st.success("Flowchart saved successfully!")
+                            st.rerun()
+
+                    if current_chart and not current_chart.endswith(('.png', '.jpg', '.pdf', '.docx', '.vsdx')):
+                        st.markdown("#### Live Flowchart Preview:")
+                        try:
+                            clean_mermaid = current_chart.replace("```mermaid", "").replace("```", "").strip()
+                            st.markdown(f"```mermaid\n{clean_mermaid}\n```")
+                        except Exception as e:
+                            st.info(f"Diagram code: {current_chart}")
+
+                with flow_tab2:
+                    st.markdown("Upload an existing visual flowchart diagram (Visio, Draw.io, PNG, JPG, PDF):")
+                    uploaded_file = st.file_uploader("Choose a diagram file", type=["png", "jpg", "jpeg", "pdf", "vsdx", "drawio", "docx"], key=f"uploader_{sec_id}")
+                    if existing_sec and existing_sec.content and existing_sec.content.endswith(('.png', '.jpg', '.jpeg', '.pdf', '.docx', '.vsdx')):
+                        st.info(f"Currently uploaded file: {existing_sec.content}")
+                        if existing_sec.content.endswith(('.png', '.jpg', '.jpeg')):
+                            img_path = os.path.join("uploads", existing_sec.content)
+                            if os.path.exists(img_path):
+                                st.image(img_path, caption=existing_sec.content, use_container_width=True)
+
+                    if st.button("Save Uploaded Diagram", key=f"save_file_{sec_id}", type="primary"):
                         if uploaded_file is not None:
-                            import os
                             os.makedirs("uploads", exist_ok=True)
                             file_path = os.path.join("uploads", uploaded_file.name)
                             with open(file_path, "wb") as f:
@@ -389,9 +539,9 @@ try:
                             content_val = uploaded_file.name
                         else:
                             content_val = existing_sec.content if existing_sec else ""
-                
+                        
                         if not content_val:
-                            st.error("Validation Error: Please wait for the file to finish uploading or attach a file before saving.")
+                            st.error("Please upload a file before saving.")
                         else:
                             if not existing_sec:
                                 new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=content_val)
@@ -399,7 +549,8 @@ try:
                             else:
                                 existing_sec.content = content_val
                             db.commit()
-                            st.success(f"Section {sec_id} saved successfully! File: {content_val}")
+                            st.success(f"Flowchart diagram file saved: {content_val}")
+                            st.rerun()
     
         st.markdown("<br><hr>", unsafe_allow_html=True)
         col1, col2 = st.columns(2)

@@ -92,18 +92,18 @@ class ValidationEngine:
         total_score = sum([res.score for res in section_results]) if section_results else 0
         overall_score = total_score / len(section_results) if section_results else 0
         
-        critical_issues = sum([1 for res in section_results if res.severity == "HIGH"])
-        warnings = sum([1 for res in section_results if res.severity == "MEDIUM" or res.status == "WARNING"])
+        critical_issues = sum([1 for res in section_results if res.severity == "HIGH"]) + sum([1 for cr in cross_section_issues if cr.get("severity") == "HIGH"])
+        warnings = sum([1 for res in section_results if res.severity == "MEDIUM" or res.status == "WARNING"]) + sum([1 for cr in cross_section_issues if cr.get("severity") != "HIGH"])
         
         sections_passed = sum([1 for res in section_results if res.status == "PASS"])
         sections_needing_revision = sum([1 for res in section_results if res.status == "NEEDS_REVISION"])
         
-        if overall_score >= pass_threshold:
-            overall_status = "PASS"
-        elif overall_score >= warning_threshold:
+        if critical_issues > 0 or sections_needing_revision > 0 or overall_score < warning_threshold:
+            overall_status = "NEEDS_REVISION"
+        elif warnings > 0 or overall_score < pass_threshold:
             overall_status = "WARNING"
         else:
-            overall_status = "NEEDS_REVISION"
+            overall_status = "PASS"
 
         return ValidationResponse(
             overall_score=round(overall_score, 1),

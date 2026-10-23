@@ -97,8 +97,8 @@ sections:
 
 - id: '1.11'
   name: Process Flowchart
-  type: file
-  help_text: Upload a visual flowchart representing the steps of the process.
+  type: flowchart
+  help_text: Provide an operational flowchart depicting the actual end-to-end process sequence, decision points, systems used, and hand-offs (matching Section 1.12), rather than theoretical or high-level explanations. You can generate a visual flowchart using AI or upload an image/diagram file.
 
 - id: '1.12'
   name: Process Description
@@ -108,26 +108,31 @@ sections:
   - Description
   - Owner/Role
   - TAT
-  help_text: List step-by-step activities.
+  help_text: "List step-by-step activities broken down into sub-activities. For each activity, specify: 1) Data inputs/sources, 2) Step-by-step procedure, 3) Tools/applications used, 4) Stakeholders & hand-offs, 5) Expected deliverables/outcomes, 6) Checks/approvals."
+  example: "Activity: School Selection & Verification | Description: 1. Input: District school list from Gov portal. 2. Sub-steps: Filter criteria applied in Excel, on-ground verification conducted. 3. Tools: State Education Portal, KEF MIS. 4. Handoff: Handed from PH to Verification Lead. 5. Output: Shortlisted verified schools. 6. Check: Verification sign-off by Manager. | Owner/Role: PH & Manager | TAT: 5 Days"
 
 - id: '1.13'
   name: RACI Matrix
   type: table
   fields:
-  - Roles
-  - Responsible ( R )
-  - Accountable ( A )
-  - Consulted ( C )
-  - Informed ( I )
-  - TAT
-  help_text: Define RACI roles.
+  - Sr. No.
+  - Activity name
+  - Activity description
+  - Timeline
+  - Responsible
+  - Accountable
+  - Consulted by
+  - Informed to
+  help_text: "Map every activity from Section 1.12 (Process Description). For each activity, specify the exact designation/role (e.g., PH, Manager, Vertical Lead, Director, CEO Project teams) for Responsible, Accountable, Consulted by, and Informed to. DO NOT enter Yes/No."
+  example: "Sr. No.: 1 | Activity name: Plan of the Onboarding of the schools | Activity description: 1. Geographical location selection for school onboarding. 2. Liaison with the relevant government authority for coordination. 3. Filter analysis of potential partner schools for partnership | Timeline: Given timeline | Responsible: PH | Accountable: Manager | Consulted by: Director | Informed to: CEO Project teams"
 
 - id: '1.14'
   name: Business Rules
   type: table
   fields:
   - Business Rules
-  help_text: List the strict rules or policies that govern this process. Enter N/A if none.
+  help_text: "List the strict operational rules, conditions, and governance criteria that must be followed. Every rule must be supported by practical implementation steps in Section 1.12 (explaining who performs the verification/rule enforcement and how)."
+  example: "All translated scripts must pass a peer grammar check before recording (enforced by Quality Lead using standard rubric in Section 1.12 Step 3)."
 
 - id: '1.15'
   name: Exception and Change Management

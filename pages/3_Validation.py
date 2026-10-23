@@ -124,6 +124,11 @@ try:
             db.refresh(v_run)
         
             for sec_res in result.section_results:
+                rec_lines = list(sec_res.recommendations)
+                if sec_res.questions:
+                    rec_lines.append("\n**Clarification Questions for Process Owner:**")
+                    rec_lines.extend([f"- {q}" for q in sec_res.questions])
+
                 vf = ValidationFinding(
                     validation_id=v_run.id,
                     process_name=current_note.process_name,
@@ -132,18 +137,29 @@ try:
                     status=sec_res.status,
                     score=sec_res.score,
                     issue="\n".join(sec_res.issues),
-                    recommendation="\n".join(sec_res.recommendations),
+                    recommendation="\n".join(rec_lines),
                     is_cross_section=0
                 )
                 db.add(vf)
             
             for cr in result.cross_section_issues:
+                cr_rec = []
+                if cr.get("questions"):
+                    cr_rec.append("**Clarification Questions for Process Owner:**")
+                    cr_rec.extend([f"- {q}" for q in cr.get("questions")])
+                
+                rel = cr.get("related_sections", [])
+                label = f"Cross-Section ({' & '.join(rel)})" if rel else "Cross-Section Alignment"
+
                 vf = ValidationFinding(
                     validation_id=v_run.id,
                     process_name=current_note.process_name,
+                    section_id=label,
                     severity=cr.get("severity", "MEDIUM"),
-                    status="WARNING",
+                    status="NEEDS_REVISION" if cr.get("severity") == "HIGH" else "WARNING",
+                    score=0.0 if cr.get("severity") == "HIGH" else 50.0,
                     issue=cr.get("issue", ""),
+                    recommendation="\n".join(cr_rec),
                     is_cross_section=1
                 )
                 db.add(vf)
@@ -185,27 +201,60 @@ try:
     
         findings = db.query(ValidationFinding).filter(ValidationFinding.validation_id == latest_run.id).all()
     
-        st.markdown("### Cross-Section Findings")
+        st.markdown("### Cross-Section Alignment Audit (BE Standards)")
         cross_findings = [f for f in findings if f.is_cross_section == 1]
         if cross_findings:
             for f in cross_findings:
-                st.warning(f"[{f.severity}] {f.issue}")
+                is_resolved = "*(Resolved by Clarification)*" in (f.issue or "")
+                display_cr_issue = (f.issue or "").replace("*(Resolved by Clarification)*\n\n", "").replace("*(Resolved by Clarification)*", "")
+                
+                with st.expander(f"⚠️ [{f.severity}] {f.section_id} - {'✅ Resolved' if is_resolved else 'Gap Identified'}", expanded=not is_resolved):
+                    st.markdown(f"**Audit Observation:** {display_cr_issue}")
+                    
+                    if f.recommendation and "**Clarification Questions for Process Owner:**" in f.recommendation:
+                        st.markdown("""
+                        <div style="background-color: #FEF3C7; border-left: 4px solid #F59E0B; padding: 12px; border-radius: 4px; margin: 12px 0;">
+                            <strong style="color: #92400E;">💬 Action Required: Business Excellence Clarification Questions</strong>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        q_part = f.recommendation.split("**Clarification Questions for Process Owner:**")[1].strip()
+                        st.markdown(q_part)
+
+                        if not is_resolved:
+                            cr_ans = st.text_area("Process Owner Response / Operational Details:", key=f"cr_ans_{f.id}", height=85, placeholder="Explain who executes this, tools used, and verification procedure...")
+                            if st.button("✨ Incorporate Clarification into Process Description (1.12)", key=f"btn_apply_cr_{f.id}", type="primary"):
+                                if not cr_ans.strip():
+                                    st.warning("Please enter your clarification response.")
+                                else:
+                                    with st.spinner("AI is incorporating your explanation into Section 1.12..."):
+                                        from services.llm_service import get_llm_provider
+                                        llm = get_llm_provider()
+                                        desc_sec = db.query(ProcessSection).filter(ProcessSection.process_note_id == current_note.id, ProcessSection.section_id == "1.12").first()
+                                        if desc_sec and desc_sec.structured_data:
+                                            updated_data = llm.resolve_clarification("1.12", "table", desc_sec.structured_data, display_cr_issue, cr_ans)
+                                            desc_sec.structured_data = updated_data
+                                            f.status = "PASS"
+                                            f.severity = "LOW"
+                                            f.issue = f"*(Resolved by Clarification)*\n\n{f.issue}"
+                                            db.commit()
+                                            st.success("Clarification saved to Section 1.12! Click 'Run AI Validation' above to re-evaluate.")
+                                            st.rerun()
         else:
-            st.success("No cross-section issues found.")
+            st.success("✅ No cross-section gaps found. Business rules, KPIs, flowchart, and RACI are fully aligned with Process Description.")
         
-        st.markdown("### Section Findings")
+        st.markdown("### Section-by-Section Findings")
         sec_findings = [f for f in findings if f.is_cross_section == 0]
     
         for f in sec_findings:
-            is_manual = "*(Marked as OK by User)*" in (f.issue or "")
-            display_issue = (f.issue or "").replace("*(Marked as OK by User)*\n\n", "").replace("*(Marked as OK by User)*", "")
+            is_manual = "*(Marked as OK by User)*" in (f.issue or "") or "*(Resolved by Clarification)*" in (f.issue or "")
+            display_issue = (f.issue or "").replace("*(Marked as OK by User)*\n\n", "").replace("*(Marked as OK by User)*", "").replace("*(Resolved by Clarification)*\n\n", "")
         
             badge_cls = "badge-pass" if f.status == "PASS" else ("badge-warning" if f.status == "WARNING" else "badge-fail")
-            badge_text = "PASS (Marked as OK)" if is_manual else f.status
+            badge_text = "PASS (Resolved)" if is_manual else f.status
             badge_html = f"<span class='badge {badge_cls}'>{badge_text}</span>"
         
             if is_manual:
-                status_emoji = "✅ PASS (Marked as OK)"
+                status_emoji = "✅ PASS (Resolved)"
             else:
                 status_emoji = "✅ PASS" if f.status == "PASS" else ("⚠️ WARNING" if f.status == "WARNING" else "❌ NEEDS REVISION")
         
@@ -214,18 +263,66 @@ try:
                 if display_issue.strip():
                     st.markdown(f"**Issues ({f.severity}):**")
                     st.write(display_issue.strip())
+                
+                # Check for clarification questions
                 if f.recommendation:
-                    st.markdown("**Recommendation:**")
-                    st.write(f.recommendation)
+                    if "**Clarification Questions for Process Owner:**" in f.recommendation:
+                        rec_parts = f.recommendation.split("**Clarification Questions for Process Owner:**")
+                        advice = rec_parts[0].strip()
+                        questions = rec_parts[1].strip()
+                        
+                        if advice:
+                            st.markdown("**Recommendation:**")
+                            st.write(advice)
+                        
+                        st.markdown("""
+                        <div style="background-color: #FEF3C7; border-left: 4px solid #F59E0B; padding: 10px; border-radius: 4px; margin: 10px 0;">
+                            <strong style="color: #92400E;">💬 Clarification Questions for Process Owner:</strong>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        st.markdown(questions)
+
+                        if f.status != "PASS" and not is_manual:
+                            sec_ans = st.text_area("Your response / missing details for this section:", key=f"ans_sec_{f.id}", height=80)
+                            if st.button("✨ Apply Clarification to This Section", key=f"btn_sec_apply_{f.id}", type="primary"):
+                                if not sec_ans.strip():
+                                    st.warning("Please type your response before applying.")
+                                else:
+                                    with st.spinner("AI is updating this section..."):
+                                        from services.llm_service import get_llm_provider
+                                        llm = get_llm_provider()
+                                        
+                                        # Find true section ID
+                                        sec_def = next((s for s in sections_config if str(s.get("id")) == str(f.section_id) or str(s.get("name")) == str(f.section_id) or str(f.section_id).startswith(str(s.get("id")))), None)
+                                        t_sec_id = sec_def.get("id") if sec_def else f.section_id.split(" ")[0].replace("-", "").strip()
+                                        
+                                        target_sec = db.query(ProcessSection).filter(ProcessSection.process_note_id == current_note.id, ProcessSection.section_id == t_sec_id).first()
+                                        if target_sec:
+                                            s_type = sec_def.get("type", "text") if sec_def else "text"
+                                            curr_cont = target_sec.structured_data if s_type == "table" else (target_sec.content or "")
+                                            updated_res = llm.resolve_clarification(t_sec_id, s_type, curr_cont, questions, sec_ans)
+                                            if s_type == "table" and isinstance(updated_res, list):
+                                                target_sec.structured_data = updated_res
+                                            else:
+                                                target_sec.content = str(updated_res)
+                                            
+                                            f.status = "PASS"
+                                            f.severity = "LOW"
+                                            f.issue = f"*(Resolved by Clarification)*\n\n{f.issue}"
+                                            db.commit()
+                                            st.success(f"Section {t_sec_id} updated with your clarification! Click 'Run AI Validation' above to re-evaluate.")
+                                            st.rerun()
+                    else:
+                        st.markdown("**Recommendation:**")
+                        st.write(f.recommendation)
+                        
                 if not display_issue.strip() and not f.recommendation:
                     st.write("Section looks good.")
                 
                 if f.status != "PASS" and not is_manual:
                     if st.button("Mark as OK (Ignore Feedback)", key=f"ignore_{f.id}"):
-                        # Update this finding
                         f.status = "PASS"
                         f.severity = "LOW"
-                        # Preserve original score, do not change to 100.0
                         f.issue = f"*(Marked as OK by User)*\n\n{f.issue}" if f.issue else "*(Marked as OK by User)*"
                         db.commit()
                     
