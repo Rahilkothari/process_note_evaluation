@@ -8,3 +8,13 @@ font = "sans serif"
 [client]
 toolbarMode = "minimal"
 showErrorDetails = true
+
+[server]
+headless = true
+runOnSave = false
+enableCORS = false
+enableXsrfProtection = false
+maxMessageSize = 200
+
+[browser]
+gatherUsageStats = false
