@@ -70,21 +70,72 @@ def inject_custom_css():
             color: #334155;
         }
         
-        /* Container/Form styling (Premium Elevaton) */
-        [data-testid="stForm"], .stContainer, [data-testid="stExpander"] {
+        /* Container/Form styling (Premium Elevation) */
+        [data-testid="stForm"], .stContainer {
             background-color: #FFFFFF;
             border-radius: 12px;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
             border: 1px solid #F1F5F9;
             transition: box-shadow 0.2s ease;
         }
-        [data-testid="stForm"]:hover, [data-testid="stExpander"]:hover {
+        [data-testid="stForm"]:hover {
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
             border-color: #E2E8F0;
         }
         [data-testid="stForm"] {
             padding: 32px;
             margin-bottom: 24px;
+        }
+
+        /* Distinct AI Expander Drawer Styling (Gradient Card with Violet/Indigo Accents) */
+        [data-testid="stExpander"] {
+            background: linear-gradient(135deg, #FAF5FF 0%, #EEF2FF 50%, #F5F3FF 100%) !important;
+            border-radius: 14px !important;
+            border: 1.5px solid #C7D2FE !important;
+            box-shadow: 0 4px 14px rgba(99, 102, 241, 0.10) !important;
+            margin: 12px 0 18px 0 !important;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            overflow: hidden !important;
+        }
+        [data-testid="stExpander"]:hover {
+            border-color: #818CF8 !important;
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.20) !important;
+        }
+        [data-testid="stExpander"] details {
+            border: none !important;
+        }
+        [data-testid="stExpander"] details summary {
+            background-color: transparent !important;
+            padding: 13px 18px !important;
+            border-radius: 12px !important;
+            cursor: pointer !important;
+            transition: background-color 0.2s ease !important;
+        }
+        [data-testid="stExpander"] details summary:hover {
+            background-color: rgba(224, 231, 255, 0.5) !important;
+        }
+        [data-testid="stExpander"] details summary p {
+            font-size: 14.5px !important;
+            font-weight: 700 !important;
+            color: #4338CA !important;
+            letter-spacing: -0.01em !important;
+        }
+        [data-testid="stExpander"] details summary svg {
+            color: #6366F1 !important;
+            transform: scale(1.1);
+            filter: drop-shadow(0 1px 2px rgba(99, 102, 241, 0.3));
+        }
+        [data-testid="stExpander"] details[open] {
+            border-color: #6366F1 !important;
+            box-shadow: 0 8px 24px rgba(99, 102, 241, 0.15) !important;
+        }
+        [data-testid="stExpander"] details[open] summary {
+            border-bottom: 1px solid #E0E7FF !important;
+            background-color: rgba(238, 242, 255, 0.85) !important;
+        }
+        [data-testid="stExpander"] details > div:last-child {
+            padding: 18px 22px !important;
+            background-color: #FFFFFF !important;
         }
         
         /* Input field styling */

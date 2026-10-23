@@ -224,19 +224,75 @@ try:
         if st.session_state["current_section_edit"] not in tab_names:
             st.session_state["current_section_edit"] = tab_names[0]
         
-        selected_tab = st.selectbox("📌 Select a Section to Fill Out:", tab_names, key="current_section_edit")
+        current_idx = tab_names.index(st.session_state["current_section_edit"])
+
+        # Section Navigation Control Bar
+        st.markdown(
+            f"""
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; margin-bottom: 6px;">
+                <span style="font-size: 13px; font-weight: 700; color: #334155; text-transform: uppercase; letter-spacing: 0.04em;">
+                    📂 Section Navigation
+                </span>
+                <span style="font-size: 12px; font-weight: 600; background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE; padding: 2px 10px; border-radius: 12px;">
+                    Step {current_idx + 1} of {total_count}
+                </span>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        nav_col1, nav_col2, nav_col3 = st.columns([1.2, 5.6, 1.2])
+        with nav_col1:
+            if st.button("◀ Prev", disabled=(current_idx == 0), use_container_width=True, key="btn_nav_prev", help="Navigate to previous section"):
+                st.session_state["current_section_edit"] = tab_names[current_idx - 1]
+                st.rerun()
+        with nav_col3:
+            if st.button("Next ▶", disabled=(current_idx == total_count - 1), use_container_width=True, key="btn_nav_next", help="Navigate to next section"):
+                st.session_state["current_section_edit"] = tab_names[current_idx + 1]
+                st.rerun()
+        with nav_col2:
+            selected_tab = st.selectbox(
+                "Select a Section to Fill Out:",
+                tab_names,
+                key="current_section_edit",
+                label_visibility="collapsed"
+            )
     
         sec_config = sections[tab_names.index(selected_tab)]
-    
+        sec_id = sec_config['id']
+        existing_sec = existing_sections.get(sec_id)
+
         help_text = sec_config.get('help_text', 'No instructions provided.')
         example_text = sec_config.get('example', '')
 
-        st.info(f"**Instructions for {sec_config['name']}:** {help_text}")
-        if example_text:
-            st.markdown(f"> *{example_text}*")
+        is_completed = sec_id in existing_sections
+        status_badge = (
+            '<span style="background: #DCFCE7; color: #166534; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 12px; border: 1px solid #86EFAC;">✓ Section Completed</span>'
+            if is_completed
+            else '<span style="background: #FEF3C7; color: #92400E; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 12px; border: 1px solid #FDE68A;">⏳ Pending Input</span>'
+        )
 
-        sec_id = sec_config['id']
-        existing_sec = existing_sections.get(sec_id)
+        example_html = (
+            f'<div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #CBD5E1; color: #64748B; font-size: 12.5px; font-style: italic;"><b>Example:</b> {example_text}</div>'
+            if example_text
+            else ""
+        )
+
+        st.markdown(
+            f"""
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-left: 4px solid #3B82F6; border-radius: 8px; padding: 12px 16px; margin: 8px 0 16px 0;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <span style="font-weight: 700; color: #1E293B; font-size: 13.5px;">📋 Instructions for {sec_config['name']}</span>
+                    {status_badge}
+                </div>
+                <div style="color: #334155; font-size: 13px; line-height: 1.5;">
+                    {help_text}
+                </div>
+                {example_html}
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
         # AI Process Co-pilot: Interactive Guided Assistant for Creator
         import datetime
@@ -249,8 +305,22 @@ try:
         )
         spec = SECTION_GUIDED_SPECS.get(sec_id)
         if spec:
-            with st.expander(f"💡 Need Help? AI Process Co-pilot ({spec['title']})", expanded=False):
-                st.markdown(f"<p style='color: #4B5563; font-size: 14px; margin-bottom: 12px;'><i>{spec['intro']}</i></p>", unsafe_allow_html=True)
+            with st.expander(f"✨ AI Process Co-pilot: Guided Q&A Assistant ({spec['title']})", expanded=False):
+                st.markdown(
+                    f"""
+                    <div style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(168, 85, 247, 0.08) 100%); 
+                                border: 1px solid #C7D2FE; border-left: 4px solid #6366F1; border-radius: 8px; 
+                                padding: 10px 14px; margin-bottom: 14px;">
+                        <div style="font-weight: 700; color: #3730A3; font-size: 13.5px; display: flex; align-items: center; gap: 6px;">
+                            <span>🤖 Interactive AI Assistant</span>
+                        </div>
+                        <div style="color: #4B5563; font-size: 13px; margin-top: 3px; line-height: 1.4;">
+                            <i>{spec['intro']}</i> Answer the questions below and click <b>Auto-Fill Section</b> to generate high-quality, standardized content.
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
                 
                 answers = {}
                 fields = spec.get("fields", [])
