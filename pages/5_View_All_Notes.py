@@ -4,8 +4,7 @@ from sqlalchemy.orm import Session
 import pandas as pd
 
 
-from core.ui_utils import inject_custom_css
-from core.ui_utils import inject_custom_css
+from core.ui_utils import inject_custom_css, render_mermaid_flowchart
 
 
 st.title("View All Process Notes")
@@ -140,7 +139,16 @@ try:
         if sec_id in filled_sections:
             s = filled_sections[sec_id]
             if s.content:
-                st.write(s.content)
+                if "flowchart" in s.content or "graph TD" in s.content:
+                    render_mermaid_flowchart(s.content)
+                elif s.content.endswith(('.png', '.jpg', '.jpeg')):
+                    img_path = os.path.join("uploads", s.content)
+                    if os.path.exists(img_path):
+                        st.image(img_path, caption=s.content, use_container_width=True)
+                    else:
+                        st.info(f"Uploaded diagram: {s.content}")
+                else:
+                    st.write(s.content)
             elif s.structured_data:
                 df = pd.DataFrame(s.structured_data)
                 df.index = df.index + 1

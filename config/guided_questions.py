@@ -1183,13 +1183,13 @@ def build_text_summary_from_answers(sec_id: str, answers: Dict[str, Any]) -> str
 
 
 def build_mermaid_flowchart_from_answers(answers: Dict[str, Any]) -> str:
-    """Generates a clean Mermaid flowchart from structured wizard answers."""
+    """Generates a clean Mermaid flowchart with proper process boxes, decision diamonds, and terminal pills."""
     steps_raw = str(answers.get("steps", "")).strip()
     decisions_raw = str(answers.get("decisions", "")).strip()
     roles = str(answers.get("roles", "")).strip()
 
     lines = ["flowchart TD"]
-    lines.append("    Start([Process Start]) --> Step1[1. Process Initiation]")
+    lines.append("    Start([Process Start]) --> Step1[\"1. Process Initiation\"]")
     
     step_items = [s.strip() for s in steps_raw.split("\n") if s.strip()]
     if not step_items:
@@ -1204,13 +1204,29 @@ def build_mermaid_flowchart_from_answers(answers: Dict[str, Any]) -> str:
         prev_node = node_id
 
     if decisions_raw:
-        lines.append(f"    {prev_node} --> Dec1{{\"Decision Criteria Met?\"}}")
+        clean_dec = decisions_raw.replace('"', "").replace("{", "").replace("}", "").strip()
+        dec_label = clean_dec if clean_dec else "Decision Criteria Met?"
+        lines.append(f"    {prev_node} --> Dec1{{\"{dec_label}\"}}")
         lines.append("    Dec1 -- Yes --> StepAppr[\"Approval & Sign-off\"]")
         lines.append("    Dec1 -- No --> StepRej[\"Rejection & Return with Remarks\"]")
         lines.append("    StepRej -.-> Step1")
         lines.append("    StepAppr --> EndNode([Process End])")
     else:
         lines.append(f"    {prev_node} --> EndNode([Process End])")
+
+    # Add custom node styling classes for high-polish enterprise rendering
+    lines.append("    classDef startEnd fill:#DCFCE7,stroke:#16A34A,stroke-width:2px,color:#14532D,font-weight:bold;")
+    lines.append("    classDef stepNode fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px,color:#1E3A8A;")
+    lines.append("    classDef decNode fill:#FEF3C7,stroke:#D97706,stroke-width:2px,color:#78350F,font-weight:bold;")
+    lines.append("    classDef apprNode fill:#D1FAE5,stroke:#059669,stroke-width:2px,color:#064E3B;")
+    lines.append("    classDef rejNode fill:#FEE2E2,stroke:#DC2626,stroke-width:2px,color:#7F1D1D;")
+    lines.append("    class Start,EndNode startEnd;")
+    step_nodes = ",".join([f"Step{i}" for i in range(1, len(step_items) + 2)])
+    lines.append(f"    class {step_nodes} stepNode;")
+    if decisions_raw:
+        lines.append("    class Dec1 decNode;")
+        lines.append("    class StepAppr apprNode;")
+        lines.append("    class StepRej rejNode;")
 
     return "\n".join(lines)
 

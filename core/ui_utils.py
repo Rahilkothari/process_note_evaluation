@@ -313,3 +313,126 @@ def inject_custom_css():
         
     </style>
     """, unsafe_allow_html=True)
+
+
+def render_mermaid_flowchart(chart_code: str, height: int = None, show_code_toggle: bool = True):
+    """
+    Renders Mermaid flowchart code as a high-fidelity visual SVG diagram with
+    clean rectangular process boxes, decision diamonds, and labeled connection arrows.
+    """
+    import streamlit.components.v1 as components
+
+    if not chart_code or not str(chart_code).strip():
+        st.info("No flowchart diagram data available.")
+        return
+
+    clean_code = str(chart_code).replace("```mermaid", "").replace("```", "").strip()
+    
+    # Calculate responsive container height based on node count
+    lines = [l for l in clean_code.split("\n") if l.strip()]
+    calc_height = max(380, min(850, len(lines) * 45 + 90)) if not height else height
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+      <style>
+        * {{
+          box-sizing: border-box;
+          margin: 0;
+          padding: 0;
+        }}
+        body {{
+          background-color: #FFFFFF;
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          padding: 14px;
+          min-height: 100%;
+        }}
+        .diagram-card {{
+          width: 100%;
+          background: #FFFFFF;
+          border: 1.5px solid #E2E8F0;
+          border-radius: 12px;
+          padding: 24px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          overflow-x: auto;
+        }}
+        .mermaid {{
+          display: flex;
+          justify-content: center;
+          width: 100%;
+          text-align: center;
+        }}
+        .mermaid svg {{
+          max-width: 100% !important;
+          height: auto !important;
+          filter: drop-shadow(0 2px 5px rgba(0,0,0,0.06));
+        }}
+        #error-msg {{
+          display: none;
+          color: #DC2626;
+          font-size: 13px;
+          padding: 12px;
+          background: #FEF2F2;
+          border-radius: 6px;
+        }}
+      </style>
+    </head>
+    <body>
+      <div class="diagram-card">
+        <div id="error-msg"></div>
+        <pre class="mermaid" id="mermaid-target">
+{clean_code}
+        </pre>
+      </div>
+
+      <script>
+        try {{
+          mermaid.initialize({{
+            startOnLoad: true,
+            theme: 'default',
+            securityLevel: 'loose',
+            flowchart: {{
+              useMaxWidth: true,
+              htmlLabels: true,
+              curve: 'basis'
+            }},
+            themeVariables: {{
+              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+              fontSize: '13.5px',
+              primaryColor: '#EEF2FF',
+              primaryTextColor: '#1E293B',
+              primaryBorderColor: '#6366F1',
+              lineColor: '#64748B',
+              secondaryColor: '#ECFDF5',
+              tertiaryColor: '#FEF3C7',
+              mainBkg: '#FFFFFF'
+            }}
+          }});
+        }} catch(err) {{
+          var el = document.getElementById('error-msg');
+          if (el) {{
+            el.style.display = 'block';
+            el.innerText = 'Unable to render diagram visually: ' + err.message;
+          }}
+        }}
+      </script>
+    </body>
+    </html>
+    """
+
+    components.html(html_content, height=calc_height, scrolling=True)
+
+    if show_code_toggle:
+        with st.expander("📝 View / Copy Raw Mermaid Syntax", expanded=False):
+            st.code(clean_code, language="mermaid")
+

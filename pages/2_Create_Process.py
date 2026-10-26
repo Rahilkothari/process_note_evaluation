@@ -7,8 +7,7 @@ from models.database import SessionLocal, get_db, ProcessNote, ProcessSection, U
 from sqlalchemy.orm import Session
 
 
-from core.ui_utils import inject_custom_css
-from core.ui_utils import inject_custom_css
+from core.ui_utils import inject_custom_css, render_mermaid_flowchart
 
 
 st.title("Create / Edit Process Note")
@@ -1036,8 +1035,7 @@ try:
                         unsafe_allow_html=True
                     )
                     if current_chart and not current_chart.endswith(('.png', '.jpg', '.jpeg', '.pdf', '.docx', '.vsdx')):
-                        clean_mermaid = current_chart.replace("```mermaid", "").replace("```", "").strip()
-                        st.markdown(f"```mermaid\n{clean_mermaid}\n```")
+                        render_mermaid_flowchart(current_chart)
                     elif current_chart and current_chart.endswith(('.png', '.jpg', '.jpeg')):
                         img_path = os.path.join("uploads", current_chart)
                         if os.path.exists(img_path):
@@ -1119,11 +1117,7 @@ try:
 
                         if current_chart and not current_chart.endswith(('.png', '.jpg', '.pdf', '.docx', '.vsdx')):
                             st.markdown("#### Live Flowchart Preview:")
-                            try:
-                                clean_mermaid = current_chart.replace("```mermaid", "").replace("```", "").strip()
-                                st.markdown(f"```mermaid\n{clean_mermaid}\n```")
-                            except Exception as e:
-                                st.info(f"Diagram code: {current_chart}")
+                            render_mermaid_flowchart(current_chart)
 
                     with flow_tab2:
                         st.markdown("Upload an existing visual flowchart diagram (Visio, Draw.io, PNG, JPG, PDF):")
