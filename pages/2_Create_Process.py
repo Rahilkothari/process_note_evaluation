@@ -231,16 +231,26 @@ try:
         st.markdown(f"**Progress:** {completed_count} / {total_count} Sections Completed")
         st.progress(completed_count / total_count)
     
-        if "current_section_edit" not in st.session_state:
-            st.session_state["current_section_edit"] = f"{sections[0]['id']} {sections[0]['name']}"
-
         tab_names = [f"{sec['id']} {sec['name']}" for sec in sections]
     
-        # Ensure current state is valid
-        if st.session_state["current_section_edit"] not in tab_names:
-            st.session_state["current_section_edit"] = tab_names[0]
+        if "active_section_tab" not in st.session_state:
+            st.session_state["active_section_tab"] = st.session_state.get("current_section_edit", tab_names[0])
+        if st.session_state["active_section_tab"] not in tab_names:
+            st.session_state["active_section_tab"] = tab_names[0]
         
-        current_idx = tab_names.index(st.session_state["current_section_edit"])
+        current_idx = tab_names.index(st.session_state["active_section_tab"])
+
+        def set_active_section(new_tab):
+            if new_tab in tab_names:
+                st.session_state["active_section_tab"] = new_tab
+                st.session_state["section_nav_dropdown"] = new_tab
+                st.session_state["current_section_edit"] = new_tab
+
+        def on_section_dropdown_change():
+            chosen = st.session_state.get("section_nav_dropdown")
+            if chosen in tab_names:
+                st.session_state["active_section_tab"] = chosen
+                st.session_state["current_section_edit"] = chosen
 
         # Section Navigation Control Bar
         st.markdown(
@@ -260,19 +270,23 @@ try:
         nav_col1, nav_col2, nav_col3 = st.columns([1.2, 5.6, 1.2])
         with nav_col1:
             if st.button("◀ Prev", disabled=(current_idx == 0), use_container_width=True, key="btn_nav_prev", help="Navigate to previous section"):
-                st.session_state["current_section_edit"] = tab_names[current_idx - 1]
+                set_active_section(tab_names[current_idx - 1])
                 st.rerun()
         with nav_col3:
             if st.button("Next ▶", disabled=(current_idx == total_count - 1), use_container_width=True, key="btn_nav_next", help="Navigate to next section"):
-                st.session_state["current_section_edit"] = tab_names[current_idx + 1]
+                set_active_section(tab_names[current_idx + 1])
                 st.rerun()
         with nav_col2:
             selected_tab = st.selectbox(
                 "Select a Section to Fill Out:",
                 tab_names,
-                key="current_section_edit",
+                index=current_idx,
+                key="section_nav_dropdown",
+                on_change=on_section_dropdown_change,
                 label_visibility="collapsed"
             )
+            st.session_state["active_section_tab"] = selected_tab
+            st.session_state["current_section_edit"] = selected_tab
     
         sec_config = sections[tab_names.index(selected_tab)]
         sec_id = sec_config['id']
@@ -466,6 +480,14 @@ try:
                         else:
                             return st.text_input(flabel, placeholder=field_dict.get("placeholder", ""), key=k, help=fhelp)
 
+                    def get_qa_answer(field_dict):
+                        fid = field_dict["id"]
+                        k = f"qa_{sec_id}_{fid}"
+                        val = render_qa_widget(field_dict)
+                        if (val is None or (isinstance(val, str) and not val.strip())) and k in st.session_state:
+                            val = st.session_state[k]
+                        return val
+
                     i = 0
                     while i < len(fields):
                         f = fields[i]
@@ -479,12 +501,12 @@ try:
                         if can_pair and next_f:
                             col1, col2 = st.columns(2)
                             with col1:
-                                answers[f["id"]] = render_qa_widget(f)
+                                answers[f["id"]] = get_qa_answer(f)
                             with col2:
-                                answers[next_f["id"]] = render_qa_widget(next_f)
+                                answers[next_f["id"]] = get_qa_answer(next_f)
                             i += 2
                         else:
-                            answers[f["id"]] = render_qa_widget(f)
+                            answers[f["id"]] = get_qa_answer(f)
                             i += 1
 
                 st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
@@ -503,6 +525,7 @@ try:
                         append_btn = False
 
                     if apply_btn:
+                        set_active_section(selected_tab)
                         new_rows = build_table_rows_from_answers(sec_id, answers)
                         if not existing_sec:
                             new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=new_rows)
@@ -516,6 +539,7 @@ try:
                         st.rerun()
 
                     if append_btn:
+                        set_active_section(selected_tab)
                         new_rows = build_table_rows_from_answers(sec_id, answers)
                         existing_rows = existing_sec.structured_data if (existing_sec and existing_sec.structured_data) else []
                         if sec_id == "1.13" and new_rows:
@@ -534,6 +558,7 @@ try:
 
                 elif sec_config["type"] == "flowchart":
                     if st.button("✨ Auto-Generate Flowchart from Steps", key=f"btn_flow_{sec_id}", type="primary"):
+                        set_active_section(selected_tab)
                         mermaid_code = build_mermaid_flowchart_from_answers(answers)
                         if not existing_sec:
                             new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=mermaid_code)
@@ -554,6 +579,7 @@ try:
                         ai_text_btn = st.button("🤖 Polish & Synthesize with AI", key=f"btn_ai_txt_{sec_id}", use_container_width=True)
 
                     if apply_text_btn:
+                        set_active_section(selected_tab)
                         formatted_content = build_text_summary_from_answers(sec_id, answers)
                         if not existing_sec:
                             new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=formatted_content)
@@ -567,6 +593,7 @@ try:
                         st.rerun()
 
                     if ai_text_btn:
+                        set_active_section(selected_tab)
                         with st.spinner("AI is synthesizing professional enterprise content..."):
                             from services.llm_service import get_llm_provider
                             llm = get_llm_provider()
@@ -1080,7 +1107,7 @@ try:
         with col2:
             if current_idx < len(tab_names) - 1:
                 def go_next():
-                    st.session_state["current_section_edit"] = tab_names[current_idx + 1]
+                    set_active_section(tab_names[current_idx + 1])
                 st.button("Next Section ➔", type="primary", use_container_width=True, on_click=go_next)
             else:
                 if completed_count < total_count:

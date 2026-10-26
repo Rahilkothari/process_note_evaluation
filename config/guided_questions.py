@@ -986,15 +986,19 @@ def build_table_rows_from_answers(sec_id: str, answers: Dict[str, Any]) -> List[
         }]
 
     elif sec_id == "1.7":
+        act = str(answers.get("activity") or answers.get("incoming_trigger") or answers.get("trigger") or "Receipt of incoming process initiation request").strip() or "Receipt of incoming process initiation request"
+        entry_crit = str(answers.get("entry_criteria") or answers.get("criteria") or answers.get("prerequisites") or "Signed authorization and verified prerequisite documents").strip() or "Signed authorization and verified prerequisite documents"
         return [{
-            "Activity": str(answers.get("activity", "Receipt of incoming process initiation request")),
-            "Entry Criteria": str(answers.get("entry_criteria", "Signed authorization and verified prerequisite documents"))
+            "Activity": act,
+            "Entry Criteria": entry_crit
         }]
 
     elif sec_id == "1.8":
+        act = str(answers.get("activity") or answers.get("concluding_activity") or answers.get("deliverable") or "Final signed deliverable completed").strip() or "Final signed deliverable completed"
+        exit_crit = str(answers.get("exit_criteria") or answers.get("criteria") or answers.get("signoff") or "Verification sign-off and stakeholder acknowledgment").strip() or "Verification sign-off and stakeholder acknowledgment"
         return [{
-            "Activity": str(answers.get("activity", "Final signed deliverable completed")),
-            "Exit Criteria": str(answers.get("exit_criteria", "Verification sign-off and stakeholder acknowledgment"))
+            "Activity": act,
+            "Exit Criteria": exit_crit
         }]
 
     elif sec_id == "1.12":
