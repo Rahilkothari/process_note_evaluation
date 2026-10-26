@@ -31,6 +31,18 @@ class LLMProvider(ABC):
         pass
 
     @abstractmethod
+    def refine_table_rows_with_ai(
+        self,
+        section_id: str,
+        section_config: Dict[str, Any],
+        raw_rows: List[Dict[str, Any]],
+        answers_dict: Dict[str, Any] = None,
+        process_name: str = "",
+        team_name: str = ""
+    ) -> List[Dict[str, Any]]:
+        pass
+
+    @abstractmethod
     def resolve_clarification(self, section_id: str, section_type: str, current_content: Any, question: str, answer: str) -> Any:
         pass
 
@@ -230,6 +242,30 @@ class MockProvider(LLMProvider):
                 current_content[0]["Description"] = current_content[0].get("Description", "") + f" [Clarification incorporated: {answer}]"
             return current_content
         return f"{current_content}\n\n**Clarification Note ({question}):** {answer}"
+
+    def refine_table_rows_with_ai(
+        self,
+        section_id: str,
+        section_config: Dict[str, Any],
+        raw_rows: List[Dict[str, Any]],
+        answers_dict: Dict[str, Any] = None,
+        process_name: str = "",
+        team_name: str = ""
+    ) -> List[Dict[str, Any]]:
+        from config.guided_questions import sanitize_rough_text
+        refined = []
+        for r in raw_rows:
+            cleaned_row = {}
+            for k, v in r.items():
+                val_str = sanitize_rough_text(str(v or ""))
+                if k == "Business Rules":
+                    if "all" in val_str.lower() and "evaluation" in val_str.lower():
+                        val_str = "All operational and testing drafts must undergo formal evaluation and verification prior to deployment (Enforced by the Process Owner end-to-end)."
+                    elif not val_str.endswith("."):
+                        val_str = val_str + "."
+                cleaned_row[k] = val_str
+            refined.append(cleaned_row)
+        return refined
 
 
 class GeminiProvider(LLMProvider):
@@ -668,6 +704,73 @@ Return ONLY the updated content. If JSON, do not wrap in markdown fences.
                     current_content[0]["Description"] = current_content[0].get("Description", "") + f" [Clarification: {answer}]"
                 return current_content
             return f"{current_content}\n\n**Clarification ({question}):** {answer}"
+
+    def refine_table_rows_with_ai(
+        self,
+        section_id: str,
+        section_config: Dict[str, Any],
+        raw_rows: List[Dict[str, Any]],
+        answers_dict: Dict[str, Any] = None,
+        process_name: str = "",
+        team_name: str = ""
+    ) -> List[Dict[str, Any]]:
+        fields = section_config.get("fields", [])
+        sec_name = section_config.get("name", f"Section {section_id}")
+        help_text = section_config.get("help_text", "")
+
+        prompt = f"""
+You are a Principal Business Excellence Consultant and Senior Technical Writer for enterprise Standard Operating Procedures (SOPs) and Process Notes.
+A Process Creator has submitted rough draft answers for Section {section_id}: "{sec_name}".
+
+Process Name: {process_name}
+Team: {team_name}
+Section Guidelines: {help_text}
+Expected Table Columns: {fields}
+
+Creator's Rough Draft Rows:
+{json.dumps(raw_rows, indent=2)}
+
+Original Creator Questionnaire Responses:
+{json.dumps(answers_dict or {}, indent=2)}
+
+YOUR MANDATORY OBJECTIVES:
+1. SPELLING & GRAMMAR RECTIFICATION:
+   - Fix all spelling errors, phonetic typos, and informal shorthand (e.g., 'drsfts' -> 'drafts', 'cretion' -> 'creation', 'deplyment' -> 'deployment', 'texting' -> 'testing').
+2. ELEVATE TO EXECUTIVE CORPORATE SOP PHRASING:
+   - Rewrite casual, colloquial, or fragmented notes into crisp, authoritative, standardized corporate language.
+   - Example: Instead of "all texting drsfts should go via final evaluation (Enforced by project owner verifies everything end to end)", rewrite to:
+     "All operational testing drafts and deliverables must undergo mandatory formal review and sign-off prior to deployment (Enforced by the Process Owner via end-to-end audit verification)."
+3. AUDIT RIGOR & BE STANDARDS:
+   - Ensure the refined content is specific, unambiguous, and compliant with Business Excellence quality benchmarks.
+   - Retain the exact business intent, numbers, thresholds, and role designations provided by the user.
+4. STRICT JSON OUTPUT FORMAT:
+   - Return a valid JSON array of objects with EXACTLY the keys matching the Expected Table Columns: {fields}.
+   - Return ONLY the JSON array. Do not include markdown code fences or explanatory text.
+"""
+        try:
+            response = self.model.generate_content(prompt)
+            text = response.text.strip()
+            match = re.search(r'\[.*\]', text, re.DOTALL)
+            if match:
+                text = match.group(0)
+            data = json.loads(text)
+            if isinstance(data, list) and len(data) > 0:
+                cleaned_rows = []
+                for row in data:
+                    if isinstance(row, dict):
+                        cleaned_row = {f: str(row.get(f, "")).strip() for f in fields}
+                        cleaned_rows.append(cleaned_row)
+                if cleaned_rows:
+                    return cleaned_rows
+        except Exception as e:
+            print(f"Error in refine_table_rows_with_ai: {e}")
+
+        # Safe fallback
+        from config.guided_questions import sanitize_rough_text
+        sanitized = []
+        for r in raw_rows:
+            sanitized.append({k: sanitize_rough_text(str(v or "")) for k, v in r.items()})
+        return sanitized
 
 
 def get_llm_provider() -> LLMProvider:

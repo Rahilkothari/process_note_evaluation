@@ -1045,8 +1045,8 @@ def build_table_rows_from_answers(sec_id: str, answers: Dict[str, Any]) -> List[
         }]
 
     elif sec_id == "1.14":
-        rule = str(answers.get("rule_statement", "Mandatory operational rule")).strip()
-        enforcement = str(answers.get("enforcement", "")).strip()
+        rule = sanitize_rough_text(str(answers.get("rule_statement", "Mandatory operational rule")).strip())
+        enforcement = sanitize_rough_text(str(answers.get("enforcement", "")).strip())
         full_rule = f"{rule} (Enforced by {enforcement})" if enforcement else rule
         return [{"Business Rules": full_rule}]
 
@@ -1181,6 +1181,34 @@ def build_text_summary_from_answers(sec_id: str, answers: Dict[str, Any]) -> str
         if v:
             summary_lines.append(f"- **{k.replace('_', ' ').title()}:** {v}")
     return "\n".join(summary_lines)
+
+
+def sanitize_rough_text(text: str) -> str:
+    """Corrects common rough spelling errors, phonetic typos, and informal punctuation in creator input."""
+    if not text:
+        return ""
+    typo_map = {
+        r'\bdrsfts\b': 'drafts',
+        r'\bdrsft\b': 'draft',
+        r'\bdrft\b': 'draft',
+        r'\bdrfts\b': 'drafts',
+        r'\bcretion\b': 'creation',
+        r'\bdeplyment\b': 'deployment',
+        r'\bdeply\b': 'deploy',
+        r'\btexting\b': 'testing',
+        r'\bteat\b': 'test',
+        r'\bmou\b': 'MOU',
+        r'\btat\b': 'TAT',
+        r'\bkpi\b': 'KPI',
+        r'\bsop\b': 'SOP',
+    }
+    cleaned = str(text)
+    for pattern, repl in typo_map.items():
+        cleaned = re.sub(pattern, repl, cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+    if cleaned and cleaned[0].islower():
+        cleaned = cleaned[0].upper() + cleaned[1:]
+    return cleaned
 
 
 def split_conversational_step(item: str) -> List[str]:

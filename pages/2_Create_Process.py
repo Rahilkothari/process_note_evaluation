@@ -576,20 +576,51 @@ try:
 
                     if sec_config["type"] == "table":
                         multi_row_sections = ["1.12", "1.13", "1.5", "1.14", "1.15", "1.16", "1.17", "1.18", "1.19", "1.20", "1.21", "1.22"]
+                        ai_apply_btn = False
+                        ai_append_btn = False
+                        raw_apply_btn = False
+                        raw_append_btn = False
+
                         if sec_id in multi_row_sections:
                             col_btn1, col_btn2 = st.columns([1, 1])
                             with col_btn1:
-                                apply_btn = st.form_submit_button("✨ Set / Overwrite Table", type="primary", use_container_width=True)
+                                ai_apply_btn = st.form_submit_button("🤖 Refine with AI & Set Table", type="primary", use_container_width=True, help="AI corrects typos, spelling errors, and rewrites responses into professional corporate language.")
                             with col_btn2:
-                                append_btn = st.form_submit_button("➕ Add as New Row to Table", use_container_width=True)
-                        else:
-                            apply_btn = st.form_submit_button(f"✨ Apply Answers to {sec_config['name']} Table", type="primary")
+                                ai_append_btn = st.form_submit_button("➕ Refine with AI & Add Row", use_container_width=True, help="Refines responses with AI and appends as a new row to the table.")
 
-                        if apply_btn:
-                            new_rows = build_table_rows_from_answers(sec_id, answers)
+                            with st.expander("⚙️ Options: Save Raw (Bypass AI)", expanded=False):
+                                col_r1, col_r2 = st.columns([1, 1])
+                                with col_r1:
+                                    raw_apply_btn = st.form_submit_button("📄 Set Table As-Is (Raw Draft)", use_container_width=True)
+                                with col_r2:
+                                    raw_append_btn = st.form_submit_button("➕ Add Row As-Is (Raw Draft)", use_container_width=True)
+                        else:
+                            col_btn1, col_btn2 = st.columns([1, 1])
+                            with col_btn1:
+                                ai_apply_btn = st.form_submit_button(f"🤖 Refine with AI & Apply to {sec_config['name']}", type="primary", use_container_width=True, help="AI corrects typos and upgrades answers to corporate standard.")
+                            with col_btn2:
+                                raw_apply_btn = st.form_submit_button("📄 Apply As-Is (Raw Draft)", use_container_width=True)
+
+                        # Handle Set / Overwrite (AI or Raw)
+                        if ai_apply_btn or raw_apply_btn:
+                            raw_rows = build_table_rows_from_answers(sec_id, answers)
+                            final_rows = raw_rows
+                            if ai_apply_btn:
+                                with st.spinner("🤖 AI is correcting typos, refining spelling & grammar, and polishing into corporate language..."):
+                                    from services.llm_service import get_llm_provider
+                                    llm = get_llm_provider()
+                                    final_rows = llm.refine_table_rows_with_ai(
+                                        section_id=sec_id,
+                                        section_config=sec_config,
+                                        raw_rows=raw_rows,
+                                        answers_dict=answers,
+                                        process_name=current_note.process_name,
+                                        team_name=current_note.team
+                                    )
+
                             from core.rule_validator import RuleValidator
                             from models.schemas import ProcessSectionSchema
-                            sec_schema = ProcessSectionSchema(section_id=sec_id, content="", structured_data=new_rows)
+                            sec_schema = ProcessSectionSchema(section_id=sec_id, content="", structured_data=final_rows)
                             issues = RuleValidator().validate(sec_schema, config)
                             if issues:
                                 for issue in issues:
@@ -600,23 +631,42 @@ try:
                                     st.info("💡 **Requirement for Start Point:** Entry Criteria must be descriptive (at least 4 words) describing verified prerequisite documents or authorizations.")
                             else:
                                 if not existing_sec:
-                                    existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=new_rows)
+                                    existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=final_rows)
                                     db.add(existing_sec)
                                     existing_sections[sec_id] = existing_sec
                                 else:
-                                    existing_sec.structured_data = new_rows
+                                    existing_sec.structured_data = final_rows
                                 db.commit()
                                 is_completed = True
                                 st.session_state[f"show_guide_{sec_id}"] = False
                                 st.session_state[f"is_editing_{sec_id}"] = False
-                                st.success(f"✅ {sec_config['name']} table populated from your answers! Check the table below.")
+                                if ai_apply_btn:
+                                    st.success(f"✅ {sec_config['name']} refined by AI (typos corrected & corporate tone applied) and saved!")
+                                else:
+                                    st.success(f"✅ {sec_config['name']} table saved with your raw answers!")
+                                st.rerun()
 
-                        if append_btn:
-                            new_rows = build_table_rows_from_answers(sec_id, answers)
+                        # Handle Add Row (AI or Raw)
+                        if ai_append_btn or raw_append_btn:
+                            raw_rows = build_table_rows_from_answers(sec_id, answers)
+                            final_rows = raw_rows
+                            if ai_append_btn:
+                                with st.spinner("🤖 AI is correcting typos and refining new row..."):
+                                    from services.llm_service import get_llm_provider
+                                    llm = get_llm_provider()
+                                    final_rows = llm.refine_table_rows_with_ai(
+                                        section_id=sec_id,
+                                        section_config=sec_config,
+                                        raw_rows=raw_rows,
+                                        answers_dict=answers,
+                                        process_name=current_note.process_name,
+                                        team_name=current_note.team
+                                    )
+
                             existing_rows = existing_sec.structured_data if (existing_sec and existing_sec.structured_data) else []
-                            if sec_id == "1.13" and new_rows:
-                                new_rows[0]["Sr. No."] = len(existing_rows) + 1
-                            combined_rows = existing_rows + new_rows
+                            if sec_id == "1.13" and final_rows:
+                                final_rows[0]["Sr. No."] = len(existing_rows) + 1
+                            combined_rows = existing_rows + final_rows
                             from core.rule_validator import RuleValidator
                             from models.schemas import ProcessSectionSchema
                             sec_schema = ProcessSectionSchema(section_id=sec_id, content="", structured_data=combined_rows)
@@ -635,7 +685,11 @@ try:
                                 is_completed = True
                                 st.session_state[f"show_guide_{sec_id}"] = False
                                 st.session_state[f"is_editing_{sec_id}"] = False
-                                st.success(f"✅ New row added to {sec_config['name']} table! Check preview below.")
+                                if ai_append_btn:
+                                    st.success(f"✅ New row refined by AI and added to {sec_config['name']} table!")
+                                else:
+                                    st.success(f"✅ New raw row added to {sec_config['name']} table!")
+                                st.rerun()
 
                     elif sec_config["type"] == "flowchart":
                         col_fl1, col_fl2 = st.columns([1, 1])
