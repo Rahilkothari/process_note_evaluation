@@ -207,29 +207,66 @@ try:
                 
         st.markdown("Scroll down to fill out all sections of the process note. **Read the instruction box** in each section before entering data.")
     
-        def is_section_filled(sec, s_config):
+        def get_section_audit_status(sec, s_config):
             if not sec:
-                return False
+                return "pending", ["Section not yet filled."]
             stype = s_config.get("type", "text")
             if stype == "table":
                 if not sec.structured_data:
-                    return False
-                for row in sec.structured_data:
-                    if isinstance(row, dict) and any(v is not None and str(v).strip() != "" for v in row.values()):
-                        return True
-                return False
+                    return "pending", ["Table is empty."]
             elif stype in ["file", "flowchart"]:
-                return bool(sec.content and sec.content.strip())
+                if not sec.content or not str(sec.content).strip():
+                    return "pending", ["Flowchart / file is missing."]
             else:
-                return bool(sec.content and sec.content.strip())
+                if not sec.content or not str(sec.content).strip():
+                    return "pending", ["Section content is empty."]
+            
+            from core.rule_validator import RuleValidator
+            from models.schemas import ProcessSectionSchema
+            sec_schema = ProcessSectionSchema(
+                section_id=s_config["id"],
+                content=sec.content or "",
+                structured_data=sec.structured_data or []
+            )
+            issues = RuleValidator().validate(sec_schema, {"sections": sections})
+            if issues:
+                return "needs_revision", issues
+            return "ready", []
+
+        def is_section_filled(sec, s_config):
+            st_code, _ = get_section_audit_status(sec, s_config)
+            return st_code != "pending"
 
         db_sections = db.query(ProcessSection).filter(ProcessSection.process_note_id == current_note.id).all()
         existing_sections = {s.section_id: s for s in db_sections}
-        completed_count = sum(1 for s in sections if is_section_filled(existing_sections.get(s['id']), s))
+        
+        status_map = {s["id"]: get_section_audit_status(existing_sections.get(s["id"]), s) for s in sections}
+        ready_count = sum(1 for sid, (st_code, _) in status_map.items() if st_code == "ready")
+        needs_rev_count = sum(1 for sid, (st_code, _) in status_map.items() if st_code == "needs_revision")
+        pending_count = sum(1 for sid, (st_code, _) in status_map.items() if st_code == "pending")
         total_count = len(sections)
-    
-        st.markdown(f"**Progress:** {completed_count} / {total_count} Sections Completed")
-        st.progress(completed_count / total_count)
+        estimated_readiness = round((ready_count / total_count) * 100, 1)
+
+        st.markdown(
+            f"""
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px 16px; margin: 12px 0 16px 0;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <span style="font-weight: 700; color: #1E293B; font-size: 13.5px;">📊 Form Completion & Audit Readiness</span>
+                    <span style="font-weight: 700; color: {'#16A34A' if estimated_readiness >= 75 else '#EA580C' if estimated_readiness >= 40 else '#DC2626'}; font-size: 13px;">
+                        Readiness: {estimated_readiness}%
+                    </span>
+                </div>
+                <div style="font-size: 12px; color: #64748B; margin-bottom: 8px; display: flex; gap: 16px;">
+                    <span><b>✓ Audit Ready:</b> <span style="color: #166534; font-weight: 600;">{ready_count}</span></span>
+                    <span><b>⚠️ Needs Detail:</b> <span style="color: #B45309; font-weight: 600;">{needs_rev_count}</span></span>
+                    <span><b>⏳ Pending:</b> <span style="color: #64748B; font-weight: 600;">{pending_count}</span></span>
+                    <span><b>Total Sections:</b> {total_count}</span>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        st.progress(ready_count / total_count if total_count > 0 else 0)
     
         tab_names = [f"{sec['id']} {sec['name']}" for sec in sections]
     
@@ -294,12 +331,15 @@ try:
         help_text = sec_config.get('help_text', 'No instructions provided.')
         example_text = sec_config.get('example', '')
 
-        is_completed = is_section_filled(existing_sec, sec_config)
-        status_badge = (
-            '<span style="background: #DCFCE7; color: #166534; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 12px; border: 1px solid #86EFAC;">✓ Section Completed</span>'
-            if is_completed
-            else '<span style="background: #FEF3C7; color: #92400E; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 12px; border: 1px solid #FDE68A;">⏳ Pending Input</span>'
-        )
+        curr_status, curr_issues = status_map.get(sec_id, ("pending", []))
+        if curr_status == "ready":
+            status_badge = '<span style="background: #DCFCE7; color: #166534; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 12px; border: 1px solid #86EFAC;">✓ Audit-Ready</span>'
+        elif curr_status == "needs_revision":
+            status_badge = f'<span style="background: #FEE2E2; color: #991B1B; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 12px; border: 1px solid #FCA5A5;">⚠️ Needs Detail ({len(curr_issues)} issue{"s" if len(curr_issues) > 1 else ""})</span>'
+        else:
+            status_badge = '<span style="background: #FEF3C7; color: #92400E; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 12px; border: 1px solid #FDE68A;">⏳ Pending Input</span>'
+
+        is_completed = (curr_status == "ready")
 
         example_html = (
             f'<div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #CBD5E1; color: #64748B; font-size: 12.5px; font-style: italic;"><b>Example:</b> {example_text}</div>'
@@ -307,9 +347,21 @@ try:
             else ""
         )
 
+        issues_html = ""
+        if curr_status == "needs_revision" and curr_issues:
+            issues_list_str = "".join([f"<li>{iss}</li>" for iss in curr_issues])
+            issues_html = f"""
+            <div style="margin-top: 10px; background: #FFF1F2; border: 1px solid #FECDD3; border-radius: 6px; padding: 8px 12px; color: #9F1239; font-size: 12px;">
+                <div style="font-weight: 700; margin-bottom: 4px;">⚠️ Current Audit Gaps (Will result in 0 score if left unaddressed):</div>
+                <ul style="margin: 0; padding-left: 18px;">
+                    {issues_list_str}
+                </ul>
+            </div>
+            """
+
         st.markdown(
             f"""
-            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-left: 4px solid #3B82F6; border-radius: 8px; padding: 12px 16px; margin: 8px 0 16px 0;">
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-left: 4px solid {'#16A34A' if curr_status == 'ready' else '#EF4444' if curr_status == 'needs_revision' else '#3B82F6'}; border-radius: 8px; padding: 12px 16px; margin: 8px 0 16px 0;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                     <span style="font-weight: 700; color: #1E293B; font-size: 13.5px;">📋 Instructions for {sec_config['name']}</span>
                     {status_badge}
@@ -318,6 +370,7 @@ try:
                     {help_text}
                 </div>
                 {example_html}
+                {issues_html}
             </div>
             """,
             unsafe_allow_html=True

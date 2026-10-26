@@ -118,4 +118,42 @@ class RuleValidator:
                         elif len(rule_text.split()) < 8:
                             issues.append(f"Row {idx}: Business Rule is too brief ('{rule_text}'). State the complete operational condition and enforcement boundary.")
 
+                # 1.2 Document Change History
+                elif section.section_id == "1.2":
+                    for idx, row in enumerate(section.structured_data, 1):
+                        desc = str(row.get("Description of Change", row.get("Description", ""))).strip()
+                        if not desc:
+                            issues.append(f"Row {idx}: Description of Change is missing.")
+                        elif desc.lower() in ["minor issues updated", "updated", "test", "testing", "changed", "na", "none"]:
+                            issues.append(f"Row {idx}: Description of Change is too generic ('{desc}'). Specify exactly what operational steps or policies were updated.")
+
+                # 1.4 Related Documents
+                elif section.section_id == "1.4":
+                    placeholder_terms = ["testing doc", "test", "testing", "dummy", "na", "none", "nan", "doc"]
+                    for idx, row in enumerate(section.structured_data, 1):
+                        doc_name = str(row.get("Document Name", row.get("Name", ""))).strip()
+                        if not doc_name:
+                            issues.append(f"Row {idx}: Document Name is missing.")
+                        elif doc_name.lower() in placeholder_terms:
+                            issues.append(f"Row {idx}: Document Name contains placeholder data ('{doc_name}'). Specify an actual policy, SOP, or statutory standard.")
+
+                # 1.5 Process Performance Parameters / KPIs
+                elif section.section_id == "1.5":
+                    for idx, row in enumerate(section.structured_data, 1):
+                        kpi_name = str(row.get("Parameters / KPIs", row.get("KPI", ""))).strip()
+                        kpi_desc = str(row.get("Description", "")).strip()
+                        if not kpi_name:
+                            issues.append(f"Row {idx}: Parameter / KPI name is missing.")
+                        if not kpi_desc or kpi_desc.lower() in ["na", "none", "nan"]:
+                            issues.append(f"Row {idx} ('{kpi_name}'): KPI Description is missing. Define the measurement formula and operational target.")
+
+                # 1.21 Innovations
+                elif section.section_id == "1.21":
+                    for idx, row in enumerate(section.structured_data, 1):
+                        imp = str(row.get("Innovations Implemented", "")).strip().lower()
+                        plan = str(row.get("Envisaged/Planned", row.get("Envisaged / Planned", ""))).strip().lower()
+                        na_terms = ["na", "n/a", "none", "nil", "not applicable", ""]
+                        if imp in na_terms and plan in na_terms:
+                            issues.append(f"Row {idx}: Innovations cannot be plain 'NA'. If no innovation is currently deployed, document baseline status and future tech roadmap (e.g., 'Baseline SOP; automated MIS alerts planned for FY27').")
+
         return issues
