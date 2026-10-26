@@ -244,6 +244,7 @@ try:
         ready_count = sum(1 for sid, (st_code, _) in status_map.items() if st_code == "ready")
         needs_rev_count = sum(1 for sid, (st_code, _) in status_map.items() if st_code == "needs_revision")
         pending_count = sum(1 for sid, (st_code, _) in status_map.items() if st_code == "pending")
+        completed_count = ready_count + needs_rev_count
         total_count = len(sections)
         estimated_readiness = round((ready_count / total_count) * 100, 1)
 
@@ -1432,7 +1433,9 @@ try:
                 st.button("Next Section ➔", type="primary", use_container_width=True, on_click=go_next)
             else:
                 if completed_count < total_count:
-                    st.warning(f"You have only completed {completed_count}/{total_count} sections. It is highly recommended to finish all sections before validation.")
+                    st.warning(f"You have entered data for {completed_count}/{total_count} sections ({pending_count} pending). Any section left blank will receive a 0% score in the audit.")
+                elif needs_rev_count > 0:
+                    st.info(f"💡 Note: {needs_rev_count} section(s) have detail gaps. Addressing them now will significantly improve your audit score.")
                 if st.button("Proceed to Validation ➔", type="primary", use_container_width=True):
                     if current_note:
                         st.session_state.selected_note_id = current_note.id
