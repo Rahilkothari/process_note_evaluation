@@ -121,9 +121,9 @@ class RuleValidator:
                 # 1.2 Document Change History
                 elif section.section_id == "1.2":
                     for idx, row in enumerate(section.structured_data, 1):
-                        desc = str(row.get("Description of Change", row.get("Description", ""))).strip()
+                        desc = str(row.get("Amendment", row.get("Description of Change", row.get("Description", "")))).strip()
                         if not desc:
-                            issues.append(f"Row {idx}: Description of Change is missing.")
+                            issues.append(f"Row {idx}: Description of Change / Amendment is missing.")
                         elif desc.lower() in ["minor issues updated", "updated", "test", "testing", "changed", "na", "none"]:
                             issues.append(f"Row {idx}: Description of Change is too generic ('{desc}'). Specify exactly what operational steps or policies were updated.")
 
@@ -140,12 +140,9 @@ class RuleValidator:
                 # 1.5 Process Performance Parameters / KPIs
                 elif section.section_id == "1.5":
                     for idx, row in enumerate(section.structured_data, 1):
-                        kpi_name = str(row.get("Parameters / KPIs", row.get("KPI", ""))).strip()
-                        kpi_desc = str(row.get("Description", "")).strip()
-                        if not kpi_name:
-                            issues.append(f"Row {idx}: Parameter / KPI name is missing.")
+                        kpi_desc = str(row.get("Description", row.get("Parameters / KPIs", row.get("KPI", "")))).strip()
                         if not kpi_desc or kpi_desc.lower() in ["na", "none", "nan"]:
-                            issues.append(f"Row {idx} ('{kpi_name}'): KPI Description is missing. Define the measurement formula and operational target.")
+                            issues.append(f"Row {idx}: KPI Description / Parameter is missing.")
 
                 # 1.21 Innovations
                 elif section.section_id == "1.21":

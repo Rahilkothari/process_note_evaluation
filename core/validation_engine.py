@@ -42,36 +42,58 @@ class ValidationEngine:
             section_config = next((s for s in self.sections_config.get("sections", []) if s["id"] == section.section_id), {})
             section_name = section_config.get("name", section.section_id)
             
-            # Layer 1: Deterministic
-            rule_issues = self.rule_validator.validate(section, self.sections_config)
-            
-            if rule_issues:
-                # If deterministic fails, don't even send to AI
+            # Check for completely empty section
+            stype = section_config.get("type", "text")
+            is_empty = False
+            if stype == "table":
+                is_empty = not section.structured_data or len(section.structured_data) == 0
+            elif stype in ["file", "flowchart"]:
+                is_empty = not section.content or not str(section.content).strip()
+            else:
+                is_empty = not section.content or not str(section.content).strip()
+
+            if is_empty:
                 return SectionValidationResult(
                     section=section_name,
                     status="NEEDS_REVISION",
                     score=0.0,
-                    issues=rule_issues,
-                    recommendations=["Please fill in the required fields correctly before AI validation."],
+                    issues=["Section content is empty. Required operational details must be provided."],
+                    recommendations=["Please populate this section using the guided questions."],
                     severity="HIGH"
                 )
-            else:
-                # Layer 2: AI
-                ai_result = self.ai_validator.validate(section, self.sections_config, self.rules_config, note.team)
-                ai_result.section = section_name # Ensure name is set
-                
-                # Documenting intended relationship:
-                # The LLM now returns fixed scores: 100 (PASS), 50 (WARNING), 0 (NEEDS_REVISION)
-                if ai_result.score == 100:
-                    ai_result.status = "PASS"
-                    ai_result.severity = "LOW"
-                elif ai_result.score == 50:
+
+            # Layer 1: Deterministic rules
+            rule_issues = self.rule_validator.validate(section, self.sections_config)
+
+            # Layer 2: AI evaluation
+            ai_result = self.ai_validator.validate(section, self.sections_config, self.rules_config, note.team)
+            ai_result.section = section_name # Ensure name is set
+
+            if rule_issues:
+                # Merge deterministic rule issues into findings
+                existing_issues = list(ai_result.issues or [])
+                for r_iss in rule_issues:
+                    if r_iss not in existing_issues:
+                        existing_issues.append(r_iss)
+                ai_result.issues = existing_issues
+
+                # If rule issues exist, cap the score at WARNING (50.0) so minor gaps don't falsely pass
+                if ai_result.score > 50:
+                    ai_result.score = 50.0
                     ai_result.status = "WARNING"
                     ai_result.severity = "MEDIUM"
-                else:
-                    ai_result.status = "NEEDS_REVISION"
-                    ai_result.severity = "HIGH"
-                return ai_result
+
+            if ai_result.score >= 100:
+                ai_result.status = "PASS"
+                ai_result.severity = "LOW"
+            elif ai_result.score >= 50:
+                ai_result.status = "WARNING"
+                ai_result.severity = "MEDIUM"
+            else:
+                ai_result.status = "NEEDS_REVISION"
+                ai_result.severity = "HIGH"
+
+            return ai_result
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
             results = list(executor.map(validate_single_section, note.sections))
