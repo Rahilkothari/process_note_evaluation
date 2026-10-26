@@ -322,34 +322,7 @@ try:
         spec = SECTION_GUIDED_SPECS.get(sec_id)
         if spec:
             guide_expanded = st.session_state.get(f"show_guide_{sec_id}", not is_completed)
-            expander_title = (
-                f"📝 Click Here to Fill This Section: Guided Assistant ({spec['title']})"
-                if not is_completed
-                else f"✨ AI Process Co-pilot: Guided Q&A Assistant ({spec['title']})"
-            )
-
-            if not is_completed:
-                st.markdown(
-                    f"""
-                    <div style="background: linear-gradient(135deg, #EEF2FF 0%, #F5F3FF 100%); 
-                                border: 2px solid #818CF8; border-radius: 8px; padding: 12px 16px; margin: 4px 0 12px 0;">
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <span style="font-size: 22px;">👉</span>
-                            <div>
-                                <span style="font-weight: 700; color: #3730A3; font-size: 14px;">
-                                    Click in the dropdown below to fill this section
-                                </span>
-                                <span style="color: #4B5563; font-size: 12.5px; display: block; margin-top: 2px;">
-                                    Answer the guided questions in the form below to auto-format and populate <b>{sec_config['name']}</b>. The manual editor is kept hidden until filled.
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-
-            with st.expander(expander_title, expanded=guide_expanded):
+            with st.expander(f"✨ AI Process Co-pilot: Guided Assistant ({spec['title']})", expanded=guide_expanded):
                 st.markdown(
                     f"""
                     <div style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(168, 85, 247, 0.08) 100%); 
