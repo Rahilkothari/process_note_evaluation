@@ -297,5 +297,19 @@ def inject_custom_css():
         .score-warn { background-color: #F59E0B; }
         .score-fail { background-color: #EF4444; }
         
+        /* Expander Enhancements */
+        [data-testid="stExpander"] {
+            border-radius: 10px !important;
+            border: 1.5px solid #C7D2FE !important;
+            background: #FFFFFF !important;
+            box-shadow: 0 1px 3px rgba(99, 102, 241, 0.08) !important;
+            margin-bottom: 16px !important;
+        }
+        [data-testid="stExpander"] summary {
+            font-weight: 600 !important;
+            color: #3730A3 !important;
+            padding: 10px 14px !important;
+        }
+        
     </style>
     """, unsafe_allow_html=True)

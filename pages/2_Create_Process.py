@@ -208,8 +208,24 @@ try:
                 
         st.markdown("Scroll down to fill out all sections of the process note. **Read the instruction box** in each section before entering data.")
     
+        def is_section_filled(sec, s_config):
+            if not sec:
+                return False
+            stype = s_config.get("type", "text")
+            if stype == "table":
+                if not sec.structured_data:
+                    return False
+                for row in sec.structured_data:
+                    if isinstance(row, dict) and any(v is not None and str(v).strip() != "" for v in row.values()):
+                        return True
+                return False
+            elif stype in ["file", "flowchart"]:
+                return bool(sec.content and sec.content.strip())
+            else:
+                return bool(sec.content and sec.content.strip())
+
         existing_sections = {s.section_id: s for s in current_note.sections}
-        completed_count = len(existing_sections)
+        completed_count = sum(1 for s in sections if is_section_filled(existing_sections.get(s['id']), s))
         total_count = len(sections)
     
         st.markdown(f"**Progress:** {completed_count} / {total_count} Sections Completed")
@@ -265,7 +281,7 @@ try:
         help_text = sec_config.get('help_text', 'No instructions provided.')
         example_text = sec_config.get('example', '')
 
-        is_completed = sec_id in existing_sections
+        is_completed = is_section_filled(existing_sec, sec_config)
         status_badge = (
             '<span style="background: #DCFCE7; color: #166534; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 12px; border: 1px solid #86EFAC;">✓ Section Completed</span>'
             if is_completed
@@ -305,7 +321,35 @@ try:
         )
         spec = SECTION_GUIDED_SPECS.get(sec_id)
         if spec:
-            with st.expander(f"✨ AI Process Co-pilot: Guided Q&A Assistant ({spec['title']})", expanded=False):
+            guide_expanded = st.session_state.get(f"show_guide_{sec_id}", not is_completed)
+            expander_title = (
+                f"📝 Click Here to Fill This Section: Guided Assistant ({spec['title']})"
+                if not is_completed
+                else f"✨ AI Process Co-pilot: Guided Q&A Assistant ({spec['title']})"
+            )
+
+            if not is_completed:
+                st.markdown(
+                    f"""
+                    <div style="background: linear-gradient(135deg, #EEF2FF 0%, #F5F3FF 100%); 
+                                border: 2px solid #818CF8; border-radius: 8px; padding: 12px 16px; margin: 4px 0 12px 0;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 22px;">👉</span>
+                            <div>
+                                <span style="font-weight: 700; color: #3730A3; font-size: 14px;">
+                                    Click in the dropdown below to fill this section
+                                </span>
+                                <span style="color: #4B5563; font-size: 12.5px; display: block; margin-top: 2px;">
+                                    Answer the guided questions in the form below to auto-format and populate <b>{sec_config['name']}</b>. The manual editor is kept hidden until filled.
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
+            with st.expander(expander_title, expanded=guide_expanded):
                 st.markdown(
                     f"""
                     <div style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(168, 85, 247, 0.08) 100%); 
@@ -493,7 +537,9 @@ try:
                         else:
                             existing_sec.structured_data = new_rows
                         db.commit()
-                        st.success(f"✅ {sec_config['name']} table populated from your answers! Check the table below.")
+                        st.session_state[f"show_guide_{sec_id}"] = False
+                        st.session_state[f"is_editing_{sec_id}"] = False
+                        st.success(f"✅ {sec_config['name']} table populated from your answers! Check the preview below.")
                         st.rerun()
 
                     if append_btn:
@@ -508,7 +554,9 @@ try:
                         else:
                             existing_sec.structured_data = combined_rows
                         db.commit()
-                        st.success(f"✅ New row added to {sec_config['name']} table! Check below.")
+                        st.session_state[f"show_guide_{sec_id}"] = False
+                        st.session_state[f"is_editing_{sec_id}"] = False
+                        st.success(f"✅ New row added to {sec_config['name']} table! Check preview below.")
                         st.rerun()
 
                 elif sec_config["type"] == "flowchart":
@@ -520,6 +568,8 @@ try:
                         else:
                             existing_sec.content = mermaid_code
                         db.commit()
+                        st.session_state[f"show_guide_{sec_id}"] = False
+                        st.session_state[f"is_editing_{sec_id}"] = False
                         st.success("✅ Flowchart updated from your steps! Check preview below.")
                         st.rerun()
 
@@ -538,7 +588,9 @@ try:
                         else:
                             existing_sec.content = formatted_content
                         db.commit()
-                        st.success("✅ Section content updated from your answers! Check below.")
+                        st.session_state[f"show_guide_{sec_id}"] = False
+                        st.session_state[f"is_editing_{sec_id}"] = False
+                        st.success("✅ Section content updated from your answers! Check preview below.")
                         st.rerun()
 
                     if ai_text_btn:
@@ -553,51 +605,112 @@ try:
                             else:
                                 existing_sec.content = gen_result
                             db.commit()
-                            st.success("✅ Section synthesized with AI! Check below.")
+                            st.session_state[f"show_guide_{sec_id}"] = False
+                            st.session_state[f"is_editing_{sec_id}"] = False
+                            st.success("✅ Section synthesized with AI! Check preview below.")
                             st.rerun()
 
+                if is_completed:
+                    if st.button("✖️ Collapse Guided Form", key=f"btn_close_expander_{sec_id}"):
+                        st.session_state[f"show_guide_{sec_id}"] = False
+                        st.rerun()
+
+        is_editing = st.session_state.get(f"is_editing_{sec_id}", False)
 
         with st.container():
             if sec_config["type"] == "text":
-                with st.form(f"form_{sec_id}"):
-                    val = existing_sec.content if existing_sec else ""
-                    content = st.text_area("Provide your detailed response below:", value=val, height=250)
-                    
-                    col1, col2 = st.columns([1, 1])
-                    with col1:
-                        save_btn = st.form_submit_button("Save Section", type="primary")
-                    with col2:
-                        ai_btn = st.form_submit_button(f"✨ Get AI Suggestion for {sec_id}")
+                if not is_completed and not is_editing:
+                    st.markdown(
+                        """
+                        <div style="background: #F8FAFC; border: 1.5px dashed #CBD5E1; border-radius: 8px; padding: 18px 20px; text-align: center; margin: 16px 0; color: #64748B;">
+                            <div style="font-size: 20px; margin-bottom: 4px;">🔒</div>
+                            <div style="font-weight: 700; color: #334155; font-size: 13.5px;">Text Editor is Hidden</div>
+                            <div style="font-size: 12.5px; margin-top: 4px; line-height: 1.5;">
+                                Please use the guided assistant in the dropdown above to fill this section first.<br>
+                                Once filled, your response will appear here and you can edit or format it directly whenever needed.
+                            </div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+                    if st.button("🛠️ Enter Text Directly in Editor (Skip Guide)", key=f"btn_manual_txt_{sec_id}"):
+                        st.session_state[f"is_editing_{sec_id}"] = True
+                        st.rerun()
+                elif is_completed and not is_editing:
+                    st.markdown(
+                        f"""
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; margin-bottom: 8px;">
+                            <span style="font-weight: 700; color: #1E293B; font-size: 14px;">📄 Current {sec_config['name']} Content:</span>
+                            <span style="font-size: 11.5px; background: #DCFCE7; color: #166534; font-weight: 600; padding: 3px 10px; border-radius: 12px; border: 1px solid #86EFAC;">✓ Saved & Active</span>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+                    st.markdown(
+                        f"""
+                        <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px; padding: 14px 18px; line-height: 1.6; color: #1E293B; font-size: 13.5px; margin-bottom: 12px; white-space: pre-wrap;">{existing_sec.content}</div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+                    col_act1, col_act2 = st.columns([1, 1])
+                    with col_act1:
+                        if st.button("✏️ Edit Content Directly", key=f"btn_edit_txt_{sec_id}", type="primary", use_container_width=True):
+                            st.session_state[f"is_editing_{sec_id}"] = True
+                            st.rerun()
+                    with col_act2:
+                        if st.button("🤖 Modify via Guided Assistant", key=f"btn_reopen_qa_txt_{sec_id}", use_container_width=True):
+                            st.session_state[f"show_guide_{sec_id}"] = True
+                            st.rerun()
+                else:
+                    col_h1, col_h2 = st.columns([3, 1])
+                    with col_h1:
+                        st.markdown(f"##### ✏️ Editing {sec_config['name']}:")
+                    with col_h2:
+                        if is_completed and st.button("✖️ Cancel / Done", key=f"btn_cancel_txt_{sec_id}", use_container_width=True):
+                            st.session_state[f"is_editing_{sec_id}"] = False
+                            st.rerun()
 
-                    if ai_btn:
-                        from services.rag_service import rag_service
-                        from services.llm_service import get_llm_provider
-            
-                        with st.spinner("Generating suggestion based on your notes and team history..."):
-                            context_list = rag_service.get_team_context(current_note.team, sec_id)
-                            if isinstance(context_list, str):
-                                context_list = [context_list]
-                            llm = get_llm_provider()
-                            suggestion = llm.generate_suggestion(sec_config, context_list, user_draft=content)
-                            st.info(f"**AI Suggestion (Copy and paste into the box above):**\n\n{suggestion}")
+                    with st.form(f"form_{sec_id}"):
+                        val = existing_sec.content if existing_sec else ""
+                        content = st.text_area("Provide your detailed response below:", value=val, height=250)
+                        
+                        col1, col2 = st.columns([1, 1])
+                        with col1:
+                            save_btn = st.form_submit_button("Save Section", type="primary")
+                        with col2:
+                            ai_btn = st.form_submit_button(f"✨ Get AI Suggestion for {sec_id}")
 
-                    if save_btn:
-                        from core.rule_validator import RuleValidator
-                        from models.schemas import ProcessSectionSchema
-                        sec_schema = ProcessSectionSchema(section_id=sec_id, content=content, structured_data=[])
-                        issues = RuleValidator().validate(sec_schema, config)
-            
-                        if issues:
-                            for issue in issues:
-                                st.error(f"Validation Error: {issue}")
-                        else:
-                            if not existing_sec:
-                                new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=content)
-                                db.add(new_sec)
+                        if ai_btn:
+                            from services.rag_service import rag_service
+                            from services.llm_service import get_llm_provider
+                
+                            with st.spinner("Generating suggestion based on your notes and team history..."):
+                                context_list = rag_service.get_team_context(current_note.team, sec_id)
+                                if isinstance(context_list, str):
+                                    context_list = [context_list]
+                                llm = get_llm_provider()
+                                suggestion = llm.generate_suggestion(sec_config, context_list, user_draft=content)
+                                st.info(f"**AI Suggestion (Copy and paste into the box above):**\n\n{suggestion}")
+
+                        if save_btn:
+                            from core.rule_validator import RuleValidator
+                            from models.schemas import ProcessSectionSchema
+                            sec_schema = ProcessSectionSchema(section_id=sec_id, content=content, structured_data=[])
+                            issues = RuleValidator().validate(sec_schema, config)
+                
+                            if issues:
+                                for issue in issues:
+                                    st.error(f"Validation Error: {issue}")
                             else:
-                                existing_sec.content = content
-                            db.commit()
-                            st.success(f"Section {sec_id} saved successfully!")
+                                if not existing_sec:
+                                    new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=content)
+                                    db.add(new_sec)
+                                else:
+                                    existing_sec.content = content
+                                db.commit()
+                                st.session_state[f"is_editing_{sec_id}"] = False
+                                st.success(f"Section {sec_id} saved successfully!")
+                                st.rerun()
 
             elif sec_config["type"] == "table":
                 # Special Quick-Action for RACI Matrix (1.13)
@@ -678,7 +791,7 @@ try:
                                 if "Responsible" in df.columns: df.at[i, "Responsible"] = row.get("Owner/Role", "")
                         else:
                             df.loc[1] = [None for _ in fields]
-                            if "Sr. No." in df.columns: df.at[1, "Sr. No."] = 1
+                            if "Sr. No." in df.columns: df.at[i, "Sr. No."] = 1
                     elif sec_id == "1.15":
                         df.loc[1] = [None for _ in fields]
                         if "Exception Description" in df.columns:
@@ -744,133 +857,243 @@ try:
                     else:
                         column_config[f] = st.column_config.TextColumn(f)
 
-                with st.form(f"form_table_{sec_id}"):
-                    st.markdown("Edit the table below:")
-                    disabled_cols = ["Reviewer Comment"] if "Reviewer Comment" in df.columns else False
-                    edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, key=f"editor_{sec_id}", column_config=column_config, disabled=disabled_cols)
-        
-                    if st.form_submit_button("Save Section", type="primary"):
-                        raw_data = edited_df.to_dict(orient="records")
-                        json_data = []
-                        for row in raw_data:
-                            clean_row = {}
-                            for k, v in row.items():
-                                if pd.isna(v):
-                                    clean_row[k] = None
-                                elif hasattr(v, 'isoformat'):
-                                    clean_row[k] = v.isoformat()
-                                else:
-                                    clean_row[k] = v
-                            json_data.append(clean_row)
+                if not is_completed and not is_editing:
+                    st.markdown(
+                        """
+                        <div style="background: #F8FAFC; border: 1.5px dashed #CBD5E1; border-radius: 8px; padding: 18px 20px; text-align: center; margin: 16px 0; color: #64748B;">
+                            <div style="font-size: 20px; margin-bottom: 4px;">🔒</div>
+                            <div style="font-weight: 700; color: #334155; font-size: 13.5px;">Table Editor is Hidden</div>
+                            <div style="font-size: 12.5px; margin-top: 4px; line-height: 1.5;">
+                                Please use the guided form in the dropdown above and click <b>Apply Answers</b> to populate this table.<br>
+                                Once filled, the table will be displayed here, and you can edit rows directly whenever needed.
+                            </div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+                    if st.button("🛠️ Enter Data Manually in Raw Table Instead (Skip Guide)", key=f"btn_manual_tbl_{sec_id}"):
+                        st.session_state[f"is_editing_{sec_id}"] = True
+                        st.rerun()
+                elif is_completed and not is_editing:
+                    st.markdown(
+                        f"""
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; margin-bottom: 8px;">
+                            <span style="font-weight: 700; color: #1E293B; font-size: 14px;">📄 Current {sec_config['name']} Table ({len(df)} row{'s' if len(df) != 1 else ''}):</span>
+                            <span style="font-size: 11.5px; background: #DCFCE7; color: #166534; font-weight: 600; padding: 3px 10px; border-radius: 12px; border: 1px solid #86EFAC;">✓ Saved & Active</span>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+                    st.dataframe(df, use_container_width=True)
+
+                    col_act1, col_act2 = st.columns([1, 1])
+                    with col_act1:
+                        if st.button("✏️ Edit Table Directly", key=f"btn_edit_tbl_{sec_id}", type="primary", use_container_width=True):
+                            st.session_state[f"is_editing_{sec_id}"] = True
+                            st.rerun()
+                    with col_act2:
+                        if st.button("🤖 Modify via Guided Assistant", key=f"btn_reopen_qa_tbl_{sec_id}", use_container_width=True):
+                            st.session_state[f"show_guide_{sec_id}"] = True
+                            st.rerun()
+                else:
+                    col_h1, col_h2 = st.columns([3, 1])
+                    with col_h1:
+                        st.markdown(f"##### ✏️ Editing {sec_config['name']} Table:")
+                    with col_h2:
+                        if is_completed and st.button("✖️ Cancel / Done", key=f"btn_cancel_tbl_{sec_id}", use_container_width=True):
+                            st.session_state[f"is_editing_{sec_id}"] = False
+                            st.rerun()
+
+                    with st.form(f"form_table_{sec_id}"):
+                        st.markdown("Edit the table below:")
+                        disabled_cols = ["Reviewer Comment"] if "Reviewer Comment" in df.columns else False
+                        edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, key=f"editor_{sec_id}", column_config=column_config, disabled=disabled_cols)
             
-                        from core.rule_validator import RuleValidator
-                        from models.schemas import ProcessSectionSchema
-                        sec_schema = ProcessSectionSchema(section_id=sec_id, content="", structured_data=json_data)
-                        issues = RuleValidator().validate(sec_schema, config)
-            
-                        if issues:
-                            for issue in issues:
-                                st.error(f"Validation Error: {issue}")
-                        else:
-                            if not existing_sec:
-                                new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=json_data)
-                                db.add(new_sec)
+                        if st.form_submit_button("Save Section", type="primary"):
+                            raw_data = edited_df.to_dict(orient="records")
+                            json_data = []
+                            for row in raw_data:
+                                clean_row = {}
+                                for k, v in row.items():
+                                    if pd.isna(v):
+                                        clean_row[k] = None
+                                    elif hasattr(v, 'isoformat'):
+                                        clean_row[k] = v.isoformat()
+                                    else:
+                                        clean_row[k] = v
+                                json_data.append(clean_row)
+                
+                            from core.rule_validator import RuleValidator
+                            from models.schemas import ProcessSectionSchema
+                            sec_schema = ProcessSectionSchema(section_id=sec_id, content="", structured_data=json_data)
+                            issues = RuleValidator().validate(sec_schema, config)
+                
+                            if issues:
+                                for issue in issues:
+                                    st.error(f"Validation Error: {issue}")
                             else:
-                                existing_sec.structured_data = json_data
-                            db.commit()
-                            st.success(f"Section {sec_id} saved successfully!")
+                                if not existing_sec:
+                                    new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=json_data)
+                                    db.add(new_sec)
+                                else:
+                                    existing_sec.structured_data = json_data
+                                db.commit()
+                                st.session_state[f"is_editing_{sec_id}"] = False
+                                st.success(f"Section {sec_id} saved successfully!")
+                                st.rerun()
 
             elif sec_config["type"] in ["file", "flowchart"]:
-                flow_tab1, flow_tab2 = st.tabs(["📊 Visual Flowchart (AI Generated / Mermaid)", "📁 Upload Diagram File"])
+                current_chart = existing_sec.content if existing_sec else ""
                 
-                with flow_tab1:
-                    st.markdown("""
-                    <div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; padding: 12px; border-radius: 6px; margin-bottom: 12px;">
-                        <span style="color: #0F172A; font-weight: 600;">Process Flowchart Generator:</span>
-                        <p style="color: #64748B; font-size: 13px; margin: 4px 0 0 0;">
-                        Depicts the actual process flow, decision points, and hand-offs directly aligned with Section 1.12.
-                        </p>
-                    </div>
-                    """, unsafe_allow_html=True)
+                if not is_completed and not is_editing:
+                    st.markdown(
+                        """
+                        <div style="background: #F8FAFC; border: 1.5px dashed #CBD5E1; border-radius: 8px; padding: 18px 20px; text-align: center; margin: 16px 0; color: #64748B;">
+                            <div style="font-size: 20px; margin-bottom: 4px;">🔒</div>
+                            <div style="font-weight: 700; color: #334155; font-size: 13.5px;">Flowchart Editor is Hidden</div>
+                            <div style="font-size: 12.5px; margin-top: 4px; line-height: 1.5;">
+                                Please use the guided generator above to build flowchart steps, or auto-generate from Section 1.12.<br>
+                                Once generated, your flowchart will appear here and you can edit or upload files directly.
+                            </div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+                    if st.button("🛠️ Edit Mermaid Syntax / Upload Diagram Manually", key=f"btn_manual_flow_{sec_id}"):
+                        st.session_state[f"is_editing_{sec_id}"] = True
+                        st.rerun()
+                elif is_completed and not is_editing:
+                    st.markdown(
+                        f"""
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; margin-bottom: 8px;">
+                            <span style="font-weight: 700; color: #1E293B; font-size: 14px;">📊 Saved Flowchart Diagram:</span>
+                            <span style="font-size: 11.5px; background: #DCFCE7; color: #166534; font-weight: 600; padding: 3px 10px; border-radius: 12px; border: 1px solid #86EFAC;">✓ Saved & Active</span>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+                    if current_chart and not current_chart.endswith(('.png', '.jpg', '.jpeg', '.pdf', '.docx', '.vsdx')):
+                        clean_mermaid = current_chart.replace("```mermaid", "").replace("```", "").strip()
+                        st.markdown(f"```mermaid\n{clean_mermaid}\n```")
+                    elif current_chart and current_chart.endswith(('.png', '.jpg', '.jpeg')):
+                        img_path = os.path.join("uploads", current_chart)
+                        if os.path.exists(img_path):
+                            st.image(img_path, caption=current_chart, use_container_width=True)
+                        else:
+                            st.info(f"Uploaded diagram: {current_chart}")
+                    else:
+                        st.info(f"Saved diagram: {current_chart}")
 
-                    desc_sec = existing_sections.get("1.12")
-                    col_f1, col_f2 = st.columns([1, 1])
-                    with col_f1:
-                        if st.button("✨ Auto-Generate Flowchart from Process Description (1.12)", key="btn_gen_flowchart"):
-                            if not desc_sec or not desc_sec.structured_data:
-                                st.warning("Please fill out Section 1.12 (Process Description) first so the AI can map the steps into a flowchart.")
-                            else:
-                                with st.spinner("Generating operational process flowchart..."):
-                                    from services.llm_service import get_llm_provider
-                                    llm = get_llm_provider()
-                                    mermaid_code = llm.generate_flowchart_mermaid(desc_sec.structured_data)
-                                    if not existing_sec:
-                                        new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=mermaid_code)
-                                        db.add(new_sec)
-                                    else:
-                                        existing_sec.content = mermaid_code
-                                    db.commit()
-                                    st.success("Flowchart generated successfully!")
-                                    st.rerun()
-
-                    current_chart = existing_sec.content if existing_sec else ""
-                    with st.form(f"form_flow_{sec_id}"):
-                        chart_content = st.text_area(
-                            "Flowchart Definition (Mermaid Syntax):", 
-                            value=current_chart if current_chart and not current_chart.endswith(('.png', '.jpg', '.pdf', '.docx', '.vsdx')) else "graph TD\n    A[Start Process] --> B[Execute Key Steps] --> C[End Process]", 
-                            height=200,
-                            help="Edit the diagram nodes, decision branches, and handoffs."
-                        )
-                        save_chart_btn = st.form_submit_button("Save Flowchart Diagram", type="primary")
-                        if save_chart_btn:
-                            if not existing_sec:
-                                new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=chart_content)
-                                db.add(new_sec)
-                            else:
-                                existing_sec.content = chart_content
-                            db.commit()
-                            st.success("Flowchart saved successfully!")
+                    col_act1, col_act2 = st.columns([1, 1])
+                    with col_act1:
+                        if st.button("✏️ Edit Flowchart / Upload New", key=f"btn_edit_flow_{sec_id}", type="primary", use_container_width=True):
+                            st.session_state[f"is_editing_{sec_id}"] = True
+                            st.rerun()
+                    with col_act2:
+                        if st.button("🤖 Modify via Guided Assistant", key=f"btn_reopen_qa_flow_{sec_id}", use_container_width=True):
+                            st.session_state[f"show_guide_{sec_id}"] = True
+                            st.rerun()
+                else:
+                    col_h1, col_h2 = st.columns([3, 1])
+                    with col_h1:
+                        st.markdown(f"##### ✏️ Editing {sec_config['name']}:")
+                    with col_h2:
+                        if is_completed and st.button("✖️ Cancel / Done", key=f"btn_cancel_flow_{sec_id}", use_container_width=True):
+                            st.session_state[f"is_editing_{sec_id}"] = False
                             st.rerun()
 
-                    if current_chart and not current_chart.endswith(('.png', '.jpg', '.pdf', '.docx', '.vsdx')):
-                        st.markdown("#### Live Flowchart Preview:")
-                        try:
-                            clean_mermaid = current_chart.replace("```mermaid", "").replace("```", "").strip()
-                            st.markdown(f"```mermaid\n{clean_mermaid}\n```")
-                        except Exception as e:
-                            st.info(f"Diagram code: {current_chart}")
+                    flow_tab1, flow_tab2 = st.tabs(["📊 Visual Flowchart (AI Generated / Mermaid)", "📁 Upload Diagram File"])
+                    
+                    with flow_tab1:
+                        st.markdown("""
+                        <div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; padding: 12px; border-radius: 6px; margin-bottom: 12px;">
+                            <span style="color: #0F172A; font-weight: 600;">Process Flowchart Generator:</span>
+                            <p style="color: #64748B; font-size: 13px; margin: 4px 0 0 0;">
+                            Depicts the actual process flow, decision points, and hand-offs directly aligned with Section 1.12.
+                            </p>
+                        </div>
+                        """, unsafe_allow_html=True)
 
-                with flow_tab2:
-                    st.markdown("Upload an existing visual flowchart diagram (Visio, Draw.io, PNG, JPG, PDF):")
-                    uploaded_file = st.file_uploader("Choose a diagram file", type=["png", "jpg", "jpeg", "pdf", "vsdx", "drawio", "docx"], key=f"uploader_{sec_id}")
-                    if existing_sec and existing_sec.content and existing_sec.content.endswith(('.png', '.jpg', '.jpeg', '.pdf', '.docx', '.vsdx')):
-                        st.info(f"Currently uploaded file: {existing_sec.content}")
-                        if existing_sec.content.endswith(('.png', '.jpg', '.jpeg')):
-                            img_path = os.path.join("uploads", existing_sec.content)
-                            if os.path.exists(img_path):
-                                st.image(img_path, caption=existing_sec.content, use_container_width=True)
+                        desc_sec = existing_sections.get("1.12")
+                        col_f1, col_f2 = st.columns([1, 1])
+                        with col_f1:
+                            if st.button("✨ Auto-Generate Flowchart from Process Description (1.12)", key="btn_gen_flowchart"):
+                                if not desc_sec or not desc_sec.structured_data:
+                                    st.warning("Please fill out Section 1.12 (Process Description) first so the AI can map the steps into a flowchart.")
+                                else:
+                                    with st.spinner("Generating operational process flowchart..."):
+                                        from services.llm_service import get_llm_provider
+                                        llm = get_llm_provider()
+                                        mermaid_code = llm.generate_flowchart_mermaid(desc_sec.structured_data)
+                                        if not existing_sec:
+                                            new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=mermaid_code)
+                                            db.add(new_sec)
+                                        else:
+                                            existing_sec.content = mermaid_code
+                                        db.commit()
+                                        st.session_state[f"is_editing_{sec_id}"] = False
+                                        st.success("Flowchart generated successfully!")
+                                        st.rerun()
 
-                    if st.button("Save Uploaded Diagram", key=f"save_file_{sec_id}", type="primary"):
-                        if uploaded_file is not None:
-                            os.makedirs("uploads", exist_ok=True)
-                            file_path = os.path.join("uploads", uploaded_file.name)
-                            with open(file_path, "wb") as f:
-                                f.write(uploaded_file.getbuffer())
-                            content_val = uploaded_file.name
-                        else:
-                            content_val = existing_sec.content if existing_sec else ""
-                        
-                        if not content_val:
-                            st.error("Please upload a file before saving.")
-                        else:
-                            if not existing_sec:
-                                new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=content_val)
-                                db.add(new_sec)
+                        with st.form(f"form_flow_{sec_id}"):
+                            chart_content = st.text_area(
+                                "Flowchart Definition (Mermaid Syntax):", 
+                                value=current_chart if current_chart and not current_chart.endswith(('.png', '.jpg', '.pdf', '.docx', '.vsdx')) else "graph TD\n    A[Start Process] --> B[Execute Key Steps] --> C[End Process]", 
+                                height=200,
+                                help="Edit the diagram nodes, decision branches, and handoffs."
+                            )
+                            save_chart_btn = st.form_submit_button("Save Flowchart Diagram", type="primary")
+                            if save_chart_btn:
+                                if not existing_sec:
+                                    new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=chart_content)
+                                    db.add(new_sec)
+                                else:
+                                    existing_sec.content = chart_content
+                                db.commit()
+                                st.session_state[f"is_editing_{sec_id}"] = False
+                                st.success("Flowchart saved successfully!")
+                                st.rerun()
+
+                        if current_chart and not current_chart.endswith(('.png', '.jpg', '.pdf', '.docx', '.vsdx')):
+                            st.markdown("#### Live Flowchart Preview:")
+                            try:
+                                clean_mermaid = current_chart.replace("```mermaid", "").replace("```", "").strip()
+                                st.markdown(f"```mermaid\n{clean_mermaid}\n```")
+                            except Exception as e:
+                                st.info(f"Diagram code: {current_chart}")
+
+                    with flow_tab2:
+                        st.markdown("Upload an existing visual flowchart diagram (Visio, Draw.io, PNG, JPG, PDF):")
+                        uploaded_file = st.file_uploader("Choose a diagram file", type=["png", "jpg", "jpeg", "pdf", "vsdx", "drawio", "docx"], key=f"uploader_{sec_id}")
+                        if existing_sec and existing_sec.content and existing_sec.content.endswith(('.png', '.jpg', '.jpeg', '.pdf', '.docx', '.vsdx')):
+                            st.info(f"Currently uploaded file: {existing_sec.content}")
+                            if existing_sec.content.endswith(('.png', '.jpg', '.jpeg')):
+                                img_path = os.path.join("uploads", existing_sec.content)
+                                if os.path.exists(img_path):
+                                    st.image(img_path, caption=existing_sec.content, use_container_width=True)
+
+                        if st.button("Save Uploaded Diagram", key=f"save_file_{sec_id}", type="primary"):
+                            if uploaded_file is not None:
+                                os.makedirs("uploads", exist_ok=True)
+                                file_path = os.path.join("uploads", uploaded_file.name)
+                                with open(file_path, "wb") as f:
+                                    f.write(uploaded_file.getbuffer())
+                                content_val = uploaded_file.name
                             else:
-                                existing_sec.content = content_val
-                            db.commit()
-                            st.success(f"Flowchart diagram file saved: {content_val}")
-                            st.rerun()
+                                content_val = existing_sec.content if existing_sec else ""
+                            
+                            if not content_val:
+                                st.error("Please upload a file before saving.")
+                            else:
+                                if not existing_sec:
+                                    new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=content_val)
+                                    db.add(new_sec)
+                                else:
+                                    existing_sec.content = content_val
+                                db.commit()
+                                st.session_state[f"is_editing_{sec_id}"] = False
+                                st.success(f"Flowchart diagram file saved: {content_val}")
+                                st.rerun()
     
         st.markdown("<br><hr>", unsafe_allow_html=True)
         col1, col2 = st.columns(2)
