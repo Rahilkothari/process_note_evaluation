@@ -23,6 +23,10 @@ class LLMProvider(ABC):
         pass
 
     @abstractmethod
+    def assist_flowchart(self, draft_steps: str, decisions: str = "", roles: str = "", process_name: str = "", team_name: str = "") -> str:
+        pass
+
+    @abstractmethod
     def generate_section_from_qa(self, section_id: str, section_config: Dict[str, Any], user_answers: str, team_name: str = "") -> Any:
         pass
 
@@ -175,6 +179,35 @@ class MockProvider(LLMProvider):
             lines.append(f"    S{idx}[\"{label}\"]")
             if idx > 1:
                 lines.append(f"    S{idx-1} --> S{idx}")
+        return "\n".join(lines)
+
+    def assist_flowchart(self, draft_steps: str, decisions: str = "", roles: str = "", process_name: str = "", team_name: str = "") -> str:
+        lines = ["flowchart TD"]
+        lines.append("    Start([Process Start]) --> Step1[\"1. Process Initiation\"]")
+        step_items = [s.strip() for s in draft_steps.split("\n") if s.strip()]
+        if not step_items:
+            step_items = ["Initial Request Submission", "Document Review & Screening", "Operational Execution & Verification", "Final Sign-off & Delivery"]
+        prev = "Step1"
+        for i, s in enumerate(step_items, start=2):
+            node_id = f"Step{i}"
+            clean = s.replace('"', '').replace('[', '').replace(']', '')
+            lines.append(f"    {prev} --> {node_id}[\"{clean}\"]")
+            prev = node_id
+        dec = decisions.strip() if decisions.strip() else "Verification Criteria Met?"
+        lines.append(f"    {prev} --> Dec1{{\"{dec}\"}}")
+        lines.append("    Dec1 -- Yes --> StepAppr[\"Approval & Sign-off\"]")
+        lines.append("    Dec1 -- No --> StepRej[\"Rejection & Return with Remarks\"]")
+        lines.append("    StepRej -.-> Step1")
+        lines.append("    StepAppr --> EndNode([Process End])")
+        lines.append("    classDef startEnd fill:#DCFCE7,stroke:#16A34A,stroke-width:2px,color:#14532D,font-weight:bold;")
+        lines.append("    classDef stepNode fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px,color:#1E3A8A;")
+        lines.append("    classDef decNode fill:#FEF3C7,stroke:#D97706,stroke-width:2px,color:#78350F,font-weight:bold;")
+        lines.append("    classDef apprNode fill:#D1FAE5,stroke:#059669,stroke-width:2px,color:#064E3B;")
+        lines.append("    classDef rejNode fill:#FEE2E2,stroke:#DC2626,stroke-width:2px,color:#7F1D1D;")
+        lines.append("    class Start,EndNode startEnd;")
+        lines.append("    class Dec1 decNode;")
+        lines.append("    class StepAppr apprNode;")
+        lines.append("    class StepRej rejNode;")
         return "\n".join(lines)
 
     def generate_section_from_qa(self, section_id: str, section_config: Dict[str, Any], user_answers: str, team_name: str = "") -> Any:
@@ -492,6 +525,52 @@ RULES:
                 if idx > 1:
                     lines.append(f"    S{idx-1} --> S{idx}")
             return "\n".join(lines)
+
+    def assist_flowchart(self, draft_steps: str, decisions: str = "", roles: str = "", process_name: str = "", team_name: str = "") -> str:
+        prompt = f"""
+You are an expert BPMN process modeler and Business Excellence consultant.
+Create an enterprise-grade Mermaid.js flowchart (starting with 'flowchart TD') for the following operational process:
+Process Name: {process_name}
+Team / Department: {team_name}
+
+Creator's Rough Draft / Steps:
+\"\"\"{draft_steps}\"\"\"
+
+Decision Points / Rejection criteria:
+\"\"\"{decisions}\"\"\"
+
+Key Roles / Stakeholders:
+\"\"\"{roles}\"\"\"
+
+CRITICAL RULES:
+1. Start with 'flowchart TD'.
+2. Standard BPMN node shapes:
+   - Start and End boundaries MUST be rounded stadium/pill shapes: Start([Process Start]) and EndNode([Process End])
+   - Sequential process activities MUST be crisp rectangular boxes: Step1["1. Step Description<br/>Owner: Role"]
+   - Decision/verification points MUST be diamond shapes: Dec1{{"Criteria Met?"}}
+   - Branches MUST have labeled arrows: Dec1 -- Yes --> StepAppr["Approval & Sign-off"] and Dec1 -- No --> StepRej["Rejection & Return"]
+   - Include a dotted return loopback for rework/resubmission: StepRej -.-> Step1
+3. Keep labels clear and concise (under 12 words per node).
+4. Strictly escape any quotes or special characters inside node labels so the Mermaid syntax never breaks.
+5. Apply styling classes at the end:
+   classDef startEnd fill:#DCFCE7,stroke:#16A34A,stroke-width:2px,color:#14532D,font-weight:bold;
+   classDef stepNode fill:#EFF6FF,stroke:#3B82F6,stroke-width:2px,color:#1E3A8A;
+   classDef decNode fill:#FEF3C7,stroke:#D97706,stroke-width:2px,color:#78350F,font-weight:bold;
+   classDef apprNode fill:#D1FAE5,stroke:#059669,stroke-width:2px,color:#064E3B;
+   classDef rejNode fill:#FEE2E2,stroke:#DC2626,stroke-width:2px,color:#7F1D1D;
+   class Start,EndNode startEnd;
+6. Return ONLY the valid Mermaid code without markdown code blocks (no ```mermaid).
+"""
+        try:
+            response = self.model.generate_content(prompt)
+            text = response.text.strip()
+            text = re.sub(r'^```mermaid\s*', '', text, flags=re.IGNORECASE)
+            text = re.sub(r'^```\s*', '', text)
+            text = re.sub(r'```$', '', text).strip()
+            return text
+        except Exception:
+            from config.guided_questions import build_mermaid_flowchart_from_answers
+            return build_mermaid_flowchart_from_answers({"steps": draft_steps, "decisions": decisions, "roles": roles})
 
     def generate_section_from_qa(self, section_id: str, section_config: Dict[str, Any], user_answers: str, team_name: str = "") -> Any:
         sec_type = section_config.get("type", "text")

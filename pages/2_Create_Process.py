@@ -602,7 +602,12 @@ try:
                                 st.success(f"✅ New row added to {sec_config['name']} table! Check preview below.")
 
                     elif sec_config["type"] == "flowchart":
-                        flow_btn = st.form_submit_button("✨ Auto-Generate Flowchart from Steps", type="primary")
+                        col_fl1, col_fl2 = st.columns([1, 1])
+                        with col_fl1:
+                            flow_btn = st.form_submit_button("✨ Standard Generate from Steps", type="primary", use_container_width=True)
+                        with col_fl2:
+                            ai_flow_btn = st.form_submit_button("🤖 Ask AI to Draft & Polish Flowchart", use_container_width=True)
+
                         if flow_btn:
                             mermaid_code = build_mermaid_flowchart_from_answers(answers)
                             from core.rule_validator import RuleValidator
@@ -624,6 +629,47 @@ try:
                                 st.session_state[f"show_guide_{sec_id}"] = False
                                 st.session_state[f"is_editing_{sec_id}"] = False
                                 st.success("✅ Flowchart updated from your steps! Check preview below.")
+
+                        if ai_flow_btn:
+                            with st.spinner("🤖 AI is synthesizing an enterprise BPMN flowchart with boxes and decision diamonds..."):
+                                from services.llm_service import get_llm_provider
+                                llm = get_llm_provider()
+                                raw_steps = answers.get("steps", "")
+                                decisions = answers.get("decisions", "")
+                                roles = answers.get("roles", "")
+                                
+                                # If raw_steps is brief, enrich with Section 1.12 Process Description if present
+                                desc_sec = existing_sections.get("1.12")
+                                if (not raw_steps or len(raw_steps.split()) < 5) and desc_sec and desc_sec.structured_data:
+                                    steps_summary = "\n".join([f"Step {i}: {row.get('Activity', '')} ({row.get('Owner/Role', '')}) - {row.get('Description', '')[:100]}" for i, row in enumerate(desc_sec.structured_data, 1)])
+                                    raw_steps = f"{raw_steps}\n\nActivities from Section 1.12:\n{steps_summary}"
+
+                                mermaid_code = llm.assist_flowchart(
+                                    draft_steps=raw_steps,
+                                    decisions=decisions,
+                                    roles=roles,
+                                    process_name=current_note.process_name,
+                                    team_name=current_note.team
+                                )
+
+                                from core.rule_validator import RuleValidator
+                                from models.schemas import ProcessSectionSchema
+                                sec_schema = ProcessSectionSchema(section_id=sec_id, content=mermaid_code, structured_data=[])
+                                issues = RuleValidator().validate(sec_schema, config)
+                                if issues:
+                                    for issue in issues:
+                                        st.warning(f"⚠️ Note: {issue}")
+                                if not existing_sec:
+                                    existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=mermaid_code)
+                                    db.add(existing_sec)
+                                    existing_sections[sec_id] = existing_sec
+                                else:
+                                    existing_sec.content = mermaid_code
+                                db.commit()
+                                is_completed = True
+                                st.session_state[f"show_guide_{sec_id}"] = False
+                                st.session_state[f"is_editing_{sec_id}"] = False
+                                st.success("✅ Flowchart synthesized and polished by AI! Check the diagram below.")
 
                     elif sec_config["type"] == "text":
                         col_t1, col_t2 = st.columns([1, 1])
@@ -1103,7 +1149,12 @@ try:
                                 height=200,
                                 help="Edit the diagram nodes, decision branches, and handoffs."
                             )
-                            save_chart_btn = st.form_submit_button("Save Flowchart Diagram", type="primary")
+                            col_sc1, col_sc2 = st.columns([1, 1])
+                            with col_sc1:
+                                save_chart_btn = st.form_submit_button("Save Flowchart Diagram", type="primary", use_container_width=True)
+                            with col_sc2:
+                                ai_assist_btn = st.form_submit_button("🤖 AI Assistant (Refine / Convert Notes to Flowchart)", use_container_width=True)
+
                             if save_chart_btn:
                                 if not existing_sec:
                                     new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=chart_content)
@@ -1114,6 +1165,25 @@ try:
                                 st.session_state[f"is_editing_{sec_id}"] = False
                                 st.success("Flowchart saved successfully!")
                                 st.rerun()
+
+                            if ai_assist_btn:
+                                with st.spinner("🤖 AI is refining your flowchart syntax, boxes, and decision diamonds..."):
+                                    from services.llm_service import get_llm_provider
+                                    llm = get_llm_provider()
+                                    improved_code = llm.assist_flowchart(
+                                        draft_steps=chart_content,
+                                        process_name=current_note.process_name,
+                                        team_name=current_note.team
+                                    )
+                                    if not existing_sec:
+                                        new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=improved_code)
+                                        db.add(new_sec)
+                                    else:
+                                        existing_sec.content = improved_code
+                                    db.commit()
+                                    st.session_state[f"is_editing_{sec_id}"] = False
+                                    st.success("Flowchart polished with AI and saved successfully!")
+                                    st.rerun()
 
                         if current_chart and not current_chart.endswith(('.png', '.jpg', '.pdf', '.docx', '.vsdx')):
                             st.markdown("#### Live Flowchart Preview:")

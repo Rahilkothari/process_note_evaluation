@@ -318,7 +318,8 @@ def inject_custom_css():
 def render_mermaid_flowchart(chart_code: str, height: int = None, show_code_toggle: bool = True):
     """
     Renders Mermaid flowchart code as a high-fidelity visual SVG diagram with
-    clean rectangular process boxes, decision diamonds, and labeled connection arrows.
+    clean rectangular process boxes, decision diamonds, and labeled connection arrows,
+    along with direct SVG and PNG download options.
     """
     import streamlit.components.v1 as components
 
@@ -330,7 +331,7 @@ def render_mermaid_flowchart(chart_code: str, height: int = None, show_code_togg
     
     # Calculate responsive container height based on node count
     lines = [l for l in clean_code.split("\n") if l.strip()]
-    calc_height = max(380, min(850, len(lines) * 45 + 90)) if not height else height
+    calc_height = max(420, min(880, len(lines) * 45 + 110)) if not height else height
 
     html_content = f"""
     <!DOCTYPE html>
@@ -359,12 +360,46 @@ def render_mermaid_flowchart(chart_code: str, height: int = None, show_code_togg
           background: #FFFFFF;
           border: 1.5px solid #E2E8F0;
           border-radius: 12px;
-          padding: 24px;
+          padding: 20px;
           box-shadow: 0 2px 8px rgba(0,0,0,0.04);
           display: flex;
-          justify-content: center;
-          align-items: center;
+          flex-direction: column;
           overflow-x: auto;
+        }}
+        .card-header {{
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 14px;
+          padding-bottom: 10px;
+          border-bottom: 1px solid #F1F5F9;
+        }}
+        .btn-dl {{
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 12px;
+          font-size: 12px;
+          font-weight: 600;
+          color: #4338CA;
+          background: #EEF2FF;
+          border: 1px solid #C7D2FE;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }}
+        .btn-dl:hover {{
+          background: #E0E7FF;
+          border-color: #A5B4FC;
+        }}
+        .btn-png {{
+          color: #0F172A;
+          background: #F8FAFC;
+          border-color: #CBD5E1;
+        }}
+        .btn-png:hover {{
+          background: #F1F5F9;
+          border-color: #94A3B8;
         }}
         .mermaid {{
           display: flex;
@@ -389,6 +424,19 @@ def render_mermaid_flowchart(chart_code: str, height: int = None, show_code_togg
     </head>
     <body>
       <div class="diagram-card">
+        <div class="card-header">
+          <span style="font-size: 13px; font-weight: 700; color: #334155;">📊 Interactive Process Flowchart</span>
+          <div style="display: flex; gap: 8px;">
+            <button onclick="downloadSVG()" class="btn-dl" title="Save high-resolution vector SVG">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Download SVG
+            </button>
+            <button onclick="downloadPNG()" class="btn-dl btn-png" title="Save PNG image file">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              Download PNG
+            </button>
+          </div>
+        </div>
         <div id="error-msg"></div>
         <pre class="mermaid" id="mermaid-target">
 {clean_code}
@@ -396,6 +444,57 @@ def render_mermaid_flowchart(chart_code: str, height: int = None, show_code_togg
       </div>
 
       <script>
+        function downloadSVG() {{
+          var svg = document.querySelector('.mermaid svg');
+          if (!svg) {{ alert('Diagram is still rendering, please wait a moment.'); return; }}
+          var clone = svg.cloneNode(true);
+          clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+          var svgData = new XMLSerializer().serializeToString(clone);
+          var svgBlob = new Blob([svgData], {{ type: 'image/svg+xml;charset=utf-8' }});
+          var url = URL.createObjectURL(svgBlob);
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = 'process_flowchart.svg';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(function() {{ URL.revokeObjectURL(url); }}, 100);
+        }}
+
+        function downloadPNG() {{
+          var svg = document.querySelector('.mermaid svg');
+          if (!svg) {{ alert('Diagram is still rendering, please wait a moment.'); return; }}
+          var clone = svg.cloneNode(true);
+          clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+          var svgData = new XMLSerializer().serializeToString(clone);
+          var svgBlob = new Blob([svgData], {{ type: 'image/svg+xml;charset=utf-8' }});
+          var URLObj = window.URL || window.webkitURL || window;
+          var svgUrl = URLObj.createObjectURL(svgBlob);
+          var img = new Image();
+          img.onload = function() {{
+            var bbox = svg.getBoundingClientRect();
+            var scale = 2;
+            var width = (bbox.width > 0 ? bbox.width : 900) * scale;
+            var height = (bbox.height > 0 ? bbox.height : 600) * scale;
+            var canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            var ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, width, height);
+            ctx.drawImage(img, 0, 0, width, height);
+            URLObj.revokeObjectURL(svgUrl);
+            var pngUrl = canvas.toDataURL('image/png');
+            var a = document.createElement('a');
+            a.href = pngUrl;
+            a.download = 'process_flowchart.png';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+          }};
+          img.src = svgUrl;
+        }}
+
         try {{
           mermaid.initialize({{
             startOnLoad: true,
@@ -433,6 +532,18 @@ def render_mermaid_flowchart(chart_code: str, height: int = None, show_code_togg
     components.html(html_content, height=calc_height, scrolling=True)
 
     if show_code_toggle:
+        c1, c2 = st.columns([1, 1])
+        with c1:
+            st.download_button(
+                "📥 Download Mermaid Definition (.mmd)",
+                data=clean_code,
+                file_name="process_flowchart.mmd",
+                mime="text/plain",
+                help="Download raw Mermaid diagram code to edit in external tools like Mermaid Live Editor or VS Code."
+            )
+        with c2:
+            pass
+
         with st.expander("📝 View / Copy Raw Mermaid Syntax", expanded=False):
             st.code(clean_code, language="mermaid")
 
