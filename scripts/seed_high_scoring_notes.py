@@ -684,6 +684,10 @@ def seed_both():
     db = SessionLocal()
     engine = ValidationEngine()
     
+    from models.database import User
+    creator = db.query(User).filter(User.email == "rahilkothari99@gmail.com").first()
+    creator_id = creator.id if creator else 2
+
     notes_data = [get_note_1(), get_note_2()]
     
     for ndata in notes_data:
@@ -701,6 +705,7 @@ def seed_both():
             note.subject_matter_expert = ndata['sme']
             note.process_owner = ndata['owner']
             note.status = ndata['status']
+            note.created_by = creator_id
             db.commit()
         else:
             note = ProcessNote(
@@ -711,6 +716,7 @@ def seed_both():
                 subject_matter_expert=ndata['sme'],
                 process_owner=ndata['owner'],
                 status=ndata['status'],
+                created_by=creator_id,
                 created_at=datetime.utcnow()
             )
             db.add(note)
