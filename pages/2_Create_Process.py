@@ -474,24 +474,48 @@ try:
                                 elif sec_config["type"] == "text" and existing_sec.content:
                                     existing_field_val = existing_sec.content
                                 elif sec_config["type"] in ["flowchart", "file"] and existing_sec.content:
-                                    from config.guided_questions import parse_flowchart_steps
-                                    p_steps, p_decs = parse_flowchart_steps(existing_sec.content)
-                                    if fid == "steps" and p_steps:
-                                        existing_field_val = "\n".join(p_steps)
-                                    elif fid == "decisions" and p_decs:
-                                        existing_field_val = "\n".join(p_decs)
-                            
-                            if k not in st.session_state and existing_field_val:
-                                st.session_state[k] = existing_field_val
+                                    try:
+                                        from config.guided_questions import parse_flowchart_steps
+                                        res = parse_flowchart_steps(existing_sec.content)
+                                        if isinstance(res, (tuple, list)) and len(res) == 2:
+                                            p_steps, p_decs = res
+                                        else:
+                                            p_steps, p_decs = [], []
+                                        if fid == "steps" and p_steps:
+                                            existing_field_val = "\n".join(p_steps)
+                                        elif fid == "decisions" and p_decs:
+                                            existing_field_val = "\n".join(p_decs)
+                                    except Exception:
+                                        pass
                             
                             if ftype == "date":
-                                return st.date_input(flabel, value=datetime.date.today(), key=k, help=fhelp)
+                                def_date = datetime.date.today()
+                                if existing_field_val:
+                                    try:
+                                        def_date = datetime.date.fromisoformat(str(existing_field_val).split("T")[0])
+                                    except Exception:
+                                        pass
+                                if k in st.session_state and not isinstance(st.session_state[k], (datetime.date, datetime.datetime)):
+                                    del st.session_state[k]
+                                return st.date_input(flabel, value=def_date, key=k, help=fhelp)
+
                             elif ftype == "select":
                                 opts = field_dict.get("options", [])
+                                if not opts:
+                                    opts = ["N/A"]
                                 d_idx = 0
-                                def_choice = st.session_state.get(k, existing_field_val or field_dict.get("default", ""))
-                                if def_choice and def_choice in opts:
+                                def_choice = existing_field_val or field_dict.get("default", "")
+                                if def_choice in opts:
                                     d_idx = opts.index(def_choice)
+                                elif def_choice and any("other" in str(o).lower() for o in opts):
+                                    other_opt = next((o for o in opts if "other" in str(o).lower()), None)
+                                    if other_opt:
+                                        d_idx = opts.index(other_opt)
+                                
+                                # Protect against Streamlit ValueError if session_state has a value not in opts
+                                if k in st.session_state and st.session_state[k] not in opts:
+                                    del st.session_state[k]
+
                                 sel = st.selectbox(flabel, options=opts, index=d_idx, key=k, help=fhelp)
                                 if any("other" in str(o).lower() for o in opts):
                                     custom_k = f"{k}_custom"
@@ -501,9 +525,14 @@ try:
                                     if "other" in str(sel).lower() and custom.strip():
                                         return custom.strip()
                                 return sel
+
                             elif ftype == "textarea":
+                                if k not in st.session_state and existing_field_val:
+                                    st.session_state[k] = existing_field_val
                                 return st.text_area(flabel, placeholder=field_dict.get("placeholder", ""), height=80, key=k, help=fhelp)
                             else:
+                                if k not in st.session_state and existing_field_val:
+                                    st.session_state[k] = existing_field_val
                                 return st.text_input(flabel, placeholder=field_dict.get("placeholder", ""), key=k, help=fhelp)
 
                         def get_qa_answer(field_dict):
@@ -1091,7 +1120,13 @@ try:
                         render_mermaid_flowchart(current_chart)
 
                         from config.guided_questions import parse_flowchart_steps, build_mermaid_flowchart_from_answers
-                        p_steps, p_decs = parse_flowchart_steps(current_chart)
+                        p_steps, p_decs = [], []
+                        try:
+                            res = parse_flowchart_steps(current_chart)
+                            if isinstance(res, (tuple, list)) and len(res) == 2:
+                                p_steps, p_decs = res
+                        except Exception:
+                            pass
                         if p_steps:
                             with st.expander("✏️ Quick Edit Flowchart Step Text & Labels (No Code Required)", expanded=True):
                                 st.markdown("Modify the text inside any flowchart box below. Long conversational sentences can be split into crisp steps automatically with AI:")
@@ -1161,12 +1196,17 @@ try:
                             st.rerun()
                     with col_act2:
                         if st.button("🤖 Modify via Guided Assistant", key=f"btn_reopen_qa_flow_{sec_id}", use_container_width=True):
-                            from config.guided_questions import parse_flowchart_steps
-                            p_steps, p_decs = parse_flowchart_steps(current_chart)
-                            if p_steps:
-                                st.session_state[f"qa_{sec_id}_steps"] = "\n".join(p_steps)
-                            if p_decs:
-                                st.session_state[f"qa_{sec_id}_decisions"] = "\n".join(p_decs)
+                            try:
+                                from config.guided_questions import parse_flowchart_steps
+                                res = parse_flowchart_steps(current_chart)
+                                if isinstance(res, (tuple, list)) and len(res) == 2:
+                                    p_steps, p_decs = res
+                                    if p_steps:
+                                        st.session_state[f"qa_{sec_id}_steps"] = "\n".join(p_steps)
+                                    if p_decs:
+                                        st.session_state[f"qa_{sec_id}_decisions"] = "\n".join(p_decs)
+                            except Exception:
+                                pass
                             st.session_state[f"show_guide_{sec_id}"] = True
                             st.rerun()
                 else:
