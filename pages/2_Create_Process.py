@@ -473,6 +473,13 @@ try:
                                             break
                                 elif sec_config["type"] == "text" and existing_sec.content:
                                     existing_field_val = existing_sec.content
+                                elif sec_config["type"] in ["flowchart", "file"] and existing_sec.content:
+                                    from config.guided_questions import parse_flowchart_steps
+                                    p_steps, p_decs = parse_flowchart_steps(existing_sec.content)
+                                    if fid == "steps" and p_steps:
+                                        existing_field_val = "\n".join(p_steps)
+                                    elif fid == "decisions" and p_decs:
+                                        existing_field_val = "\n".join(p_decs)
                             
                             if k not in st.session_state and existing_field_val:
                                 st.session_state[k] = existing_field_val
@@ -1082,6 +1089,62 @@ try:
                     )
                     if current_chart and not current_chart.endswith(('.png', '.jpg', '.jpeg', '.pdf', '.docx', '.vsdx')):
                         render_mermaid_flowchart(current_chart)
+
+                        from config.guided_questions import parse_flowchart_steps, build_mermaid_flowchart_from_answers
+                        p_steps, p_decs = parse_flowchart_steps(current_chart)
+                        if p_steps:
+                            with st.expander("✏️ Quick Edit Flowchart Step Text & Labels (No Code Required)", expanded=True):
+                                st.markdown("Modify the text inside any flowchart box below. Long conversational sentences can be split into crisp steps automatically with AI:")
+                                with st.form(f"form_quick_flow_edit_{sec_id}"):
+                                    updated_steps = []
+                                    for s_i, s_t in enumerate(p_steps):
+                                        new_t = st.text_input(f"Step {s_i + 1} Text:", value=s_t, key=f"qe_step_txt_{sec_id}_{s_i}", help="Edit the wording inside this process step box.")
+                                        updated_steps.append(new_t)
+                                    
+                                    curr_dec = p_decs[0] if p_decs else "Verification Criteria Met?"
+                                    updated_dec = st.text_input("Decision Diamond Criteria:", value=curr_dec, key=f"qe_dec_txt_{sec_id}", help="Edit the question inside the decision diamond.")
+                                    
+                                    qe_c1, qe_c2 = st.columns([1, 1])
+                                    with qe_c1:
+                                        qe_save = st.form_submit_button("💾 Save Updated Step Text", type="primary", use_container_width=True)
+                                    with qe_c2:
+                                        qe_ai = st.form_submit_button("🤖 AI Shorten & Split Big Sentences", use_container_width=True)
+                                    
+                                    if qe_save:
+                                        valid_steps = [st.strip() for st in updated_steps if st.strip()]
+                                        new_flow_code = build_mermaid_flowchart_from_answers({
+                                            "steps": "\n".join(valid_steps),
+                                            "decisions": updated_dec
+                                        })
+                                        if existing_sec:
+                                            existing_sec.content = new_flow_code
+                                        else:
+                                            new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=new_flow_code)
+                                            db.add(new_sec)
+                                        db.commit()
+                                        st.success("✅ Flowchart steps updated successfully!")
+                                        st.rerun()
+
+                                    if qe_ai:
+                                        with st.spinner("🤖 AI is splitting big sentences and refining flowchart boxes..."):
+                                            from services.llm_service import get_llm_provider
+                                            llm = get_llm_provider()
+                                            valid_steps = [st.strip() for st in updated_steps if st.strip()]
+                                            improved_flow_code = llm.assist_flowchart(
+                                                draft_steps="\n".join(valid_steps),
+                                                decisions=updated_dec,
+                                                process_name=current_note.process_name,
+                                                team_name=current_note.team
+                                            )
+                                            if existing_sec:
+                                                existing_sec.content = improved_flow_code
+                                            else:
+                                                new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=improved_flow_code)
+                                                db.add(new_sec)
+                                            db.commit()
+                                            st.success("✅ Flowchart polished and split with AI!")
+                                            st.rerun()
+
                     elif current_chart and current_chart.endswith(('.png', '.jpg', '.jpeg')):
                         img_path = os.path.join("uploads", current_chart)
                         if os.path.exists(img_path):
@@ -1098,6 +1161,12 @@ try:
                             st.rerun()
                     with col_act2:
                         if st.button("🤖 Modify via Guided Assistant", key=f"btn_reopen_qa_flow_{sec_id}", use_container_width=True):
+                            from config.guided_questions import parse_flowchart_steps
+                            p_steps, p_decs = parse_flowchart_steps(current_chart)
+                            if p_steps:
+                                st.session_state[f"qa_{sec_id}_steps"] = "\n".join(p_steps)
+                            if p_decs:
+                                st.session_state[f"qa_{sec_id}_decisions"] = "\n".join(p_decs)
                             st.session_state[f"show_guide_{sec_id}"] = True
                             st.rerun()
                 else:
@@ -1147,6 +1216,7 @@ try:
                                 "Flowchart Definition (Mermaid Syntax):", 
                                 value=current_chart if current_chart and not current_chart.endswith(('.png', '.jpg', '.pdf', '.docx', '.vsdx')) else "graph TD\n    A[Start Process] --> B[Execute Key Steps] --> C[End Process]", 
                                 height=200,
+                                key=f"txt_manual_mermaid_{sec_id}",
                                 help="Edit the diagram nodes, decision branches, and handoffs."
                             )
                             col_sc1, col_sc2 = st.columns([1, 1])

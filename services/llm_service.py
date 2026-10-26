@@ -182,11 +182,17 @@ class MockProvider(LLMProvider):
         return "\n".join(lines)
 
     def assist_flowchart(self, draft_steps: str, decisions: str = "", roles: str = "", process_name: str = "", team_name: str = "") -> str:
+        from config.guided_questions import split_conversational_step
         lines = ["flowchart TD"]
         lines.append("    Start([Process Start]) --> Step1[\"1. Process Initiation\"]")
-        step_items = [s.strip() for s in draft_steps.split("\n") if s.strip()]
-        if not step_items:
-            step_items = ["Initial Request Submission", "Document Review & Screening", "Operational Execution & Verification", "Final Sign-off & Delivery"]
+        raw_items = [s.strip() for s in draft_steps.split("\n") if s.strip()]
+        if not raw_items:
+            raw_items = ["Initial Request Submission", "Document Review & Screening", "Operational Execution & Verification", "Final Sign-off & Delivery"]
+        
+        step_items = []
+        for it in raw_items:
+            step_items.extend(split_conversational_step(it))
+
         prev = "Step1"
         for i, s in enumerate(step_items, start=2):
             node_id = f"Step{i}"
@@ -550,7 +556,10 @@ CRITICAL RULES:
    - Decision/verification points MUST be diamond shapes: Dec1{{"Criteria Met?"}}
    - Branches MUST have labeled arrows: Dec1 -- Yes --> StepAppr["Approval & Sign-off"] and Dec1 -- No --> StepRej["Rejection & Return"]
    - Include a dotted return loopback for rework/resubmission: StepRej -.-> Step1
-3. Keep labels clear and concise (under 12 words per node).
+3. BREAK DOWN LONG / CONVERSATIONAL SENTENCES:
+   - If the user provides a conversational sentence, multi-action clause, or run-on phrase (e.g., 'first they need to create a draft, then move ahead with testing'), NEVER leave it as one giant box.
+   - You MUST split it into sequential, discrete action steps (e.g., Step1["1. Create Process Note Draft"] --> Step2["2. Conduct Operational Testing"]).
+   - Use crisp, imperative professional business action phrases (3 to 8 words per box).
 4. Strictly escape any quotes or special characters inside node labels so the Mermaid syntax never breaks.
 5. Apply styling classes at the end:
    classDef startEnd fill:#DCFCE7,stroke:#16A34A,stroke-width:2px,color:#14532D,font-weight:bold;

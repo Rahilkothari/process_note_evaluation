@@ -1,5 +1,5 @@
 import datetime
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple
 
 # Comprehensive Guided Questions & Interactive Assistant Specifications for all 22 Sections
 # Allows creators to fill structured, intuitive fields (date pickers, dropdowns, text inputs)
@@ -1182,6 +1182,56 @@ def build_text_summary_from_answers(sec_id: str, answers: Dict[str, Any]) -> str
     return "\n".join(summary_lines)
 
 
+def split_conversational_step(item: str) -> List[str]:
+    """Splits multi-action conversational sentences (e.g. 'first they need to create a draft, then move ahead with testing') into clean discrete steps."""
+    parts = re.split(r'\s*(?:,\s*then\s+|;\s*then\s+|\s+then\s+|\s+and\s+then\s+|\s+after\s+that\s+|\s+followed\s+by\s+)\s*', item, flags=re.IGNORECASE)
+    cleaned = []
+    for p in parts:
+        p_clean = p.strip()
+        p_clean = re.sub(r'^(?:first|second|third|finally|next)\s*(?:,\s*|\s+)?', '', p_clean, flags=re.IGNORECASE)
+        p_clean = re.sub(r'^(?:they need to|user needs to|we need to|please|must)\s+', '', p_clean, flags=re.IGNORECASE)
+        if p_clean:
+            p_clean = p_clean[0].upper() + p_clean[1:]
+            p_clean = p_clean.rstrip('.')
+            cleaned.append(p_clean)
+    return cleaned if cleaned else [item]
+
+
+def parse_flowchart_steps(code: str) -> Tuple[List[str], List[str]]:
+    """Extracts step node labels and decision diamond questions from a Mermaid flowchart string."""
+    if not code or not str(code).strip():
+        return [], []
+    lines = str(code).split('\n')
+    steps = []
+    decisions = []
+    
+    for line in lines:
+        line_clean = line.strip()
+        if not line_clean or line_clean.startswith('class') or line_clean.startswith('flowchart') or line_clean.startswith('graph'):
+            continue
+            
+        # Match decision diamonds: DecNode{"Label"} or DecNode{{Label}}
+        dec_match = re.search(r'([A-Za-z0-9_]+)\s*\{+[\"]?([^\"\{\}]+)[\"]?\}+', line_clean)
+        if dec_match:
+            d_label = dec_match.group(2).strip()
+            if d_label not in decisions:
+                decisions.append(d_label)
+            continue
+            
+        # Match regular step boxes: StepId["Label"] or StepId[Label]
+        step_match = re.search(r'([A-Za-z0-9_]+)\s*\[+[\"]?([^\"\[\]]+)[\"]?\]+', line_clean)
+        if step_match:
+            node_id = step_match.group(1)
+            s_label = step_match.group(2).strip()
+            # Ignore Start / End / Appr / Rej standard terminals
+            if any(term in node_id.lower() for term in ['start', 'end', 'appr', 'rej']):
+                continue
+            if s_label not in steps:
+                steps.append(s_label)
+                
+    return steps, decisions
+
+
 def build_mermaid_flowchart_from_answers(answers: Dict[str, Any]) -> str:
     """Generates a clean Mermaid flowchart with proper process boxes, decision diamonds, and terminal pills."""
     steps_raw = str(answers.get("steps", "")).strip()
@@ -1191,14 +1241,19 @@ def build_mermaid_flowchart_from_answers(answers: Dict[str, Any]) -> str:
     lines = ["flowchart TD"]
     lines.append("    Start([Process Start]) --> Step1[\"1. Process Initiation\"]")
     
-    step_items = [s.strip() for s in steps_raw.split("\n") if s.strip()]
-    if not step_items:
-        step_items = ["Initial Request Submission", "Document Review & Screening", "Operational Execution & Verification", "Final Sign-off & Delivery"]
+    raw_items = [s.strip() for s in steps_raw.split("\n") if s.strip()]
+    if not raw_items:
+        raw_items = ["Initial Request Submission", "Document Review & Screening", "Operational Execution & Verification", "Final Sign-off & Delivery"]
+
+    # Flatten and split any multi-action conversational sentences into discrete steps
+    step_items = []
+    for item in raw_items:
+        splits = split_conversational_step(item)
+        step_items.extend(splits)
 
     prev_node = "Step1"
     for idx, item in enumerate(step_items, start=2):
         node_id = f"Step{idx}"
-        # clean label
         clean_label = item.replace("[", "").replace("]", "").replace('"', "")
         lines.append(f"    {prev_node} --> {node_id}[\"{clean_label}\"]")
         prev_node = node_id

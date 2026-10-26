@@ -315,6 +315,40 @@ def inject_custom_css():
     """, unsafe_allow_html=True)
 
 
+@st.cache_data(show_spinner=False, ttl=3600)
+def get_mermaid_png_bytes(clean_code: str) -> bytes:
+    """Fetches high-resolution PNG bytes for Mermaid flowchart via mermaid.ink service."""
+    try:
+        import base64
+        import urllib.request
+        b64 = base64.b64encode(clean_code.encode("utf-8")).decode("ascii")
+        url = f"https://mermaid.ink/img/{b64}"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+        with urllib.request.urlopen(req, timeout=5) as res:
+            if res.status == 200:
+                return res.read()
+    except Exception:
+        pass
+    return None
+
+
+@st.cache_data(show_spinner=False, ttl=3600)
+def get_mermaid_svg_bytes(clean_code: str) -> bytes:
+    """Fetches vector SVG bytes for Mermaid flowchart via mermaid.ink service."""
+    try:
+        import base64
+        import urllib.request
+        b64 = base64.b64encode(clean_code.encode("utf-8")).decode("ascii")
+        url = f"https://mermaid.ink/svg/{b64}"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+        with urllib.request.urlopen(req, timeout=5) as res:
+            if res.status == 200:
+                return res.read()
+    except Exception:
+        pass
+    return None
+
+
 def render_mermaid_flowchart(chart_code: str, height: int = None, show_code_toggle: bool = True):
     """
     Renders Mermaid flowchart code as a high-fidelity visual SVG diagram with
@@ -332,6 +366,44 @@ def render_mermaid_flowchart(chart_code: str, height: int = None, show_code_togg
     # Calculate responsive container height based on node count
     lines = [l for l in clean_code.split("\n") if l.strip()]
     calc_height = max(420, min(880, len(lines) * 45 + 110)) if not height else height
+
+    if show_code_toggle:
+        dl_col1, dl_col2, dl_col3 = st.columns([1, 1, 1])
+        with dl_col1:
+            png_bytes = get_mermaid_png_bytes(clean_code)
+            if png_bytes:
+                st.download_button(
+                    "🖼️ Download PNG Image",
+                    data=png_bytes,
+                    file_name="process_flowchart.png",
+                    mime="image/png",
+                    use_container_width=True,
+                    help="Click to download a high-resolution PNG image directly."
+                )
+            else:
+                st.button("🖼️ PNG Image (Download in card)", disabled=True, use_container_width=True)
+        with dl_col2:
+            svg_bytes = get_mermaid_svg_bytes(clean_code)
+            if svg_bytes:
+                st.download_button(
+                    "📥 Download Vector SVG",
+                    data=svg_bytes,
+                    file_name="process_flowchart.svg",
+                    mime="image/svg+xml",
+                    use_container_width=True,
+                    help="Click to download crystal-clear vector SVG for printing or docs."
+                )
+            else:
+                st.button("📥 Vector SVG (Download in card)", disabled=True, use_container_width=True)
+        with dl_col3:
+            st.download_button(
+                "📄 Download Mermaid (.mmd)",
+                data=clean_code,
+                file_name="process_flowchart.mmd",
+                mime="text/plain",
+                use_container_width=True,
+                help="Download raw Mermaid diagram code."
+            )
 
     html_content = f"""
     <!DOCTYPE html>
@@ -445,54 +517,93 @@ def render_mermaid_flowchart(chart_code: str, height: int = None, show_code_togg
 
       <script>
         function downloadSVG() {{
-          var svg = document.querySelector('.mermaid svg');
-          if (!svg) {{ alert('Diagram is still rendering, please wait a moment.'); return; }}
-          var clone = svg.cloneNode(true);
-          clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-          var svgData = new XMLSerializer().serializeToString(clone);
-          var svgBlob = new Blob([svgData], {{ type: 'image/svg+xml;charset=utf-8' }});
-          var url = URL.createObjectURL(svgBlob);
-          var a = document.createElement('a');
-          a.href = url;
-          a.download = 'process_flowchart.svg';
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          setTimeout(function() {{ URL.revokeObjectURL(url); }}, 100);
-        }}
-
-        function downloadPNG() {{
-          var svg = document.querySelector('.mermaid svg');
-          if (!svg) {{ alert('Diagram is still rendering, please wait a moment.'); return; }}
-          var clone = svg.cloneNode(true);
-          clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-          var svgData = new XMLSerializer().serializeToString(clone);
-          var svgBlob = new Blob([svgData], {{ type: 'image/svg+xml;charset=utf-8' }});
-          var URLObj = window.URL || window.webkitURL || window;
-          var svgUrl = URLObj.createObjectURL(svgBlob);
-          var img = new Image();
-          img.onload = function() {{
-            var bbox = svg.getBoundingClientRect();
-            var scale = 2;
-            var width = (bbox.width > 0 ? bbox.width : 900) * scale;
-            var height = (bbox.height > 0 ? bbox.height : 600) * scale;
-            var canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            var ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#FFFFFF';
-            ctx.fillRect(0, 0, width, height);
-            ctx.drawImage(img, 0, 0, width, height);
-            URLObj.revokeObjectURL(svgUrl);
-            var pngUrl = canvas.toDataURL('image/png');
+          try {{
+            var svg = document.querySelector('.mermaid svg');
+            if (!svg) {{ alert('Diagram is still rendering, please wait a moment.'); return; }}
+            var clone = svg.cloneNode(true);
+            clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+            var svgData = new XMLSerializer().serializeToString(clone);
+            var svgBlob = new Blob([svgData], {{ type: 'image/svg+xml;charset=utf-8' }});
+            var url = URL.createObjectURL(svgBlob);
             var a = document.createElement('a');
-            a.href = pngUrl;
-            a.download = 'process_flowchart.png';
+            a.href = url;
+            a.download = 'process_flowchart.svg';
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-          }};
-          img.src = svgUrl;
+            setTimeout(function() {{ URL.revokeObjectURL(url); }}, 200);
+          }} catch(e) {{
+            alert('Please use the Download Vector SVG button above the diagram.');
+          }}
+        }}
+
+        function downloadPNG() {{
+          try {{
+            var svg = document.querySelector('.mermaid svg');
+            if (!svg) {{ alert('Diagram is still rendering, please wait a moment.'); return; }}
+            var clone = svg.cloneNode(true);
+            clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+            var svgData = new XMLSerializer().serializeToString(clone);
+            var svgBlob = new Blob([svgData], {{ type: 'image/svg+xml;charset=utf-8' }});
+            var DOMURL = window.URL || window.webkitURL || window;
+            var svgUrl = DOMURL.createObjectURL(svgBlob);
+            var img = new Image();
+            img.onload = function() {{
+              try {{
+                var bbox = svg.getBoundingClientRect();
+                var scale = 2;
+                var width = Math.max(bbox.width || 800, 600) * scale;
+                var height = Math.max(bbox.height || 600, 400) * scale;
+                var canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                var ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, width, height);
+                ctx.drawImage(img, 0, 0, width, height);
+                DOMURL.revokeObjectURL(svgUrl);
+
+                if (canvas.toBlob) {{
+                  canvas.toBlob(function(blob) {{
+                    if (blob) {{
+                      var dlUrl = DOMURL.createObjectURL(blob);
+                      var a = document.createElement('a');
+                      a.href = dlUrl;
+                      a.download = 'process_flowchart.png';
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      setTimeout(function() {{ DOMURL.revokeObjectURL(dlUrl); }}, 500);
+                    }} else {{
+                      var pngUrl = canvas.toDataURL('image/png');
+                      var a = document.createElement('a');
+                      a.href = pngUrl;
+                      a.download = 'process_flowchart.png';
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                    }}
+                  }}, 'image/png');
+                }} else {{
+                  var pngUrl = canvas.toDataURL('image/png');
+                  var a = document.createElement('a');
+                  a.href = pngUrl;
+                  a.download = 'process_flowchart.png';
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                }}
+              }} catch(err) {{
+                alert('Browser blocked local export. Please click the \"Download PNG Image\" button above the diagram.');
+              }}
+            }};
+            img.onerror = function() {{
+              alert('Could not convert SVG to image locally. Please use the \"Download PNG Image\" button directly above the diagram.');
+            }};
+            img.src = svgUrl;
+          }} catch(e) {{
+            alert('Please use the \"Download PNG Image\" button directly above the diagram.');
+          }}
         }}
 
         try {{
@@ -502,7 +613,7 @@ def render_mermaid_flowchart(chart_code: str, height: int = None, show_code_togg
             securityLevel: 'loose',
             flowchart: {{
               useMaxWidth: true,
-              htmlLabels: true,
+              htmlLabels: false,
               curve: 'basis'
             }},
             themeVariables: {{
@@ -532,18 +643,6 @@ def render_mermaid_flowchart(chart_code: str, height: int = None, show_code_togg
     components.html(html_content, height=calc_height, scrolling=True)
 
     if show_code_toggle:
-        c1, c2 = st.columns([1, 1])
-        with c1:
-            st.download_button(
-                "📥 Download Mermaid Definition (.mmd)",
-                data=clean_code,
-                file_name="process_flowchart.mmd",
-                mime="text/plain",
-                help="Download raw Mermaid diagram code to edit in external tools like Mermaid Live Editor or VS Code."
-            )
-        with c2:
-            pass
-
         with st.expander("📝 View / Copy Raw Mermaid Syntax", expanded=False):
             st.code(clean_code, language="mermaid")
 
