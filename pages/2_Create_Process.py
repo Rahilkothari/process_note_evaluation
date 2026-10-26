@@ -542,16 +542,16 @@ try:
                     if apply_btn:
                         new_rows = build_table_rows_from_answers(sec_id, answers)
                         if not existing_sec:
-                            new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=new_rows)
-                            db.add(new_sec)
+                            existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=new_rows)
+                            db.add(existing_sec)
+                            existing_sections[sec_id] = existing_sec
                         else:
                             existing_sec.structured_data = new_rows
                         db.commit()
-                        db.refresh(current_note)
+                        is_completed = True
                         st.session_state[f"show_guide_{sec_id}"] = False
                         st.session_state[f"is_editing_{sec_id}"] = False
-                        st.success(f"✅ {sec_config['name']} table populated from your answers! Check the preview below.")
-                        st.rerun()
+                        st.success(f"✅ {sec_config['name']} table populated from your answers! Check the table below.")
 
                     if append_btn:
                         new_rows = build_table_rows_from_answers(sec_id, answers)
@@ -560,31 +560,31 @@ try:
                             new_rows[0]["Sr. No."] = len(existing_rows) + 1
                         combined_rows = existing_rows + new_rows
                         if not existing_sec:
-                            new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=combined_rows)
-                            db.add(new_sec)
+                            existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=combined_rows)
+                            db.add(existing_sec)
+                            existing_sections[sec_id] = existing_sec
                         else:
                             existing_sec.structured_data = combined_rows
                         db.commit()
-                        db.refresh(current_note)
+                        is_completed = True
                         st.session_state[f"show_guide_{sec_id}"] = False
                         st.session_state[f"is_editing_{sec_id}"] = False
                         st.success(f"✅ New row added to {sec_config['name']} table! Check preview below.")
-                        st.rerun()
 
                 elif sec_config["type"] == "flowchart":
                     if st.button("✨ Auto-Generate Flowchart from Steps", key=f"btn_flow_{sec_id}", type="primary"):
                         mermaid_code = build_mermaid_flowchart_from_answers(answers)
                         if not existing_sec:
-                            new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=mermaid_code)
-                            db.add(new_sec)
+                            existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=mermaid_code)
+                            db.add(existing_sec)
+                            existing_sections[sec_id] = existing_sec
                         else:
                             existing_sec.content = mermaid_code
                         db.commit()
-                        db.refresh(current_note)
+                        is_completed = True
                         st.session_state[f"show_guide_{sec_id}"] = False
                         st.session_state[f"is_editing_{sec_id}"] = False
                         st.success("✅ Flowchart updated from your steps! Check preview below.")
-                        st.rerun()
 
                 elif sec_config["type"] == "text":
                     col_t1, col_t2 = st.columns([1, 1])
@@ -596,16 +596,16 @@ try:
                     if apply_text_btn:
                         formatted_content = build_text_summary_from_answers(sec_id, answers)
                         if not existing_sec:
-                            new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=formatted_content)
-                            db.add(new_sec)
+                            existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=formatted_content)
+                            db.add(existing_sec)
+                            existing_sections[sec_id] = existing_sec
                         else:
                             existing_sec.content = formatted_content
                         db.commit()
-                        db.refresh(current_note)
+                        is_completed = True
                         st.session_state[f"show_guide_{sec_id}"] = False
                         st.session_state[f"is_editing_{sec_id}"] = False
                         st.success("✅ Section content updated from your answers! Check preview below.")
-                        st.rerun()
 
                     if ai_text_btn:
                         with st.spinner("AI is synthesizing professional enterprise content..."):
@@ -614,16 +614,16 @@ try:
                             raw_notes = build_text_summary_from_answers(sec_id, answers)
                             gen_result = llm.generate_section_from_qa(sec_id, sec_config, raw_notes, team_name=current_note.team)
                             if not existing_sec:
-                                new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=gen_result)
-                                db.add(new_sec)
+                                existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=gen_result)
+                                db.add(existing_sec)
+                                existing_sections[sec_id] = existing_sec
                             else:
                                 existing_sec.content = gen_result
                             db.commit()
-                            db.refresh(current_note)
+                            is_completed = True
                             st.session_state[f"show_guide_{sec_id}"] = False
                             st.session_state[f"is_editing_{sec_id}"] = False
                             st.success("✅ Section synthesized with AI! Check preview below.")
-                            st.rerun()
 
                 if is_completed:
                     if st.button("✖️ Collapse Guided Form", key=f"btn_close_expander_{sec_id}"):
@@ -723,7 +723,6 @@ try:
                                 else:
                                     existing_sec.content = content
                                 db.commit()
-                                db.refresh(current_note)
                                 st.session_state[f"is_editing_{sec_id}"] = False
                                 st.success(f"Section {sec_id} saved successfully!")
                                 st.rerun()
@@ -954,7 +953,6 @@ try:
                                 else:
                                     existing_sec.structured_data = json_data
                                 db.commit()
-                                db.refresh(current_note)
                                 st.session_state[f"is_editing_{sec_id}"] = False
                                 st.success(f"Section {sec_id} saved successfully!")
                                 st.rerun()
