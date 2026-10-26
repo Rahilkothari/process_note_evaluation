@@ -588,12 +588,11 @@ try:
                             with col_btn2:
                                 ai_append_btn = st.form_submit_button("➕ Refine with AI & Add Row", use_container_width=True, help="Refines responses with AI and appends as a new row to the table.")
 
-                            with st.expander("⚙️ Options: Save Raw (Bypass AI)", expanded=False):
-                                col_r1, col_r2 = st.columns([1, 1])
-                                with col_r1:
-                                    raw_apply_btn = st.form_submit_button("📄 Set Table As-Is (Raw Draft)", use_container_width=True)
-                                with col_r2:
-                                    raw_append_btn = st.form_submit_button("➕ Add Row As-Is (Raw Draft)", use_container_width=True)
+                            col_r1, col_r2 = st.columns([1, 1])
+                            with col_r1:
+                                raw_apply_btn = st.form_submit_button("📄 Set Table As-Is (No AI)", use_container_width=True)
+                            with col_r2:
+                                raw_append_btn = st.form_submit_button("➕ Add Row As-Is (No AI)", use_container_width=True)
                         else:
                             col_btn1, col_btn2 = st.columns([1, 1])
                             with col_btn1:
