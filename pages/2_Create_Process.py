@@ -552,17 +552,29 @@ try:
 
                         if apply_btn:
                             new_rows = build_table_rows_from_answers(sec_id, answers)
-                            if not existing_sec:
-                                existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=new_rows)
-                                db.add(existing_sec)
-                                existing_sections[sec_id] = existing_sec
+                            from core.rule_validator import RuleValidator
+                            from models.schemas import ProcessSectionSchema
+                            sec_schema = ProcessSectionSchema(section_id=sec_id, content="", structured_data=new_rows)
+                            issues = RuleValidator().validate(sec_schema, config)
+                            if issues:
+                                for issue in issues:
+                                    st.error(f"❌ Validation Error: {issue}")
+                                if sec_id == "1.8":
+                                    st.info("💡 **Requirement for End Point:** Exit Criteria must be descriptive (at least 4 words). Simply typing 'abc' or vague text is not accepted — specify what deliverable, authorization, or sign-off confirms completion.")
+                                elif sec_id == "1.7":
+                                    st.info("💡 **Requirement for Start Point:** Entry Criteria must be descriptive (at least 4 words) describing verified prerequisite documents or authorizations.")
                             else:
-                                existing_sec.structured_data = new_rows
-                            db.commit()
-                            is_completed = True
-                            st.session_state[f"show_guide_{sec_id}"] = False
-                            st.session_state[f"is_editing_{sec_id}"] = False
-                            st.success(f"✅ {sec_config['name']} table populated from your answers! Check the table below.")
+                                if not existing_sec:
+                                    existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=new_rows)
+                                    db.add(existing_sec)
+                                    existing_sections[sec_id] = existing_sec
+                                else:
+                                    existing_sec.structured_data = new_rows
+                                db.commit()
+                                is_completed = True
+                                st.session_state[f"show_guide_{sec_id}"] = False
+                                st.session_state[f"is_editing_{sec_id}"] = False
+                                st.success(f"✅ {sec_config['name']} table populated from your answers! Check the table below.")
 
                         if append_btn:
                             new_rows = build_table_rows_from_answers(sec_id, answers)
@@ -570,33 +582,49 @@ try:
                             if sec_id == "1.13" and new_rows:
                                 new_rows[0]["Sr. No."] = len(existing_rows) + 1
                             combined_rows = existing_rows + new_rows
-                            if not existing_sec:
-                                existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=combined_rows)
-                                db.add(existing_sec)
-                                existing_sections[sec_id] = existing_sec
+                            from core.rule_validator import RuleValidator
+                            from models.schemas import ProcessSectionSchema
+                            sec_schema = ProcessSectionSchema(section_id=sec_id, content="", structured_data=combined_rows)
+                            issues = RuleValidator().validate(sec_schema, config)
+                            if issues:
+                                for issue in issues:
+                                    st.error(f"❌ Validation Error: {issue}")
                             else:
-                                existing_sec.structured_data = combined_rows
-                            db.commit()
-                            is_completed = True
-                            st.session_state[f"show_guide_{sec_id}"] = False
-                            st.session_state[f"is_editing_{sec_id}"] = False
-                            st.success(f"✅ New row added to {sec_config['name']} table! Check preview below.")
+                                if not existing_sec:
+                                    existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=combined_rows)
+                                    db.add(existing_sec)
+                                    existing_sections[sec_id] = existing_sec
+                                else:
+                                    existing_sec.structured_data = combined_rows
+                                db.commit()
+                                is_completed = True
+                                st.session_state[f"show_guide_{sec_id}"] = False
+                                st.session_state[f"is_editing_{sec_id}"] = False
+                                st.success(f"✅ New row added to {sec_config['name']} table! Check preview below.")
 
                     elif sec_config["type"] == "flowchart":
                         flow_btn = st.form_submit_button("✨ Auto-Generate Flowchart from Steps", type="primary")
                         if flow_btn:
                             mermaid_code = build_mermaid_flowchart_from_answers(answers)
-                            if not existing_sec:
-                                existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=mermaid_code)
-                                db.add(existing_sec)
-                                existing_sections[sec_id] = existing_sec
+                            from core.rule_validator import RuleValidator
+                            from models.schemas import ProcessSectionSchema
+                            sec_schema = ProcessSectionSchema(section_id=sec_id, content=mermaid_code, structured_data=[])
+                            issues = RuleValidator().validate(sec_schema, config)
+                            if issues:
+                                for issue in issues:
+                                    st.error(f"❌ Validation Error: {issue}")
                             else:
-                                existing_sec.content = mermaid_code
-                            db.commit()
-                            is_completed = True
-                            st.session_state[f"show_guide_{sec_id}"] = False
-                            st.session_state[f"is_editing_{sec_id}"] = False
-                            st.success("✅ Flowchart updated from your steps! Check preview below.")
+                                if not existing_sec:
+                                    existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=mermaid_code)
+                                    db.add(existing_sec)
+                                    existing_sections[sec_id] = existing_sec
+                                else:
+                                    existing_sec.content = mermaid_code
+                                db.commit()
+                                is_completed = True
+                                st.session_state[f"show_guide_{sec_id}"] = False
+                                st.session_state[f"is_editing_{sec_id}"] = False
+                                st.success("✅ Flowchart updated from your steps! Check preview below.")
 
                     elif sec_config["type"] == "text":
                         col_t1, col_t2 = st.columns([1, 1])
@@ -607,17 +635,25 @@ try:
 
                         if apply_text_btn:
                             formatted_content = build_text_summary_from_answers(sec_id, answers)
-                            if not existing_sec:
-                                existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=formatted_content)
-                                db.add(existing_sec)
-                                existing_sections[sec_id] = existing_sec
+                            from core.rule_validator import RuleValidator
+                            from models.schemas import ProcessSectionSchema
+                            sec_schema = ProcessSectionSchema(section_id=sec_id, content=formatted_content, structured_data=[])
+                            issues = RuleValidator().validate(sec_schema, config)
+                            if issues:
+                                for issue in issues:
+                                    st.error(f"❌ Validation Error: {issue}")
                             else:
-                                existing_sec.content = formatted_content
-                            db.commit()
-                            is_completed = True
-                            st.session_state[f"show_guide_{sec_id}"] = False
-                            st.session_state[f"is_editing_{sec_id}"] = False
-                            st.success("✅ Section content updated from your answers! Check preview below.")
+                                if not existing_sec:
+                                    existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=formatted_content)
+                                    db.add(existing_sec)
+                                    existing_sections[sec_id] = existing_sec
+                                else:
+                                    existing_sec.content = formatted_content
+                                db.commit()
+                                is_completed = True
+                                st.session_state[f"show_guide_{sec_id}"] = False
+                                st.session_state[f"is_editing_{sec_id}"] = False
+                                st.success("✅ Section content updated from your answers! Check preview below.")
 
                         if ai_text_btn:
                             with st.spinner("AI is synthesizing professional enterprise content..."):

@@ -323,7 +323,8 @@ SECTION_GUIDED_SPECS: Dict[str, Dict[str, Any]] = {
                 "id": "entry_criteria",
                 "label": "2. Mandatory Entry Criteria & Prerequisites:",
                 "type": "textarea",
-                "placeholder": "e.g., Signed budget allocation, verified target school list, and Field Officer assignment."
+                "placeholder": "e.g., Signed budget allocation, verified target school list, and Field Officer assignment.",
+                "help": "Must be descriptive (at least 4 words). Specify prerequisites or authorizations before process starts."
             }
         ]
     },
@@ -336,13 +337,15 @@ SECTION_GUIDED_SPECS: Dict[str, Dict[str, Any]] = {
                 "id": "activity",
                 "label": "1. Concluding Activity / Deliverable:",
                 "type": "text",
-                "placeholder": "e.g., Final signed MOU uploaded to ERP and welcome orientation kit delivered"
+                "placeholder": "e.g., Final signed MOU uploaded to ERP and welcome orientation kit delivered",
+                "help": "Specify the concluding operational milestone or final output."
             },
             {
                 "id": "exit_criteria",
                 "label": "2. Mandatory Exit Criteria & Sign-off:",
                 "type": "textarea",
-                "placeholder": "e.g., Verification of onboarding checklist in MIS by Program Head, confirmation email sent."
+                "placeholder": "e.g., Verification of onboarding checklist in MIS by Program Head, confirmation email sent.",
+                "help": "Must be descriptive (at least 4 words). Specify deliverables, sign-offs, or stakeholder acknowledgments required to complete."
             }
         ]
     },
@@ -986,16 +989,16 @@ def build_table_rows_from_answers(sec_id: str, answers: Dict[str, Any]) -> List[
         }]
 
     elif sec_id == "1.7":
-        act = str(answers.get("activity") or answers.get("incoming_trigger") or answers.get("trigger") or "Receipt of incoming process initiation request").strip() or "Receipt of incoming process initiation request"
-        entry_crit = str(answers.get("entry_criteria") or answers.get("criteria") or answers.get("prerequisites") or "Signed authorization and verified prerequisite documents").strip() or "Signed authorization and verified prerequisite documents"
+        act = str(answers.get("activity") or answers.get("incoming_trigger") or answers.get("trigger") or "").strip()
+        entry_crit = str(answers.get("entry_criteria") or answers.get("criteria") or answers.get("prerequisites") or "").strip()
         return [{
             "Activity": act,
             "Entry Criteria": entry_crit
         }]
 
     elif sec_id == "1.8":
-        act = str(answers.get("activity") or answers.get("concluding_activity") or answers.get("deliverable") or "Final signed deliverable completed").strip() or "Final signed deliverable completed"
-        exit_crit = str(answers.get("exit_criteria") or answers.get("criteria") or answers.get("signoff") or "Verification sign-off and stakeholder acknowledgment").strip() or "Verification sign-off and stakeholder acknowledgment"
+        act = str(answers.get("activity") or answers.get("concluding_activity") or answers.get("deliverable") or "").strip()
+        exit_crit = str(answers.get("exit_criteria") or answers.get("criteria") or answers.get("signoff") or "").strip()
         return [{
             "Activity": act,
             "Exit Criteria": exit_crit

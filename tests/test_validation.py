@@ -133,3 +133,28 @@ def test_objective_depth_validation():
     issues = validator.validate(good_sec, config)
     assert len(issues) == 0
 
+def test_start_and_end_point_criteria_validation():
+    from core.rule_validator import RuleValidator
+    from config.guided_questions import build_table_rows_from_answers
+    validator = RuleValidator()
+    config = {
+        "sections": [
+            {"id": "1.7", "name": "Start Point", "type": "table"},
+            {"id": "1.8", "name": "End Point", "type": "table"}
+        ]
+    }
+
+    # 1. End point with "abc" exit criteria fails
+    bad_rows = build_table_rows_from_answers("1.8", {"activity": "MOU handover", "exit_criteria": "abc"})
+    bad_sec = ProcessSectionSchema(section_id="1.8", content="", structured_data=bad_rows)
+    issues = validator.validate(bad_sec, config)
+    assert len(issues) > 0
+    assert any("Exit Criteria is too brief" in iss for iss in issues)
+
+    # 2. End point with proper 4+ word criteria passes
+    good_rows = build_table_rows_from_answers("1.8", {"activity": "MOU handover", "exit_criteria": "Signed agreement uploaded and ERP verification complete"})
+    good_sec = ProcessSectionSchema(section_id="1.8", content="", structured_data=good_rows)
+    good_issues = validator.validate(good_sec, config)
+    assert len(good_issues) == 0
+
+
