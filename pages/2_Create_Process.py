@@ -224,7 +224,8 @@ try:
             else:
                 return bool(sec.content and sec.content.strip())
 
-        existing_sections = {s.section_id: s for s in current_note.sections}
+        db_sections = db.query(ProcessSection).filter(ProcessSection.process_note_id == current_note.id).all()
+        existing_sections = {s.section_id: s for s in db_sections}
         completed_count = sum(1 for s in sections if is_section_filled(existing_sections.get(s['id']), s))
         total_count = len(sections)
     
@@ -243,7 +244,6 @@ try:
         def set_active_section(new_tab):
             if new_tab in tab_names:
                 st.session_state["active_section_tab"] = new_tab
-                st.session_state["section_nav_dropdown"] = new_tab
                 st.session_state["current_section_edit"] = new_tab
 
         def on_section_dropdown_change():
@@ -463,22 +463,37 @@ try:
                         fhelp = field_dict.get("help")
                         k = f"qa_{sec_id}_{fid}"
                         
+                        # Prepopulate from existing section or session state so inputs never wipe out
+                        existing_field_val = ""
+                        if existing_sec:
+                            if sec_config["type"] == "table" and existing_sec.structured_data:
+                                first_row = existing_sec.structured_data[0] if isinstance(existing_sec.structured_data, list) and len(existing_sec.structured_data) > 0 else {}
+                                for col_k, col_v in first_row.items():
+                                    if col_k.lower() == fid.lower() or col_k.lower() in flabel.lower() or fid.lower() in col_k.lower():
+                                        existing_field_val = str(col_v or "")
+                                        break
+                            elif sec_config["type"] == "text" and existing_sec.content:
+                                existing_field_val = existing_sec.content
+                        
+                        current_val = st.session_state.get(k, existing_field_val)
+                        
                         if ftype == "date":
                             return st.date_input(flabel, value=datetime.date.today(), key=k, help=fhelp)
                         elif ftype == "select":
                             opts = field_dict.get("options", [])
                             d_idx = 0
-                            if field_dict.get("default") and field_dict["default"] in opts:
-                                d_idx = opts.index(field_dict["default"])
+                            def_choice = current_val or field_dict.get("default", "")
+                            if def_choice and def_choice in opts:
+                                d_idx = opts.index(def_choice)
                             sel = st.selectbox(flabel, options=opts, index=d_idx, key=k, help=fhelp)
                             if "other" in str(sel).lower():
-                                custom = st.text_input(f"↳ Specify custom {flabel.split('(')[0].strip()}:", placeholder="e.g. Lead Coordinator / External Auditor", key=f"{k}_custom")
+                                custom = st.text_input(f"↳ Specify custom {flabel.split('(')[0].strip()}:", value=st.session_state.get(f"{k}_custom", ""), placeholder="e.g. Lead Coordinator / External Auditor", key=f"{k}_custom")
                                 return custom.strip() if custom.strip() else sel
                             return sel
                         elif ftype == "textarea":
-                            return st.text_area(flabel, placeholder=field_dict.get("placeholder", ""), height=80, key=k, help=fhelp)
+                            return st.text_area(flabel, value=current_val, placeholder=field_dict.get("placeholder", ""), height=80, key=k, help=fhelp)
                         else:
-                            return st.text_input(flabel, placeholder=field_dict.get("placeholder", ""), key=k, help=fhelp)
+                            return st.text_input(flabel, value=current_val, placeholder=field_dict.get("placeholder", ""), key=k, help=fhelp)
 
                     def get_qa_answer(field_dict):
                         fid = field_dict["id"]
@@ -486,7 +501,7 @@ try:
                         val = render_qa_widget(field_dict)
                         if (val is None or (isinstance(val, str) and not val.strip())) and k in st.session_state:
                             val = st.session_state[k]
-                        return val
+                        return str(val).strip() if val is not None else ""
 
                     i = 0
                     while i < len(fields):
@@ -525,7 +540,6 @@ try:
                         append_btn = False
 
                     if apply_btn:
-                        set_active_section(selected_tab)
                         new_rows = build_table_rows_from_answers(sec_id, answers)
                         if not existing_sec:
                             new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=new_rows)
@@ -533,13 +547,13 @@ try:
                         else:
                             existing_sec.structured_data = new_rows
                         db.commit()
+                        db.refresh(current_note)
                         st.session_state[f"show_guide_{sec_id}"] = False
                         st.session_state[f"is_editing_{sec_id}"] = False
                         st.success(f"✅ {sec_config['name']} table populated from your answers! Check the preview below.")
                         st.rerun()
 
                     if append_btn:
-                        set_active_section(selected_tab)
                         new_rows = build_table_rows_from_answers(sec_id, answers)
                         existing_rows = existing_sec.structured_data if (existing_sec and existing_sec.structured_data) else []
                         if sec_id == "1.13" and new_rows:
@@ -551,6 +565,7 @@ try:
                         else:
                             existing_sec.structured_data = combined_rows
                         db.commit()
+                        db.refresh(current_note)
                         st.session_state[f"show_guide_{sec_id}"] = False
                         st.session_state[f"is_editing_{sec_id}"] = False
                         st.success(f"✅ New row added to {sec_config['name']} table! Check preview below.")
@@ -558,7 +573,6 @@ try:
 
                 elif sec_config["type"] == "flowchart":
                     if st.button("✨ Auto-Generate Flowchart from Steps", key=f"btn_flow_{sec_id}", type="primary"):
-                        set_active_section(selected_tab)
                         mermaid_code = build_mermaid_flowchart_from_answers(answers)
                         if not existing_sec:
                             new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=mermaid_code)
@@ -566,6 +580,7 @@ try:
                         else:
                             existing_sec.content = mermaid_code
                         db.commit()
+                        db.refresh(current_note)
                         st.session_state[f"show_guide_{sec_id}"] = False
                         st.session_state[f"is_editing_{sec_id}"] = False
                         st.success("✅ Flowchart updated from your steps! Check preview below.")
@@ -579,7 +594,6 @@ try:
                         ai_text_btn = st.button("🤖 Polish & Synthesize with AI", key=f"btn_ai_txt_{sec_id}", use_container_width=True)
 
                     if apply_text_btn:
-                        set_active_section(selected_tab)
                         formatted_content = build_text_summary_from_answers(sec_id, answers)
                         if not existing_sec:
                             new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=formatted_content)
@@ -587,13 +601,13 @@ try:
                         else:
                             existing_sec.content = formatted_content
                         db.commit()
+                        db.refresh(current_note)
                         st.session_state[f"show_guide_{sec_id}"] = False
                         st.session_state[f"is_editing_{sec_id}"] = False
                         st.success("✅ Section content updated from your answers! Check preview below.")
                         st.rerun()
 
                     if ai_text_btn:
-                        set_active_section(selected_tab)
                         with st.spinner("AI is synthesizing professional enterprise content..."):
                             from services.llm_service import get_llm_provider
                             llm = get_llm_provider()
@@ -605,6 +619,7 @@ try:
                             else:
                                 existing_sec.content = gen_result
                             db.commit()
+                            db.refresh(current_note)
                             st.session_state[f"show_guide_{sec_id}"] = False
                             st.session_state[f"is_editing_{sec_id}"] = False
                             st.success("✅ Section synthesized with AI! Check preview below.")
@@ -708,6 +723,7 @@ try:
                                 else:
                                     existing_sec.content = content
                                 db.commit()
+                                db.refresh(current_note)
                                 st.session_state[f"is_editing_{sec_id}"] = False
                                 st.success(f"Section {sec_id} saved successfully!")
                                 st.rerun()
@@ -938,6 +954,7 @@ try:
                                 else:
                                     existing_sec.structured_data = json_data
                                 db.commit()
+                                db.refresh(current_note)
                                 st.session_state[f"is_editing_{sec_id}"] = False
                                 st.success(f"Section {sec_id} saved successfully!")
                                 st.rerun()
