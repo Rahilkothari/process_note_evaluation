@@ -198,6 +198,26 @@ def test_heading_deduplication_and_preview_html():
     assert "<ul" in html_out
     assert "<li" in html_out
 
+def test_detect_clarifications_needed():
+    from services.llm_service import MockProvider
+    provider = MockProvider()
+    
+    # Short/vague keywords should trigger clarification questions
+    brief_answers = "school onboarding, safety compliance"
+    questions = provider.detect_clarifications_needed("1.9", {"name": "Introduction"}, brief_answers)
+    assert len(questions) > 0
+    assert any("districts" in q.lower() or "categories" in q.lower() for q in questions)
+    
+    # Detailed comprehensive answers should not trigger clarification questions
+    detailed_answers = (
+        "Kotak Education Foundation establishes institutional partnerships across 200+ municipal schools "
+        "in Mumbai, Thane, and Nashik districts. The operational objective is to ensure 100% adherence to "
+        "safety benchmarks, facility vetting norms, and statutory permissions overseen by the Program Director."
+    )
+    questions_detailed = provider.detect_clarifications_needed("1.9", {"name": "Introduction"}, detailed_answers)
+    assert len(questions_detailed) == 0
+
+
 
 
 

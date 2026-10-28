@@ -822,11 +822,99 @@ try:
                                 st.rerun()
 
                         if ai_text_btn:
-                            with st.spinner("AI is synthesizing professional enterprise content..."):
-                                from services.llm_service import get_llm_provider
-                                from config.guided_questions import clean_heading_hashes
-                                llm = get_llm_provider()
-                                raw_notes = build_text_summary_from_answers(sec_id, answers)
+                            from services.llm_service import get_llm_provider
+                            llm = get_llm_provider()
+                            raw_notes = build_text_summary_from_answers(sec_id, answers)
+                            with st.spinner("AI is analyzing your input for completeness..."):
+                                clarifications = llm.detect_clarifications_needed(sec_id, sec_config, raw_notes, team_name=current_note.team)
+
+                            if clarifications:
+                                st.session_state[f"qa_clarify_{sec_id}"] = {
+                                    "questions": clarifications,
+                                    "raw_notes": raw_notes
+                                }
+                                st.rerun()
+                            else:
+                                with st.spinner("AI is synthesizing professional enterprise content..."):
+                                    from config.guided_questions import clean_heading_hashes
+                                    gen_result = clean_heading_hashes(llm.generate_section_from_qa(sec_id, sec_config, raw_notes, team_name=current_note.team), sec_id, sec_config['name'])
+                                    if not existing_sec:
+                                        existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=gen_result)
+                                        db.add(existing_sec)
+                                        existing_sections[sec_id] = existing_sec
+                                    else:
+                                        existing_sec.content = gen_result
+                                    db.commit()
+                                    is_completed = True
+                                    st.session_state[f"show_guide_{sec_id}"] = False
+                                    st.session_state[f"is_editing_{sec_id}"] = False
+                                    st.session_state.pop(f"qa_clarify_{sec_id}", None)
+                                    st.success("✅ Section synthesized with AI! Check preview below.")
+                                    st.rerun()
+
+                active_clarify = st.session_state.get(f"qa_clarify_{sec_id}")
+                if active_clarify and active_clarify.get("questions"):
+                    questions = active_clarify["questions"]
+                    raw_notes = active_clarify["raw_notes"]
+
+                    st.markdown(
+                        f"""
+                        <div style="background: linear-gradient(135deg, #FEF3C7 0%, #FFFBEB 100%); border: 1.5px solid #F59E0B; border-radius: 8px; padding: 14px 18px; margin: 14px 0 10px 0;">
+                            <div style="font-weight: 700; color: #92400E; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+                                <span>💡</span> <span>AI Co-pilot: Clarification Needed for {sec_config['name']}</span>
+                            </div>
+                            <div style="font-size: 12.5px; color: #78350F; margin-top: 4px; line-height: 1.5;">
+                                To customize this section specifically to your organization and achieve audit compliance, please provide quick answers:
+                            </div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+
+                    for idx, q in enumerate(questions, start=1):
+                        st.markdown(f"<div style='font-size: 13px; font-weight: 600; color: #1E293B; margin: 6px 0 3px 0;'>{idx}. {q}</div>", unsafe_allow_html=True)
+
+                    clarify_answer = st.text_area(
+                        "Your quick answers or extra keywords:",
+                        key=f"input_clarify_{sec_id}",
+                        placeholder="e.g., Covers Nashik and Thane rural districts; final authorization by Program Director.",
+                        height=90
+                    )
+
+                    c_col1, c_col2, c_col3 = st.columns([2, 2, 1])
+                    with c_col1:
+                        if st.button("✨ Synthesize with Clarifications", key=f"btn_apply_clarify_{sec_id}", type="primary", use_container_width=True):
+                            from services.llm_service import get_llm_provider
+                            from config.guided_questions import clean_heading_hashes
+                            llm = get_llm_provider()
+
+                            enriched_notes = raw_notes
+                            if clarify_answer.strip():
+                                q_summary = "\\n".join([f"- Q: {q}" for q in questions])
+                                enriched_notes += f"\\n\\nClarification Answers Provided by Creator:\\n{q_summary}\\nCreator Responses: {clarify_answer.strip()}"
+
+                            with st.spinner("AI is synthesizing customized enterprise content..."):
+                                gen_result = clean_heading_hashes(llm.generate_section_from_qa(sec_id, sec_config, enriched_notes, team_name=current_note.team), sec_id, sec_config['name'])
+                                if not existing_sec:
+                                    existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=gen_result)
+                                    db.add(existing_sec)
+                                    existing_sections[sec_id] = existing_sec
+                                else:
+                                    existing_sec.content = gen_result
+                                db.commit()
+                                is_completed = True
+                                st.session_state[f"show_guide_{sec_id}"] = False
+                                st.session_state[f"is_editing_{sec_id}"] = False
+                                st.session_state.pop(f"qa_clarify_{sec_id}", None)
+                                st.success("✅ Section synthesized with your clarifications! Check preview below.")
+                                st.rerun()
+
+                    with c_col2:
+                        if st.button("⏩ Skip & Use Standard Defaults", key=f"btn_skip_clarify_{sec_id}", use_container_width=True):
+                            from services.llm_service import get_llm_provider
+                            from config.guided_questions import clean_heading_hashes
+                            llm = get_llm_provider()
+                            with st.spinner("AI is synthesizing standard enterprise content..."):
                                 gen_result = clean_heading_hashes(llm.generate_section_from_qa(sec_id, sec_config, raw_notes, team_name=current_note.team), sec_id, sec_config['name'])
                                 if not existing_sec:
                                     existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=gen_result)
@@ -838,12 +926,19 @@ try:
                                 is_completed = True
                                 st.session_state[f"show_guide_{sec_id}"] = False
                                 st.session_state[f"is_editing_{sec_id}"] = False
+                                st.session_state.pop(f"qa_clarify_{sec_id}", None)
                                 st.success("✅ Section synthesized with AI! Check preview below.")
                                 st.rerun()
+
+                    with c_col3:
+                        if st.button("✖️ Cancel", key=f"btn_cancel_clarify_{sec_id}", use_container_width=True):
+                            st.session_state.pop(f"qa_clarify_{sec_id}", None)
+                            st.rerun()
 
                 if is_completed:
                     if st.button("✖️ Collapse Guided Form", key=f"btn_close_expander_{sec_id}"):
                         st.session_state[f"show_guide_{sec_id}"] = False
+                        st.session_state.pop(f"qa_clarify_{sec_id}", None)
                         st.rerun()
 
         is_editing = st.session_state.get(f"is_editing_{sec_id}", False)

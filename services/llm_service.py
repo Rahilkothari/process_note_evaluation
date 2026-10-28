@@ -46,6 +46,10 @@ class LLMProvider(ABC):
     def resolve_clarification(self, section_id: str, section_type: str, current_content: Any, question: str, answer: str) -> Any:
         pass
 
+    @abstractmethod
+    def detect_clarifications_needed(self, section_id: str, section_config: Dict[str, Any], user_answers: str, team_name: str = "") -> List[str]:
+        pass
+
 
 class MockProvider(LLMProvider):
     def validate_section(self, section_content: str, section_rules: Dict[str, Any], global_rules: Dict[str, Any] = None, team_name: str = "") -> SectionValidationResult:
@@ -242,6 +246,29 @@ class MockProvider(LLMProvider):
                 current_content[0]["Description"] = current_content[0].get("Description", "") + f" [Clarification incorporated: {answer}]"
             return current_content
         return f"{current_content}\n\nClarification Note ({question}): {answer}"
+
+    def detect_clarifications_needed(self, section_id: str, section_config: Dict[str, Any], user_answers: str, team_name: str = "") -> List[str]:
+        words = [w for w in user_answers.split() if len(w) > 2]
+        if len(words) < 15:
+            if section_id == "1.9":
+                return [
+                    "Which specific geographic districts or partner school categories are covered by this process?",
+                    "What governing authority or committee provides formal sign-off for partner onboarding?"
+                ]
+            elif section_id == "1.10":
+                return [
+                    "What is the specific target turnaround time (TAT) or volume benchmark for this process?",
+                    "What statutory compliance or quality metric defines success?"
+                ]
+            elif section_id == "1.6":
+                return [
+                    "What specific activities or third-party vendor operations are explicitly out-of-scope?",
+                    "Who are the key internal and external beneficiary stakeholders?"
+                ]
+            return [
+                f"What key operational metrics or guidelines apply to {section_config.get('name', 'this section')}?"
+            ]
+        return []
 
     def refine_table_rows_with_ai(
         self,
@@ -685,6 +712,62 @@ OUTPUT FORMAT:
                 return [{f: user_answers[:40] for f in fields}]
             from config.guided_questions import clean_heading_hashes
             return clean_heading_hashes(f"Processed draft based on answers:\n\n{user_answers}", section_id, section_config.get('name', ''))
+
+    def detect_clarifications_needed(self, section_id: str, section_config: Dict[str, Any], user_answers: str, team_name: str = "") -> List[str]:
+        clean_input = user_answers.strip()
+        words = clean_input.split()
+        if not clean_input:
+            return [f"What are the core operational activities or guidelines for {section_config.get('name', 'this section')}?"]
+            
+        prompt = f"""
+You are a senior Business Excellence Auditor evaluating initial notes provided by a Process Creator.
+Section ID: {section_id}
+Section Name: {section_config.get('name')}
+Guidelines: {section_config.get('help_text')}
+
+The creator provided the following initial input or keywords:
+\"\"\"{clean_input}\"\"\"
+
+TASK:
+Determine if this input is brief, incomplete, or missing critical operational facts (such as specific roles, locations, targets, compliance benchmarks, or scopes) required to make this section audit-ready.
+
+- If the input is ALREADY comprehensive, specific, and detailed:
+  Return an empty JSON array: []
+
+- If the input is brief (e.g. fewer than 25-30 words), contains high-level keywords without operational specifics, or lacks critical governance metrics:
+  Formulate 1 to 2 sharp, direct clarification questions asking the creator for the exact missing operational facts needed to tailor this section to their organization.
+
+OUTPUT FORMAT:
+Return ONLY a valid JSON array of question strings (at most 2 questions). No markdown code blocks, no explanation.
+Example:
+[
+  "Which specific administrative districts or school categories are covered?",
+  "Who holds final approval authority before onboarding commences?"
+]
+"""
+        try:
+            response = self.model.generate_content(prompt)
+            text = response.text.strip()
+            match = re.search(r'\[.*\]', text, re.DOTALL)
+            if match:
+                text = match.group(0)
+            data = json.loads(text)
+            if isinstance(data, list):
+                return [str(q).strip() for q in data if str(q).strip()][:2]
+            return []
+        except Exception:
+            if len(words) < 15:
+                if section_id == "1.9":
+                    return [
+                        "Which specific geographic districts or partner school categories are covered?",
+                        "What governing authority or committee provides formal sign-off for onboarding?"
+                    ]
+                elif section_id == "1.10":
+                    return [
+                        "What is the specific target turnaround time (TAT) or volume benchmark for this process?",
+                        "What statutory compliance or quality metric defines success?"
+                    ]
+            return []
 
     def resolve_clarification(self, section_id: str, section_type: str, current_content: Any, question: str, answer: str) -> Any:
         prompt = f"""
