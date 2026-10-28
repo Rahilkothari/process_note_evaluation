@@ -837,7 +837,10 @@ try:
                                 is_completed = True
                                 st.session_state[f"show_guide_{sec_id}"] = False
                                 st.session_state[f"is_editing_{sec_id}"] = False
+                                st.session_state[f"last_synthesized_{sec_id}"] = gen_result
                                 st.success("✅ Section synthesized with AI! Check preview below.")
+                                st.info("📋 **Synthesized Content:** Click the copy icon (`📋`) in the top-right corner of the box below to copy:")
+                                st.code(gen_result, language=None)
 
                 if is_completed:
                     if st.button("✖️ Collapse Guided Form", key=f"btn_close_expander_{sec_id}"):
@@ -883,6 +886,9 @@ try:
                         """,
                         unsafe_allow_html=True
                     )
+                    with st.expander("📋 View & Copy Raw Content", expanded=False):
+                        st.caption("Click the copy icon (`📋`) in the top-right corner of the box below:")
+                        st.code(clean_display, language=None)
                     col_act1, col_act2 = st.columns([1, 1])
                     with col_act1:
                         if st.button("✏️ Edit Content Directly", key=f"btn_edit_txt_{sec_id}", type="primary", use_container_width=True):
@@ -923,7 +929,12 @@ try:
                                 llm = get_llm_provider()
                                 raw_suggestion = llm.generate_suggestion(sec_config, context_list, user_draft=content)
                                 suggestion = clean_heading_hashes(raw_suggestion, sec_id, sec_config['name'])
-                                st.info(f"**AI Suggestion (Copy and paste into the box above):**\n\n{suggestion}")
+                                st.session_state[f"ai_suggestion_{sec_id}"] = suggestion
+
+                        curr_sug = st.session_state.get(f"ai_suggestion_{sec_id}")
+                        if curr_sug:
+                            st.info("💡 **AI Suggestion:** Click the copy button (`📋`) in the top-right corner of the box below to copy, then paste it into the editor above:")
+                            st.code(curr_sug, language=None)
 
                         if save_btn:
                             from core.rule_validator import RuleValidator
@@ -942,6 +953,7 @@ try:
                                 else:
                                     existing_sec.content = cleaned_content
                                 db.commit()
+                                st.session_state.pop(f"ai_suggestion_{sec_id}", None)
                                 st.session_state[f"is_editing_{sec_id}"] = False
                                 st.success(f"Section {sec_id} saved successfully!")
                                 st.rerun()
