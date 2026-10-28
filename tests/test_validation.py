@@ -176,5 +176,28 @@ def test_clean_heading_hashes_removes_hashes_and_stars():
     assert "- Criteria 1" in cleaned
     assert "1.9 Introduction" not in cleaned
 
+def test_heading_deduplication_and_preview_html():
+    from config.guided_questions import clean_heading_hashes, render_section_preview_html
+    duplicate_header_sample = (
+        "Background Context:\n"
+        "Background & Context:\n"
+        "Operational framework for school onboarding.\n\n"
+        "Strategic & Operational Purpose:\n"
+        "To standardize partner onboarding.\n\n\n\n"
+        "•  Verifiable Vetting Benchmarks: Objective criteria."
+    )
+    cleaned = clean_heading_hashes(duplicate_header_sample, "1.9", "Introduction")
+    # Must only have one Background header, not both
+    assert cleaned.count("Background") == 1
+    assert "Background & Context:" in cleaned
+    assert "- Verifiable Vetting Benchmarks: Objective criteria." in cleaned
+    assert "\n\n\n" not in cleaned
+
+    html_out = render_section_preview_html(cleaned)
+    assert '<strong style="color: #0F172A;">Verifiable Vetting Benchmarks:</strong>' in html_out
+    assert "<ul" in html_out
+    assert "<li" in html_out
+
+
 
 

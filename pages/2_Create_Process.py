@@ -868,8 +868,9 @@ try:
                         st.session_state[f"is_editing_{sec_id}"] = True
                         st.rerun()
                 elif is_completed and not is_editing:
-                    from config.guided_questions import clean_heading_hashes
+                    from config.guided_questions import clean_heading_hashes, render_section_preview_html
                     clean_display = clean_heading_hashes(existing_sec.content, sec_id, sec_config['name'])
+                    preview_html = render_section_preview_html(clean_display)
                     st.markdown(
                         f"""
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; margin-bottom: 8px;">
@@ -881,7 +882,7 @@ try:
                     )
                     st.markdown(
                         f"""
-                        <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px; padding: 14px 18px; line-height: 1.6; color: #1E293B; font-size: 13.5px; margin-bottom: 12px; white-space: pre-wrap;">{clean_display}</div>
+                        <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px; padding: 16px 20px; line-height: 1.6; color: #1E293B; font-size: 13.5px; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">{preview_html}</div>
                         """,
                         unsafe_allow_html=True
                     )

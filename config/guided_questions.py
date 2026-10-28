@@ -1141,7 +1141,7 @@ def build_table_rows_from_answers(sec_id: str, answers: Dict[str, Any]) -> List[
 
 
 def clean_heading_hashes(text: str, sec_id: str = "", sec_name: str = "") -> str:
-    """Removes redundant section title headers, markdown hashes (###), and all stars/asterisks (**) to keep corporate text plain and clean."""
+    """Removes redundant section title headers, duplicate subheadings, markdown hashes, and asterisks to keep corporate text plain, clean, and well-structured."""
     if not text:
         return ""
     lines = str(text).split("\n")
@@ -1152,8 +1152,11 @@ def clean_heading_hashes(text: str, sec_id: str = "", sec_name: str = "") -> str
 
     for line in lines:
         stripped = line.strip()
+        if not stripped:
+            cleaned_lines.append("")
+            continue
 
-        # Omit lines that repeat the section id or title (e.g. '### 1.9 Introduction' or '**1.9 Introduction**')
+        # Omit lines that repeat the section id or title (e.g. '### 1.9 Introduction' or '1.9: Introduction')
         stripped_clean = re.sub(r'^[#*_\-\s]+', '', stripped).lower()
         if sec_id_norm and (sec_id_norm in stripped_clean):
             if sec_name_norm and any(w in stripped_clean for w in sec_name_norm.split()):
@@ -1163,7 +1166,7 @@ def clean_heading_hashes(text: str, sec_id: str = "", sec_name: str = "") -> str
         elif sec_name_norm and (stripped_clean == sec_name_norm or stripped_clean == f"{sec_name_norm}:"):
             continue
 
-        # If it's a markdown heading line like '### Heading' or '## Heading:'
+        # Convert markdown heading line like '### Heading' or '## Heading:'
         m_head = re.match(r'^#{1,6}\s*(.+)$', stripped)
         if m_head:
             head_txt = m_head.group(1).strip()
@@ -1174,28 +1177,113 @@ def clean_heading_hashes(text: str, sec_id: str = "", sec_name: str = "") -> str
             cleaned_lines.append(head_txt)
             continue
 
-        # Convert asterisk bullets like '* Item' to clean dash bullets '- Item'
-        line_clean = re.sub(r'^\s*[*•]\s+', '- ', line)
+        # Convert asterisk or circle bullets to clean dash bullets '- '
+        if re.match(r'^\s*[*•▪–]\s+', line):
+            bullet_body = re.sub(r'^\s*[*•▪–]\s+', '', line).strip()
+            bullet_body = bullet_body.replace('*', '')
+            cleaned_lines.append(f"- {bullet_body}")
+            continue
 
         # Strip all asterisks/stars (bold, italic, or stray) completely from the line
-        line_clean = line_clean.replace('*', '')
+        line_clean = line.replace('*', '')
 
         # Strip any leading markdown hashes if any remained
         line_clean = re.sub(r'^#{1,6}\s*', '', line_clean)
 
         cleaned_lines.append(line_clean)
 
-    result = "\n".join(cleaned_lines).strip()
+    # Deduplicate adjacent / consecutive duplicate headings
+    # e.g. "Background Context:" followed by "Background & Context:"
+    deduped = []
+    for line in cleaned_lines:
+        stripped = line.strip()
+        if not stripped:
+            if deduped and deduped[-1] != "":
+                deduped.append("")
+            continue
+
+        # Check if line is a short section subheading (ends with ':', under 70 chars, not a bullet or url)
+        is_subheading = (stripped.endswith(":") and len(stripped) < 70 and not stripped.startswith("-") and not stripped.startswith("http"))
+
+        if is_subheading and deduped:
+            last_line = deduped[-1].strip()
+            last_is_subheading = (last_line.endswith(":") and len(last_line) < 70 and not last_line.startswith("-"))
+            if last_is_subheading:
+                # If two consecutive lines are both headings, check if they refer to the same concept
+                words1 = set(re.findall(r'[a-z0-9]+', last_line.lower()))
+                words2 = set(re.findall(r'[a-z0-9]+', stripped.lower()))
+                if words1 and words2 and (words1 == words2 or words1.issubset(words2) or words2.issubset(words1) or len(words1 & words2) >= 1):
+                    # Replace previous duplicate heading with this refined heading
+                    deduped[-1] = stripped
+                    continue
+
+        deduped.append(line)
+
+    result = "\n".join(deduped).strip()
     result = re.sub(r'\n{3,}', '\n\n', result)
     return result
 
 
+def render_section_preview_html(text: str) -> str:
+    """Renders plain process section content as beautifully structured, executive HTML with clean typography, styled headers, and indented bullet lists."""
+    import html as html_lib
+    if not text:
+        return '<div style="color: #94A3B8; font-style: italic;">No content available.</div>'
+
+    lines = [line.strip() for line in str(text).split('\n')]
+    html_parts = []
+    in_bullet_list = False
+
+    for line in lines:
+        if not line:
+            if in_bullet_list:
+                html_parts.append('</ul>')
+                in_bullet_list = False
+            continue
+
+        # Check if line is a bullet item (- Item)
+        m_bullet = re.match(r'^[-*•▪–]\s*(.+)$', line)
+        if m_bullet:
+            if not in_bullet_list:
+                html_parts.append('<ul style="margin: 6px 0 12px 20px; padding: 0; color: #334155;">')
+                in_bullet_list = True
+            item_text = html_lib.escape(m_bullet.group(1).strip())
+            # Format leading label if present (e.g. Label: Description)
+            m_label = re.match(r'^([^:]{2,50}:)\s*(.*)$', item_text)
+            if m_label:
+                item_html = f'<strong style="color: #0F172A;">{m_label.group(1)}</strong> {m_label.group(2)}'
+            else:
+                item_html = item_text
+            html_parts.append(f'<li style="margin-bottom: 6px; line-height: 1.6; font-size: 13.5px;">{item_html}</li>')
+            continue
+
+        if in_bullet_list:
+            html_parts.append('</ul>')
+            in_bullet_list = False
+
+        # Check if line is a section heading
+        is_heading = (line.endswith(':') and len(line) < 70 and not any(line.lower().startswith(p) for p in ['note:', 'e.g.:', 'i.e.:', 'for example:']))
+        escaped_line = html_lib.escape(line)
+        if is_heading:
+            html_parts.append(f'<div style="font-weight: 700; color: #0F172A; font-size: 14.5px; margin-top: 14px; margin-bottom: 5px; letter-spacing: -0.01em;">{escaped_line}</div>')
+        else:
+            html_parts.append(f'<p style="margin: 0 0 10px 0; line-height: 1.65; color: #334155; font-size: 13.5px;">{escaped_line}</p>')
+
+    if in_bullet_list:
+        html_parts.append('</ul>')
+
+    return ''.join(html_parts)
+
+
 def build_text_summary_from_answers(sec_id: str, answers: Dict[str, Any]) -> str:
-    """Formats structured questionnaire answers into clean, corporate text for text sections without markdown hashes or stars."""
+    """Formats structured questionnaire answers into clean, corporate text for text sections without markdown hashes, stars, or redundant label prefixes."""
     if sec_id == "1.6":
         in_scope = answers.get("in_scope", "All operational activities as detailed in this note.")
         out_scope = answers.get("out_of_scope", "Any external activities not explicitly mentioned.")
         stakeholders = answers.get("stakeholders", "All partner stakeholders.")
+        in_scope = re.sub(r'^(?:1\.\s*)?(?:in-scope\s*activities(?:\s*&\s*coverage)?:?)\s*', '', str(in_scope), flags=re.IGNORECASE).strip()
+        out_scope = re.sub(r'^(?:2\.\s*)?(?:out-of-scope\s*activities(?:\s*&\s*exclusions)?:?)\s*', '', str(out_scope), flags=re.IGNORECASE).strip()
+        stakeholders = re.sub(r'^(?:3\.\s*)?(?:target\s*stakeholders(?:\s*&\s*beneficiaries)?:?)\s*', '', str(stakeholders), flags=re.IGNORECASE).strip()
         return (
             "1. In-Scope Activities & Coverage:\n"
             f"{in_scope}\n\n"
@@ -1208,16 +1296,21 @@ def build_text_summary_from_answers(sec_id: str, answers: Dict[str, Any]) -> str
     elif sec_id == "1.9":
         bg = answers.get("background", "Standard operating protocol established for operational excellence.")
         imp = answers.get("importance", "Standardization ensures compliance, transparency, and accountability.")
+        # Strip redundant heading prefix if the user already typed or pasted it
+        bg = re.sub(r'^(?:background\s*(?:&|and)?\s*context:?|\*{0,2}background\s*(?:&|and)?\s*context:?\*{0,2})\s*', '', str(bg), flags=re.IGNORECASE).strip()
+        imp = re.sub(r'^(?:strategic\s*(?:&|and)?\s*(?:operational\s*)?(?:purpose|importance):?|\*{0,2}strategic\s*(?:&|and)?\s*(?:operational\s*)?(?:purpose|importance):?\*{0,2})\s*', '', str(imp), flags=re.IGNORECASE).strip()
         return (
-            "Background Context:\n"
+            "Background & Context:\n"
             f"{bg}\n\n"
-            "Strategic Organizational Importance:\n"
+            "Strategic & Operational Purpose:\n"
             f"{imp}"
         )
 
     elif sec_id == "1.10":
         obj = answers.get("primary_obj", "To execute operational activities in a timely, compliant manner.")
         outcome = answers.get("measurable_outcome", "Zero-defect delivery and 100% adherence to timelines.")
+        obj = re.sub(r'^(?:primary\s*(?:business\s*)?objective:?|\*{0,2}primary\s*(?:business\s*)?objective:?\*{0,2})\s*', '', str(obj), flags=re.IGNORECASE).strip()
+        outcome = re.sub(r'^(?:expected\s*measurable\s*outcomes:?|measurable\s*outcomes?:?|\*{0,2}measurable\s*outcomes?:?\*{0,2})\s*', '', str(outcome), flags=re.IGNORECASE).strip()
         return (
             "Primary Business Objective:\n"
             f"{obj}\n\n"

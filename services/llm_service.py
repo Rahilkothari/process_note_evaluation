@@ -525,7 +525,16 @@ Historical Context:
 {context_str}
 {draft_instruction}
 
-Generate a polished, professional, and audit-ready draft. Do not use generic filler. Do not include markdown heading hashes (such as ###, ##, #) or repeat the section title/ID at the top. Do not use markdown bold asterisks (**) around titles, headers, or bullet points. Use clean title lines followed by a colon instead. Output only the suggested draft.
+TASK & FORMATTING MANDATES:
+1. Intelligently expand any brief notes, bullet fragments, or keywords into an articulate, authoritative, complete corporate section.
+2. Structure the draft into logical subsections with clear plain-text titles on their own line ending with a colon:
+   - For Introduction (1.9): Use 'Background & Operational Setting:' and 'Strategic & Operational Purpose:' (and optionally 'Core Process Governance:').
+   - For Objective (1.10): Use 'Primary Business Purpose:' and 'Key Measurable Targets & Outcomes:'.
+   - For Scope (1.6): Use 'In-Scope Activities & Coverage:', 'Out-of-Scope Exclusions:', and 'Target Stakeholders & Beneficiaries:'.
+3. NO REPETITION: NEVER repeat the top-level section ID/title (e.g. do not output '{section_rules.get('id')} {section_rules.get('name')}'). Never output duplicate or back-to-back subheadings.
+4. PLAIN TEXT ONLY: Absolutely NO markdown heading hashes (###, ##, #) and NO markdown bold/italic asterisks (**, *).
+5. If bullet points are used, format with a simple dash followed by a space: '- Benchmark: Description'. Never use asterisks.
+6. Spacing: Exactly one blank line between paragraphs and before subheadings. No multiple blank lines. Output only the suggested draft.
 """
         try:
             response = self.model.generate_content(prompt)
@@ -629,11 +638,12 @@ Section Type: {sec_type}
 Table Fields: {fields if sec_type == 'table' else 'N/A'}
 Guidelines: {section_config.get('help_text')}
 
-The creator has answered the guided assistant questions with the following rough notes:
+The creator has answered the guided assistant questions with the following rough notes, keywords, or context:
 \"\"\"{user_answers}\"\"\"
 
 TASK:
-Convert these rough answers into a complete, professional, corporate-grade section conforming strictly to organizational standards.
+Convert these rough answers or keywords into a complete, authoritative, corporate-grade section conforming strictly to organizational standards.
+Intelligently expand brief keywords, bullet fragments, or informal notes into rich, rigorous operational prose with full audit compliance.
 
 OUTPUT FORMAT:
 - If Section Type is 'table':
@@ -644,7 +654,19 @@ OUTPUT FORMAT:
   Return ONLY the raw JSON array. No markdown code blocks.
 
 - If Section Type is 'text':
-  Return polished, professional, well-structured text with proper paragraphs or bullet points. Do not use generic filler. Do not include markdown heading hashes (such as ###, ##, #) or repeat the section title/ID at the top. Do not use markdown bold asterisks (**) anywhere around titles, headers, or bullet points. Use clean title lines followed by a colon instead.
+  FORMATTING & STRUCTURE MANDATES:
+  1. Organize the section logically under clear plain-text subheadings on their own line ending with a colon:
+     - For Section 1.9 (Introduction): Structure into 'Background & Operational Setting:' and 'Strategic & Operational Purpose:' (and optionally 'Core Process Governance:').
+     - For Section 1.10 (Objective): Structure into 'Primary Business Purpose:' and 'Key Measurable Targets & Outcomes:'.
+     - For Section 1.6 (Scope): Structure into '1. In-Scope Activities & Coverage:', '2. Out-of-Scope Activities & Exclusions:', and '3. Target Stakeholders & Beneficiaries:'.
+  2. NO REDUNDANCY: NEVER output duplicate, near-duplicate, or back-to-back subheadings (e.g. NEVER output both 'Background Context:' and 'Background & Context:'). Output each heading exactly once.
+  3. NEVER repeat the top-level section ID or title (e.g. do not output '{section_id} {section_config.get("name")}').
+  4. PLAIN TEXT ONLY: Absolutely NO markdown heading hashes (###, ##, #) and NO markdown bold/italic asterisks (**, *).
+  5. If bullet points are used, format cleanly with a standard dash:
+     - <Benchmark / Item>: <Explanation>
+     Do not use asterisks (*) or circle bullets (•).
+  6. Clean Uniform Spacing: Maintain exactly one blank line between paragraphs and before subheadings. Do not use double or triple empty lines.
+  Return ONLY the polished, impeccably structured text following these rules.
 """
         try:
             response = self.model.generate_content(prompt)
