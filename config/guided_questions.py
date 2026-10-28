@@ -950,8 +950,7 @@ SECTION_GUIDED_SPECS: Dict[str, Dict[str, Any]] = {
 }
 
 
-def build_table_rows_from_answers(sec_id: str, answers: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Converts structured questionnaire answers directly into the exact schema required for table sections."""
+def _build_table_rows_raw(sec_id: str, answers: Dict[str, Any]) -> List[Dict[str, Any]]:
     today_str = str(datetime.date.today())
 
     if sec_id == "1.1":
@@ -1201,6 +1200,29 @@ def build_table_rows_from_answers(sec_id: str, answers: Dict[str, Any]) -> List[
     return []
 
 
+def build_table_rows_from_answers(sec_id: str, answers: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Converts structured questionnaire answers directly into the exact schema required for table sections, strictly stripping any &amp; into &."""
+    cleaned_answers = {}
+    for k, v in answers.items():
+        if isinstance(v, str):
+            while "&amp;" in v:
+                v = v.replace("&amp;", "&")
+        cleaned_answers[k] = v
+
+    raw_rows = _build_table_rows_raw(sec_id, cleaned_answers)
+
+    cleaned_rows = []
+    for row in raw_rows:
+        cleaned_row = {}
+        for k, v in row.items():
+            if isinstance(v, str):
+                while "&amp;" in v:
+                    v = v.replace("&amp;", "&")
+            cleaned_row[k] = v
+        cleaned_rows.append(cleaned_row)
+    return cleaned_rows
+
+
 def clean_heading_hashes(text: str, sec_id: str = "", sec_name: str = "") -> str:
     """Removes redundant section title headers, duplicate subheadings, markdown hashes, and asterisks to keep corporate text plain, clean, and well-structured."""
     if not text:
@@ -1336,7 +1358,7 @@ def render_section_preview_html(text: str) -> str:
     return ''.join(html_parts)
 
 
-def build_text_summary_from_answers(sec_id: str, answers: Dict[str, Any]) -> str:
+def _build_text_summary_raw(sec_id: str, answers: Dict[str, Any]) -> str:
     """Formats structured questionnaire answers into clean, corporate text for text sections without markdown hashes, stars, or redundant label prefixes."""
     if sec_id == "1.6":
         in_scope = answers.get("in_scope", "All operational activities as detailed in this note.")
@@ -1387,6 +1409,15 @@ def build_text_summary_from_answers(sec_id: str, answers: Dict[str, Any]) -> str
     return "\n".join(summary_lines)
 
 
+def build_text_summary_from_answers(sec_id: str, answers: Dict[str, Any]) -> str:
+    """Formats structured questionnaire answers into clean, corporate text for text sections, strictly ensuring only & and never &amp;."""
+    cleaned_answers = {k: v.replace("&amp;", "&") if isinstance(v, str) else v for k, v in answers.items()}
+    res = _build_text_summary_raw(sec_id, cleaned_answers)
+    while "&amp;" in res:
+        res = res.replace("&amp;", "&")
+    return res
+
+
 def sanitize_rough_text(text: str) -> str:
     """Corrects common rough spelling errors, phonetic typos, and informal punctuation in creator input."""
     if not text:
@@ -1406,10 +1437,12 @@ def sanitize_rough_text(text: str) -> str:
         r'\bkpi\b': 'KPI',
         r'\bsop\b': 'SOP',
     }
-    cleaned = str(text)
+    cleaned = str(text).replace("&amp;", "&")
     for pattern, repl in typo_map.items():
         cleaned = re.sub(pattern, repl, cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+    while "&amp;" in cleaned:
+        cleaned = cleaned.replace("&amp;", "&")
     if cleaned and cleaned[0].islower():
         cleaned = cleaned[0].upper() + cleaned[1:]
     return cleaned
@@ -1417,24 +1450,26 @@ def sanitize_rough_text(text: str) -> str:
 
 def split_conversational_step(item: str) -> List[str]:
     """Splits multi-action conversational sentences (e.g. 'first they need to create a draft, then move ahead with testing') into clean discrete steps."""
+    item = str(item).replace("&amp;", "&")
     parts = re.split(r'\s*(?:,\s*then\s+|;\s*then\s+|\s+then\s+|\s+and\s+then\s+|\s+after\s+that\s+|\s+followed\s+by\s+)\s*', item, flags=re.IGNORECASE)
     cleaned = []
     for p in parts:
-        p_clean = p.strip()
+        p_clean = p.strip().replace("&amp;", "&")
         p_clean = re.sub(r'^(?:first|second|third|finally|next)\s*(?:,\s*|\s+)?', '', p_clean, flags=re.IGNORECASE)
         p_clean = re.sub(r'^(?:they need to|user needs to|we need to|please|must)\s+', '', p_clean, flags=re.IGNORECASE)
         if p_clean:
             p_clean = p_clean[0].upper() + p_clean[1:]
             p_clean = p_clean.rstrip('.')
             cleaned.append(p_clean)
-    return cleaned if cleaned else [item]
+    return cleaned if cleaned else [item.replace("&amp;", "&")]
 
 
 def parse_flowchart_steps(code: str) -> Tuple[List[str], List[str]]:
     """Extracts step node labels and decision diamond questions from a Mermaid flowchart string."""
     if not code or not str(code).strip():
         return [], []
-    lines = str(code).split('\n')
+    code = str(code).replace("&amp;", "&")
+    lines = code.split('\n')
     steps = []
     decisions = []
     
@@ -1446,7 +1481,7 @@ def parse_flowchart_steps(code: str) -> Tuple[List[str], List[str]]:
         # Match decision diamonds: DecNode{"Label"} or DecNode{{Label}}
         dec_match = re.search(r'([A-Za-z0-9_]+)\s*\{+[\"]?([^\"\{\}]+)[\"]?\}+', line_clean)
         if dec_match:
-            d_label = dec_match.group(2).strip()
+            d_label = dec_match.group(2).replace("&amp;", "&").strip()
             if d_label not in decisions:
                 decisions.append(d_label)
             continue
@@ -1455,7 +1490,7 @@ def parse_flowchart_steps(code: str) -> Tuple[List[str], List[str]]:
         step_match = re.search(r'([A-Za-z0-9_]+)\s*\[+[\"]?([^\"\[\]]+)[\"]?\]+', line_clean)
         if step_match:
             node_id = step_match.group(1)
-            s_label = step_match.group(2).strip()
+            s_label = step_match.group(2).replace("&amp;", "&").strip()
             # Ignore Start / End / Appr / Rej standard terminals
             if any(term in node_id.lower() for term in ['start', 'end', 'appr', 'rej']):
                 continue
@@ -1467,14 +1502,14 @@ def parse_flowchart_steps(code: str) -> Tuple[List[str], List[str]]:
 
 def build_mermaid_flowchart_from_answers(answers: Dict[str, Any]) -> str:
     """Generates a clean Mermaid flowchart with proper process boxes, decision diamonds, and terminal pills."""
-    steps_raw = str(answers.get("steps", "")).strip()
-    decisions_raw = str(answers.get("decisions", "")).strip()
-    roles = str(answers.get("roles", "")).strip()
+    steps_raw = str(answers.get("steps", "")).replace("&amp;", "&").strip()
+    decisions_raw = str(answers.get("decisions", "")).replace("&amp;", "&").strip()
+    roles = str(answers.get("roles", "")).replace("&amp;", "&").strip()
 
     lines = ["flowchart TD"]
     lines.append("    Start([Process Start]) --> Step1[\"1. Process Initiation\"]")
     
-    raw_items = [s.strip() for s in steps_raw.split("\n") if s.strip()]
+    raw_items = [s.strip().replace("&amp;", "&") for s in steps_raw.split("\n") if s.strip()]
     if not raw_items:
         raw_items = ["Initial Request Submission", "Document Review & Screening", "Operational Execution & Verification", "Final Sign-off & Delivery"]
 
@@ -1487,12 +1522,12 @@ def build_mermaid_flowchart_from_answers(answers: Dict[str, Any]) -> str:
     prev_node = "Step1"
     for idx, item in enumerate(step_items, start=2):
         node_id = f"Step{idx}"
-        clean_label = item.replace("[", "").replace("]", "").replace('"', "")
+        clean_label = item.replace("[", "").replace("]", "").replace('"', "").replace("&amp;", "&").strip()
         lines.append(f"    {prev_node} --> {node_id}[\"{clean_label}\"]")
         prev_node = node_id
 
     if decisions_raw:
-        clean_dec = decisions_raw.replace('"', "").replace("{", "").replace("}", "").strip()
+        clean_dec = decisions_raw.replace('"', "").replace("{", "").replace("}", "").replace("&amp;", "&").strip()
         dec_label = clean_dec if clean_dec else "Decision Criteria Met?"
         lines.append(f"    {prev_node} --> Dec1{{\"{dec_label}\"}}")
         lines.append("    Dec1 -- Yes --> StepAppr[\"Approval & Sign-off\"]")
@@ -1516,7 +1551,10 @@ def build_mermaid_flowchart_from_answers(answers: Dict[str, Any]) -> str:
         lines.append("    class StepAppr apprNode;")
         lines.append("    class StepRej rejNode;")
 
-    return "\n".join(lines)
+    res = "\n".join(lines)
+    while "&amp;" in res:
+        res = res.replace("&amp;", "&")
+    return res
 
 
 # Backward compatibility dictionary

@@ -189,19 +189,22 @@ class MockProvider(LLMProvider):
             return "graph TD\n    A[Start Process] --> B[Execute Activity] --> C[End Process]"
         lines = ["graph TD"]
         for idx, step in enumerate(process_description_steps, start=1):
-            act = str(step.get("Activity", f"Activity {idx}")).replace('"', '').replace('[', '(').replace(']', ')')
-            owner = str(step.get("Owner/Role", "")).replace('"', '')
+            act = str(step.get("Activity", f"Activity {idx}")).replace("&amp;", "&").replace('"', '').replace('[', '(').replace(']', ')')
+            owner = str(step.get("Owner/Role", "")).replace("&amp;", "&").replace('"', '')
             label = f"{act} ({owner})" if owner else act
             lines.append(f"    S{idx}[\"{label}\"]")
             if idx > 1:
                 lines.append(f"    S{idx-1} --> S{idx}")
-        return "\n".join(lines)
+        res = "\n".join(lines)
+        while "&amp;" in res:
+            res = res.replace("&amp;", "&")
+        return res
 
     def assist_flowchart(self, draft_steps: str, decisions: str = "", roles: str = "", process_name: str = "", team_name: str = "") -> str:
         from config.guided_questions import split_conversational_step
         lines = ["flowchart TD"]
         lines.append("    Start([Process Start]) --> Step1[\"1. Process Initiation\"]")
-        raw_items = [s.strip() for s in draft_steps.split("\n") if s.strip()]
+        raw_items = [s.strip().replace("&amp;", "&") for s in draft_steps.split("\n") if s.strip()]
         if not raw_items:
             raw_items = ["Initial Request Submission", "Document Review & Screening", "Operational Execution & Verification", "Final Sign-off & Delivery"]
         
@@ -212,10 +215,10 @@ class MockProvider(LLMProvider):
         prev = "Step1"
         for i, s in enumerate(step_items, start=2):
             node_id = f"Step{i}"
-            clean = s.replace('"', '').replace('[', '').replace(']', '')
+            clean = s.replace('"', '').replace('[', '').replace(']', '').replace("&amp;", "&")
             lines.append(f"    {prev} --> {node_id}[\"{clean}\"]")
             prev = node_id
-        dec = decisions.strip() if decisions.strip() else "Verification Criteria Met?"
+        dec = decisions.strip().replace("&amp;", "&") if decisions.strip() else "Verification Criteria Met?"
         lines.append(f"    {prev} --> Dec1{{\"{dec}\"}}")
         lines.append("    Dec1 -- Yes --> StepAppr[\"Approval & Sign-off\"]")
         lines.append("    Dec1 -- No --> StepRej[\"Rejection & Return with Remarks\"]")
@@ -230,7 +233,10 @@ class MockProvider(LLMProvider):
         lines.append("    class Dec1 decNode;")
         lines.append("    class StepAppr apprNode;")
         lines.append("    class StepRej rejNode;")
-        return "\n".join(lines)
+        res = "\n".join(lines)
+        while "&amp;" in res:
+            res = res.replace("&amp;", "&")
+        return res
 
     def generate_section_from_qa(self, section_id: str, section_config: Dict[str, Any], user_answers: str, team_name: str = "") -> Any:
         sec_type = section_config.get("type", "text")
@@ -586,6 +592,7 @@ RULES:
 4. Capture hand-offs between roles clearly.
 5. Keep labels concise, clean, and escape any characters that would break Mermaid syntax (do not use raw quotes or parentheses inside node labels without quotes).
 6. Return ONLY the valid Mermaid code without markdown code fences (no ```mermaid).
+7. CRITICAL: Use a clean plain '&' character for 'and' - NEVER output '&amp;' or HTML entity representations.
 """
         try:
             response = self.model.generate_content(prompt)
@@ -593,17 +600,22 @@ RULES:
             text = re.sub(r'^```mermaid\s*', '', text, flags=re.IGNORECASE)
             text = re.sub(r'^```\s*', '', text)
             text = re.sub(r'```$', '', text).strip()
+            while "&amp;" in text:
+                text = text.replace("&amp;", "&")
             return text
         except Exception:
             # Fallback generator
             lines = ["graph TD"]
             for idx, s in enumerate(process_description_steps, start=1):
-                act = str(s.get("Activity", f"Activity {idx}")).replace('"', '')
-                owner = str(s.get("Owner/Role", "")).replace('"', '')
+                act = str(s.get("Activity", f"Activity {idx}")).replace('"', '').replace('&amp;', '&')
+                owner = str(s.get("Owner/Role", "")).replace('"', '').replace('&amp;', '&')
                 lines.append(f"    S{idx}[\"{act} ({owner})\"]")
                 if idx > 1:
                     lines.append(f"    S{idx-1} --> S{idx}")
-            return "\n".join(lines)
+            res = "\n".join(lines)
+            while "&amp;" in res:
+                res = res.replace("&amp;", "&")
+            return res
 
     def assist_flowchart(self, draft_steps: str, decisions: str = "", roles: str = "", process_name: str = "", team_name: str = "") -> str:
         prompt = f"""
@@ -642,6 +654,7 @@ CRITICAL RULES:
    classDef rejNode fill:#FEE2E2,stroke:#DC2626,stroke-width:2px,color:#7F1D1D;
    class Start,EndNode startEnd;
 6. Return ONLY the valid Mermaid code without markdown code blocks (no ```mermaid).
+7. CRITICAL: Use a clean plain '&' character for 'and' - NEVER output '&amp;' or HTML entity representations.
 """
         try:
             response = self.model.generate_content(prompt)
@@ -649,10 +662,15 @@ CRITICAL RULES:
             text = re.sub(r'^```mermaid\s*', '', text, flags=re.IGNORECASE)
             text = re.sub(r'^```\s*', '', text)
             text = re.sub(r'```$', '', text).strip()
+            while "&amp;" in text:
+                text = text.replace("&amp;", "&")
             return text
         except Exception:
             from config.guided_questions import build_mermaid_flowchart_from_answers
-            return build_mermaid_flowchart_from_answers({"steps": draft_steps, "decisions": decisions, "roles": roles})
+            res = build_mermaid_flowchart_from_answers({"steps": draft_steps, "decisions": decisions, "roles": roles})
+            while "&amp;" in res:
+                res = res.replace("&amp;", "&")
+            return res
 
     def generate_section_from_qa(self, section_id: str, section_config: Dict[str, Any], user_answers: str, team_name: str = "") -> Any:
         sec_type = section_config.get("type", "text")
@@ -704,14 +722,24 @@ OUTPUT FORMAT:
                     text = match.group(0)
                 data = json.loads(text)
                 if isinstance(data, list):
-                    return data
+                    return [
+                        {k: str(v).replace("&amp;", "&") if isinstance(v, str) else v for k, v in row.items()}
+                        if isinstance(row, dict) else row
+                        for row in data
+                    ]
             from config.guided_questions import clean_heading_hashes
-            return clean_heading_hashes(text, section_id, section_config.get('name', ''))
+            cleaned_text = clean_heading_hashes(text, section_id, section_config.get('name', ''))
+            while "&amp;" in cleaned_text:
+                cleaned_text = cleaned_text.replace("&amp;", "&")
+            return cleaned_text
         except Exception as e:
             if sec_type == "table":
-                return [{f: user_answers[:40] for f in fields}]
+                return [{f: user_answers[:40].replace("&amp;", "&") for f in fields}]
             from config.guided_questions import clean_heading_hashes
-            return clean_heading_hashes(f"Processed draft based on answers:\n\n{user_answers}", section_id, section_config.get('name', ''))
+            cleaned_text = clean_heading_hashes(f"Processed draft based on answers:\n\n{user_answers}", section_id, section_config.get('name', ''))
+            while "&amp;" in cleaned_text:
+                cleaned_text = cleaned_text.replace("&amp;", "&")
+            return cleaned_text
 
     def detect_clarifications_needed(self, section_id: str, section_config: Dict[str, Any], user_answers: str, team_name: str = "") -> List[str]:
         clean_input = user_answers.strip()
@@ -867,7 +895,7 @@ YOUR MANDATORY OBJECTIVES:
                 cleaned_rows = []
                 for row in data:
                     if isinstance(row, dict):
-                        cleaned_row = {f: str(row.get(f, "")).strip() for f in fields}
+                        cleaned_row = {f: str(row.get(f, "")).replace("&amp;", "&").strip() for f in fields}
                         cleaned_rows.append(cleaned_row)
                 if cleaned_rows:
                     return cleaned_rows
@@ -878,7 +906,7 @@ YOUR MANDATORY OBJECTIVES:
         from config.guided_questions import sanitize_rough_text
         sanitized = []
         for r in raw_rows:
-            sanitized.append({k: sanitize_rough_text(str(v or "")) for k, v in r.items()})
+            sanitized.append({k: sanitize_rough_text(str(v or "")).replace("&amp;", "&") for k, v in r.items()})
         return sanitized
 
 

@@ -321,6 +321,7 @@ def get_mermaid_png_bytes(clean_code: str) -> bytes:
     try:
         import base64
         import urllib.request
+        clean_code = str(clean_code).replace("&amp;", "&")
         b64 = base64.b64encode(clean_code.encode("utf-8")).decode("ascii")
         url = f"https://mermaid.ink/img/{b64}"
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
@@ -338,6 +339,7 @@ def get_mermaid_svg_bytes(clean_code: str) -> bytes:
     try:
         import base64
         import urllib.request
+        clean_code = str(clean_code).replace("&amp;", "&")
         b64 = base64.b64encode(clean_code.encode("utf-8")).decode("ascii")
         url = f"https://mermaid.ink/svg/{b64}"
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
@@ -362,6 +364,8 @@ def render_mermaid_flowchart(chart_code: str, height: int = None, show_code_togg
         return
 
     clean_code = str(chart_code).replace("```mermaid", "").replace("```", "").strip()
+    while "&amp;" in clean_code:
+        clean_code = clean_code.replace("&amp;", "&")
     
     # Calculate responsive container height based on node count
     lines = [l for l in clean_code.split("\n") if l.strip()]
@@ -516,13 +520,38 @@ def render_mermaid_flowchart(chart_code: str, height: int = None, show_code_togg
       </div>
 
       <script>
+        function sanitizeDiagramText() {{
+          try {{
+            var svg = document.querySelector('.mermaid svg');
+            if (!svg) return;
+            
+            var walker = document.createTreeWalker(svg, NodeFilter.SHOW_TEXT, null, false);
+            var node;
+            while ((node = walker.nextNode())) {{
+              if (node.nodeValue && node.nodeValue.indexOf('&amp;') !== -1) {{
+                node.nodeValue = node.nodeValue.replace(/&amp;/g, '&');
+              }}
+            }}
+
+            var els = svg.querySelectorAll('text, tspan, foreignObject, span, div, p');
+            for (var i = 0; i < els.length; i++) {{
+              var el = els[i];
+              if (el.children.length === 0 && el.textContent && el.textContent.indexOf('&amp;') !== -1) {{
+                el.textContent = el.textContent.replace(/&amp;/g, '&');
+              }}
+            }}
+          }} catch(e) {{}}
+        }}
+
         function downloadSVG() {{
           try {{
+            sanitizeDiagramText();
             var svg = document.querySelector('.mermaid svg');
             if (!svg) {{ alert('Diagram is still rendering, please wait a moment.'); return; }}
             var clone = svg.cloneNode(true);
             clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
             var svgData = new XMLSerializer().serializeToString(clone);
+            svgData = svgData.replace(/&amp;amp;/g, '&amp;');
             var svgBlob = new Blob([svgData], {{ type: 'image/svg+xml;charset=utf-8' }});
             var url = URL.createObjectURL(svgBlob);
             var a = document.createElement('a');
@@ -539,12 +568,13 @@ def render_mermaid_flowchart(chart_code: str, height: int = None, show_code_togg
 
         function downloadPNG() {{
           try {{
+            sanitizeDiagramText();
             var svg = document.querySelector('.mermaid svg');
             if (!svg) {{ alert('Diagram is still rendering, please wait a moment.'); return; }}
             var clone = svg.cloneNode(true);
             clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
             var svgData = new XMLSerializer().serializeToString(clone);
-            var svgBlob = new Blob([svgData], {{ type: 'image/svg+xml;charset=utf-8' }});
+            svgData = svgData.replace(/&amp;amp;/g, '&amp;');
             var DOMURL = window.URL || window.webkitURL || window;
             var svgUrl = DOMURL.createObjectURL(svgBlob);
             var img = new Image();
@@ -607,6 +637,13 @@ def render_mermaid_flowchart(chart_code: str, height: int = None, show_code_togg
         }}
 
         try {{
+          var targetEl = document.getElementById('mermaid-target');
+          if (targetEl) {{
+            while (targetEl.textContent.indexOf('&amp;') !== -1) {{
+              targetEl.textContent = targetEl.textContent.replace(/&amp;/g, '&');
+            }}
+          }}
+
           mermaid.initialize({{
             startOnLoad: true,
             theme: 'default',
@@ -628,6 +665,22 @@ def render_mermaid_flowchart(chart_code: str, height: int = None, show_code_togg
               mainBkg: '#FFFFFF'
             }}
           }});
+
+          try {{
+            var observer = new MutationObserver(function() {{
+              sanitizeDiagramText();
+            }});
+            var card = document.querySelector('.diagram-card');
+            if (card) {{
+              observer.observe(card, {{ childList: true, subtree: true, characterData: true }});
+            }}
+          }} catch(e) {{}}
+
+          setTimeout(sanitizeDiagramText, 40);
+          setTimeout(sanitizeDiagramText, 120);
+          setTimeout(sanitizeDiagramText, 300);
+          setTimeout(sanitizeDiagramText, 700);
+          setTimeout(sanitizeDiagramText, 1500);
         }} catch(err) {{
           var el = document.getElementById('error-msg');
           if (el) {{

@@ -218,6 +218,64 @@ def test_detect_clarifications_needed():
     assert len(questions_detailed) == 0
 
 
+def test_ampersand_normalization():
+    from config.guided_questions import (
+        build_mermaid_flowchart_from_answers,
+        parse_flowchart_steps,
+        split_conversational_step,
+        sanitize_rough_text,
+        build_table_rows_from_answers,
+        build_text_summary_from_answers
+    )
+    from services.llm_service import MockProvider
+
+    # 1. Flowchart generation strictly normalizes &amp; to &
+    f_code = build_mermaid_flowchart_from_answers({
+        'steps': 'Administrative Screening &amp; Verification\nOn-Site Infrastructure &amp; Safety Audit',
+        'decisions': 'Inspection &amp; Review Criteria Met?'
+    })
+    assert '&amp;' not in f_code
+    assert 'Administrative Screening & Verification' in f_code
+
+    # 2. Flowchart parsing strips &amp;
+    steps, decs = parse_flowchart_steps(f_code)
+    for s in steps:
+        assert '&amp;' not in s
+    for d in decs:
+        assert '&amp;' not in d
+
+    # 3. Conversational step splitting normalizes &amp;
+    splits = split_conversational_step('Administrative Screening &amp; Verification, then On-Site Infrastructure &amp; Safety Audit')
+    for sp in splits:
+        assert '&amp;' not in sp
+
+    # 4. Text typo sanitization replaces &amp;
+    cleaned = sanitize_rough_text('Screening &amp; audit text')
+    assert '&amp;' not in cleaned
+    assert '&' in cleaned
+
+    # 5. Table rows normalize &amp;
+    tbl = build_table_rows_from_answers('1.12', {
+        'activity_name': 'Administrative Screening &amp; Verification',
+        'owner_role': 'Field Officer &amp; Program Lead'
+    })
+    assert '&amp;' not in tbl[0]['Activity']
+    assert '&amp;' not in tbl[0]['Owner/Role']
+
+    # 6. Text summary replaces &amp;
+    summary = build_text_summary_from_answers('1.9', {
+        'background': 'Compliance &amp; audit standards',
+        'importance': 'Efficiency &amp; transparency'
+    })
+    assert '&amp;' not in summary
+
+    # 7. MockProvider flowchart assist replaces &amp;
+    llm = MockProvider()
+    flow_llm = llm.assist_flowchart('Review &amp; Test', decisions='Approved &amp; Verified?')
+    assert '&amp;' not in flow_llm
+
+
+
 
 
 

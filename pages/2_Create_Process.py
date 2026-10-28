@@ -800,6 +800,8 @@ try:
 
                         if flow_btn:
                             mermaid_code = build_mermaid_flowchart_from_answers(answers)
+                            while "&amp;" in mermaid_code:
+                                mermaid_code = mermaid_code.replace("&amp;", "&")
                             from core.rule_validator import RuleValidator
                             from models.schemas import ProcessSectionSchema
                             sec_schema = ProcessSectionSchema(section_id=sec_id, content=mermaid_code, structured_data=[])
@@ -841,6 +843,8 @@ try:
                                     process_name=current_note.process_name,
                                     team_name=current_note.team
                                 )
+                                while "&amp;" in mermaid_code:
+                                    mermaid_code = mermaid_code.replace("&amp;", "&")
 
                                 from core.rule_validator import RuleValidator
                                 from models.schemas import ProcessSectionSchema
@@ -1508,6 +1512,8 @@ try:
                         unsafe_allow_html=True
                     )
                     if current_chart and not current_chart.endswith(('.png', '.jpg', '.jpeg', '.pdf', '.docx', '.vsdx')):
+                        while "&amp;" in current_chart:
+                            current_chart = current_chart.replace("&amp;", "&")
                         render_mermaid_flowchart(current_chart)
 
                         from config.guided_questions import parse_flowchart_steps, build_mermaid_flowchart_from_answers
@@ -1524,11 +1530,12 @@ try:
                                 with st.form(f"form_quick_flow_edit_{sec_id}"):
                                     updated_steps = []
                                     for s_i, s_t in enumerate(p_steps):
-                                        new_t = st.text_input(f"Step {s_i + 1} Text:", value=s_t, key=f"qe_step_txt_{sec_id}_{s_i}", help="Edit the wording inside this process step box.")
-                                        updated_steps.append(new_t)
+                                        clean_s_t = str(s_t).replace("&amp;", "&")
+                                        new_t = st.text_input(f"Step {s_i + 1} Text:", value=clean_s_t, key=f"qe_step_txt_{sec_id}_{s_i}", help="Edit the wording inside this process step box.")
+                                        updated_steps.append(new_t.replace("&amp;", "&"))
                                     
-                                    curr_dec = p_decs[0] if p_decs else "Verification Criteria Met?"
-                                    updated_dec = st.text_input("Decision Diamond Criteria:", value=curr_dec, key=f"qe_dec_txt_{sec_id}", help="Edit the question inside the decision diamond.")
+                                    curr_dec = p_decs[0].replace("&amp;", "&") if p_decs else "Verification Criteria Met?"
+                                    updated_dec = st.text_input("Decision Diamond Criteria:", value=curr_dec, key=f"qe_dec_txt_{sec_id}", help="Edit the question inside the decision diamond.").replace("&amp;", "&")
                                     
                                     qe_c1, qe_c2 = st.columns([1, 1])
                                     with qe_c1:
@@ -1537,11 +1544,13 @@ try:
                                         qe_ai = st.form_submit_button("🤖 AI Shorten & Split Big Sentences", use_container_width=True)
                                     
                                     if qe_save:
-                                        valid_steps = [st.strip() for st in updated_steps if st.strip()]
+                                        valid_steps = [st.strip().replace("&amp;", "&") for st in updated_steps if st.strip()]
                                         new_flow_code = build_mermaid_flowchart_from_answers({
                                             "steps": "\n".join(valid_steps),
                                             "decisions": updated_dec
                                         })
+                                        while "&amp;" in new_flow_code:
+                                            new_flow_code = new_flow_code.replace("&amp;", "&")
                                         if existing_sec:
                                             existing_sec.content = new_flow_code
                                         else:
@@ -1555,13 +1564,15 @@ try:
                                         with st.spinner("🤖 AI is splitting big sentences and refining flowchart boxes..."):
                                             from services.llm_service import get_llm_provider
                                             llm = get_llm_provider()
-                                            valid_steps = [st.strip() for st in updated_steps if st.strip()]
+                                            valid_steps = [st.strip().replace("&amp;", "&") for st in updated_steps if st.strip()]
                                             improved_flow_code = llm.assist_flowchart(
                                                 draft_steps="\n".join(valid_steps),
                                                 decisions=updated_dec,
                                                 process_name=current_note.process_name,
                                                 team_name=current_note.team
                                             )
+                                            while "&amp;" in improved_flow_code:
+                                                improved_flow_code = improved_flow_code.replace("&amp;", "&")
                                             if existing_sec:
                                                 existing_sec.content = improved_flow_code
                                             else:
@@ -1632,6 +1643,8 @@ try:
                                         from services.llm_service import get_llm_provider
                                         llm = get_llm_provider()
                                         mermaid_code = llm.generate_flowchart_mermaid(desc_sec.structured_data)
+                                        while "&amp;" in mermaid_code:
+                                            mermaid_code = mermaid_code.replace("&amp;", "&")
                                         if not existing_sec:
                                             new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=mermaid_code)
                                             db.add(new_sec)
@@ -1657,6 +1670,8 @@ try:
                                 ai_assist_btn = st.form_submit_button("🤖 AI Assistant (Refine / Convert Notes to Flowchart)", use_container_width=True)
 
                             if save_chart_btn:
+                                while "&amp;" in chart_content:
+                                    chart_content = chart_content.replace("&amp;", "&")
                                 if not existing_sec:
                                     new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=chart_content)
                                     db.add(new_sec)
@@ -1676,6 +1691,8 @@ try:
                                         process_name=current_note.process_name,
                                         team_name=current_note.team
                                     )
+                                    while "&amp;" in improved_code:
+                                        improved_code = improved_code.replace("&amp;", "&")
                                     if not existing_sec:
                                         new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=improved_code)
                                         db.add(new_sec)
