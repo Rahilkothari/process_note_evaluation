@@ -798,7 +798,8 @@ try:
                             ai_text_btn = st.form_submit_button("🤖 Polish & Synthesize with AI", use_container_width=True)
 
                         if apply_text_btn:
-                            formatted_content = build_text_summary_from_answers(sec_id, answers)
+                            from config.guided_questions import clean_heading_hashes
+                            formatted_content = clean_heading_hashes(build_text_summary_from_answers(sec_id, answers), sec_id, sec_config['name'])
                             from core.rule_validator import RuleValidator
                             from models.schemas import ProcessSectionSchema
                             sec_schema = ProcessSectionSchema(section_id=sec_id, content=formatted_content, structured_data=[])
@@ -822,9 +823,10 @@ try:
                         if ai_text_btn:
                             with st.spinner("AI is synthesizing professional enterprise content..."):
                                 from services.llm_service import get_llm_provider
+                                from config.guided_questions import clean_heading_hashes
                                 llm = get_llm_provider()
                                 raw_notes = build_text_summary_from_answers(sec_id, answers)
-                                gen_result = llm.generate_section_from_qa(sec_id, sec_config, raw_notes, team_name=current_note.team)
+                                gen_result = clean_heading_hashes(llm.generate_section_from_qa(sec_id, sec_config, raw_notes, team_name=current_note.team), sec_id, sec_config['name'])
                                 if not existing_sec:
                                     existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=gen_result)
                                     db.add(existing_sec)
@@ -864,6 +866,8 @@ try:
                         st.session_state[f"is_editing_{sec_id}"] = True
                         st.rerun()
                 elif is_completed and not is_editing:
+                    from config.guided_questions import clean_heading_hashes
+                    clean_display = clean_heading_hashes(existing_sec.content, sec_id, sec_config['name'])
                     st.markdown(
                         f"""
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; margin-bottom: 8px;">
@@ -875,7 +879,7 @@ try:
                     )
                     st.markdown(
                         f"""
-                        <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px; padding: 14px 18px; line-height: 1.6; color: #1E293B; font-size: 13.5px; margin-bottom: 12px; white-space: pre-wrap;">{existing_sec.content}</div>
+                        <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px; padding: 14px 18px; line-height: 1.6; color: #1E293B; font-size: 13.5px; margin-bottom: 12px; white-space: pre-wrap;">{clean_display}</div>
                         """,
                         unsafe_allow_html=True
                     )
@@ -891,14 +895,15 @@ try:
                 else:
                     col_h1, col_h2 = st.columns([3, 1])
                     with col_h1:
-                        st.markdown(f"##### ✏️ Editing {sec_config['name']}:")
+                        st.markdown(f'<div style="font-weight: 700; font-size: 15px; color: #1E293B; margin-bottom: 8px;">✏️ Editing {sec_config["name"]}:</div>', unsafe_allow_html=True)
                     with col_h2:
                         if is_completed and st.button("✖️ Cancel / Done", key=f"btn_cancel_txt_{sec_id}", use_container_width=True):
                             st.session_state[f"is_editing_{sec_id}"] = False
                             st.rerun()
 
                     with st.form(f"form_{sec_id}"):
-                        val = existing_sec.content if existing_sec else ""
+                        from config.guided_questions import clean_heading_hashes
+                        val = clean_heading_hashes(existing_sec.content, sec_id, sec_config['name']) if existing_sec else ""
                         content = st.text_area("Provide your detailed response below:", value=val, height=250)
                         
                         col1, col2 = st.columns([1, 1])
@@ -916,13 +921,15 @@ try:
                                 if isinstance(context_list, str):
                                     context_list = [context_list]
                                 llm = get_llm_provider()
-                                suggestion = llm.generate_suggestion(sec_config, context_list, user_draft=content)
+                                raw_suggestion = llm.generate_suggestion(sec_config, context_list, user_draft=content)
+                                suggestion = clean_heading_hashes(raw_suggestion, sec_id, sec_config['name'])
                                 st.info(f"**AI Suggestion (Copy and paste into the box above):**\n\n{suggestion}")
 
                         if save_btn:
                             from core.rule_validator import RuleValidator
                             from models.schemas import ProcessSectionSchema
-                            sec_schema = ProcessSectionSchema(section_id=sec_id, content=content, structured_data=[])
+                            cleaned_content = clean_heading_hashes(content, sec_id, sec_config['name'])
+                            sec_schema = ProcessSectionSchema(section_id=sec_id, content=cleaned_content, structured_data=[])
                             issues = RuleValidator().validate(sec_schema, config)
                 
                             if issues:
@@ -930,10 +937,10 @@ try:
                                     st.error(f"Validation Error: {issue}")
                             else:
                                 if not existing_sec:
-                                    new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=content)
+                                    new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=cleaned_content)
                                     db.add(new_sec)
                                 else:
-                                    existing_sec.content = content
+                                    existing_sec.content = cleaned_content
                                 db.commit()
                                 st.session_state[f"is_editing_{sec_id}"] = False
                                 st.success(f"Section {sec_id} saved successfully!")
@@ -1125,7 +1132,7 @@ try:
                 else:
                     col_h1, col_h2 = st.columns([3, 1])
                     with col_h1:
-                        st.markdown(f"##### ✏️ Editing {sec_config['name']} Table:")
+                        st.markdown(f'<div style="font-weight: 700; font-size: 15px; color: #1E293B; margin-bottom: 8px;">✏️ Editing {sec_config["name"]} Table:</div>', unsafe_allow_html=True)
                     with col_h2:
                         if is_completed and st.button("✖️ Cancel / Done", key=f"btn_cancel_tbl_{sec_id}", use_container_width=True):
                             st.session_state[f"is_editing_{sec_id}"] = False
@@ -1295,7 +1302,7 @@ try:
                 else:
                     col_h1, col_h2 = st.columns([3, 1])
                     with col_h1:
-                        st.markdown(f"##### ✏️ Editing {sec_config['name']}:")
+                        st.markdown(f'<div style="font-weight: 700; font-size: 15px; color: #1E293B; margin-bottom: 8px;">✏️ Editing {sec_config["name"]}:</div>', unsafe_allow_html=True)
                     with col_h2:
                         if is_completed and st.button("✖️ Cancel / Done", key=f"btn_cancel_flow_{sec_id}", use_container_width=True):
                             st.session_state[f"is_editing_{sec_id}"] = False
@@ -1379,7 +1386,7 @@ try:
                                     st.rerun()
 
                         if current_chart and not current_chart.endswith(('.png', '.jpg', '.pdf', '.docx', '.vsdx')):
-                            st.markdown("#### Live Flowchart Preview:")
+                            st.markdown('<div style="font-weight: 700; font-size: 14px; color: #1E293B; margin: 10px 0 6px 0;">📊 Live Flowchart Preview:</div>', unsafe_allow_html=True)
                             render_mermaid_flowchart(current_chart)
 
                     with flow_tab2:

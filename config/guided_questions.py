@@ -1140,18 +1140,41 @@ def build_table_rows_from_answers(sec_id: str, answers: Dict[str, Any]) -> List[
     return []
 
 
+def clean_heading_hashes(text: str, sec_id: str = "", sec_name: str = "") -> str:
+    """Removes redundant section title headers and converts markdown hash headers (###) into clean bold labels."""
+    if not text:
+        return ""
+    lines = str(text).split("\n")
+    cleaned_lines = []
+    for line in lines:
+        stripped = line.strip()
+        # Remove redundant section title repetition e.g. "### 1.6 Process Coverage / Scope"
+        if (sec_id and sec_id in stripped) or (sec_name and sec_name.lower() in stripped.lower()):
+            if re.match(r'^#{1,6}\s+', stripped):
+                continue
+        # Convert any heading line: ### Heading -> **Heading**
+        m = re.match(r'^#{1,6}\s+(.+)$', stripped)
+        if m:
+            heading_text = m.group(1).strip()
+            heading_text = re.sub(r'\s*#+$', '', heading_text).strip()
+            cleaned_lines.append(f"**{heading_text}**")
+        else:
+            cleaned_lines.append(line)
+    return "\n".join(cleaned_lines).strip()
+
+
 def build_text_summary_from_answers(sec_id: str, answers: Dict[str, Any]) -> str:
-    """Formats structured questionnaire answers into clean, corporate markdown text for text sections."""
+    """Formats structured questionnaire answers into clean, corporate markdown text for text sections without raw hash headers."""
     if sec_id == "1.6":
         in_scope = answers.get("in_scope", "All operational activities as detailed in this note.")
         out_scope = answers.get("out_of_scope", "Any external activities not explicitly mentioned.")
         stakeholders = answers.get("stakeholders", "All partner stakeholders.")
         return (
-            "### 1. In-Scope Activities & Coverage\n"
+            "**1. In-Scope Activities & Coverage:**\n"
             f"{in_scope}\n\n"
-            "### 2. Out-of-Scope Activities & Exclusions\n"
+            "**2. Out-of-Scope Activities & Exclusions:**\n"
             f"{out_scope}\n\n"
-            "### 3. Target Stakeholders & Beneficiaries\n"
+            "**3. Target Stakeholders & Beneficiaries:**\n"
             f"{stakeholders}"
         )
 
@@ -1159,9 +1182,9 @@ def build_text_summary_from_answers(sec_id: str, answers: Dict[str, Any]) -> str
         bg = answers.get("background", "Standard operating protocol established for operational excellence.")
         imp = answers.get("importance", "Standardization ensures compliance, transparency, and accountability.")
         return (
-            "### Background Context\n"
+            "**Background Context:**\n"
             f"{bg}\n\n"
-            "### Strategic Organizational Importance\n"
+            "**Strategic Organizational Importance:**\n"
             f"{imp}"
         )
 
@@ -1169,9 +1192,9 @@ def build_text_summary_from_answers(sec_id: str, answers: Dict[str, Any]) -> str
         obj = answers.get("primary_obj", "To execute operational activities in a timely, compliant manner.")
         outcome = answers.get("measurable_outcome", "Zero-defect delivery and 100% adherence to timelines.")
         return (
-            "### Primary Business Objective\n"
+            "**Primary Business Objective:**\n"
             f"{obj}\n\n"
-            "### Expected Measurable Outcomes\n"
+            "**Expected Measurable Outcomes:**\n"
             f"{outcome}"
         )
 

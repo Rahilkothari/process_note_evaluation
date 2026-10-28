@@ -343,7 +343,8 @@ try:
             if sec_id in filled_sections:
                 s = filled_sections[sec_id]
                 if s.content:
-                    st.write(s.content)
+                    from config.guided_questions import clean_heading_hashes
+                    st.write(clean_heading_hashes(s.content, sec_id, sec_name))
                 elif s.structured_data:
                     df = pd.DataFrame(s.structured_data)
                     if "Reviewer Comment" not in df.columns:

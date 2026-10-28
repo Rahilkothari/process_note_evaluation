@@ -525,11 +525,12 @@ Historical Context:
 {context_str}
 {draft_instruction}
 
-Generate a polished, professional, and audit-ready draft. Do not use generic filler. Output only the suggested draft.
+Generate a polished, professional, and audit-ready draft. Do not use generic filler. Do not include markdown heading hashes (such as ###, ##, #) or repeat the section title/ID at the top. Use bold labels (**Title:**) for subheadings. Output only the suggested draft.
 """
         try:
             response = self.model.generate_content(prompt)
-            return response.text.strip()
+            from config.guided_questions import clean_heading_hashes
+            return clean_heading_hashes(response.text.strip(), section_rules.get('id', ''), section_rules.get('name', ''))
         except Exception as e:
             return f"Error generating suggestion: {str(e)}"
 
@@ -643,7 +644,7 @@ OUTPUT FORMAT:
   Return ONLY the raw JSON array. No markdown code blocks.
 
 - If Section Type is 'text':
-  Return polished, professional, well-structured text with proper paragraphs or bullet points. Do not use generic filler.
+  Return polished, professional, well-structured text with proper paragraphs or bullet points. Do not use generic filler. Do not include markdown heading hashes (such as ###, ##, #) or repeat the section title/ID at the top. Use bold labels (**Title:**) for subheadings.
 """
         try:
             response = self.model.generate_content(prompt)
@@ -655,11 +656,13 @@ OUTPUT FORMAT:
                 data = json.loads(text)
                 if isinstance(data, list):
                     return data
-            return text
+            from config.guided_questions import clean_heading_hashes
+            return clean_heading_hashes(text, section_id, section_config.get('name', ''))
         except Exception as e:
             if sec_type == "table":
                 return [{f: user_answers[:40] for f in fields}]
-            return f"Processed draft based on answers:\n\n{user_answers}"
+            from config.guided_questions import clean_heading_hashes
+            return clean_heading_hashes(f"Processed draft based on answers:\n\n{user_answers}", section_id, section_config.get('name', ''))
 
     def resolve_clarification(self, section_id: str, section_type: str, current_content: Any, question: str, answer: str) -> Any:
         prompt = f"""

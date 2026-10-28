@@ -148,7 +148,8 @@ try:
                     else:
                         st.info(f"Uploaded diagram: {s.content}")
                 else:
-                    st.write(s.content)
+                    from config.guided_questions import clean_heading_hashes
+                    st.write(clean_heading_hashes(s.content, sec_id, sec_name))
             elif s.structured_data:
                 df = pd.DataFrame(s.structured_data)
                 df.index = df.index + 1

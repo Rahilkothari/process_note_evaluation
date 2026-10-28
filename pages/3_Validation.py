@@ -372,7 +372,7 @@ try:
                             if comment and str(comment).strip():
                                 if not has_comments:
                                     st.markdown("---")
-                                    st.markdown("##### 👤 Manual Reviewer Feedback")
+                                    st.markdown('<div style="font-weight: 700; font-size: 14px; color: #1E293B; margin: 6px 0;">👤 Manual Reviewer Feedback</div>', unsafe_allow_html=True)
                                     has_comments = True
                             
                                 row_id = ""
@@ -388,19 +388,21 @@ try:
             
                 # Inline Editing UI
                 st.markdown("---")
-                st.markdown("##### ✏️ Edit Section Content")
+                st.markdown('<div style="font-weight: 700; font-size: 14px; color: #1E293B; margin: 6px 0;">✏️ Edit Section Content</div>', unsafe_allow_html=True)
                 if sec_def:
                     sec_type = sec_def.get("type")
                     if sec_type == "text":
                         with st.form(f"inline_edit_{true_section_id}_{latest_run.id}"):
-                            current_val = section.content if section else ""
+                            from config.guided_questions import clean_heading_hashes
+                            current_val = clean_heading_hashes(section.content, true_section_id) if section else ""
                             new_content = st.text_area("Update content:", value=current_val, height=150)
                             if st.form_submit_button("Save Update", type="primary"):
+                                cleaned_val = clean_heading_hashes(new_content, true_section_id)
                                 if not section:
-                                    section = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=true_section_id, content=new_content)
+                                    section = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=true_section_id, content=cleaned_val)
                                     db.add(section)
                                 else:
-                                    section.content = new_content
+                                    section.content = cleaned_val
                                 db.commit()
                                 st.success("Section updated! ⚠️ **Note: Re-run AI Validation to get an updated score.**")
                             
