@@ -403,7 +403,23 @@ try:
                     f'</div>'
                 )
                 st.markdown(copilot_banner, unsafe_allow_html=True)
-                
+
+                if sec_config.get("type") == "table":
+                    undo_rows_guide = st.session_state.get(f"undo_table_{sec_id}")
+                    if undo_rows_guide is not None:
+                        ug_col1, ug_col2 = st.columns([3, 1])
+                        with ug_col1:
+                            st.warning(f"↩️ **Undo Available:** A previous version with **{len(undo_rows_guide)} rows** was saved before the last change.")
+                        with ug_col2:
+                            if st.button(f"↩️ Restore {len(undo_rows_guide)} Rows", key=f"btn_undo_guide_top_{sec_id}", type="secondary", use_container_width=True):
+                                import copy
+                                st.session_state[f"redo_table_{sec_id}"] = copy.deepcopy(existing_sec.structured_data if (existing_sec and existing_sec.structured_data) else [])
+                                existing_sec.structured_data = copy.deepcopy(undo_rows_guide)
+                                db.commit()
+                                del st.session_state[f"undo_table_{sec_id}"]
+                                st.success(f"✅ Table restored to previous {len(undo_rows_guide)} rows!")
+                                st.rerun()
+
                 with st.form(key=f"guided_qa_form_{sec_id}", clear_on_submit=False):
                     answers = {}
                     fields = spec.get("fields", [])
@@ -631,54 +647,102 @@ try:
                         apply_btn = False
                         append_btn = False
 
-                        if sec_id in multi_row_sections:
+                        existing_rows = existing_sec.structured_data if (existing_sec and existing_sec.structured_data) else []
+                        num_existing = len(existing_rows)
+
+                        if sec_id in multi_row_sections and num_existing > 0:
+                            st.warning(
+                                f"⚠️ **Table currently contains {num_existing} row{'s' if num_existing > 1 else ''}.**\n\n"
+                                f"• **➕ Add as New Row (Recommended)**: Refines your answers with AI and appends as a new row (preserves existing {num_existing} rows).\n"
+                                f"• **⚠️ Overwrite Entire Table**: Wipes out all {num_existing} row{'s' if num_existing > 1 else ''} and resets the table to only this single row."
+                            )
+                            confirm_overwrite = False
+                            if num_existing >= 2:
+                                confirm_overwrite = st.checkbox(
+                                    f"⚠️ Confirm overwrite: Delete all {num_existing} existing rows and replace with this 1 row",
+                                    key=f"confirm_overwrite_{sec_id}",
+                                    value=False,
+                                    help="Check this box only if you intentionally want to delete all current rows and replace them."
+                                )
+                            else:
+                                confirm_overwrite = True
+
                             col_btn1, col_btn2 = st.columns([1, 1])
                             with col_btn1:
-                                apply_btn = st.form_submit_button("✨ Set Table", type="primary", use_container_width=True, help="Refines your answers with AI (fixes typos & standardizes tone) and populates the table.")
+                                append_btn = st.form_submit_button(
+                                    f"➕ Add as New Row (Keep {num_existing} rows)",
+                                    type="primary",
+                                    use_container_width=True,
+                                    help="Refines your answers with AI and appends as a new row to the existing table."
+                                )
+                            with col_btn2:
+                                apply_btn = st.form_submit_button(
+                                    f"⚠️ Overwrite Entire Table ({num_existing} ➔ 1 row)",
+                                    use_container_width=True,
+                                    help=f"WARNING: Wipes out all {num_existing} rows and replaces with this single row."
+                                )
+                        elif sec_id in multi_row_sections:
+                            col_btn1, col_btn2 = st.columns([1, 1])
+                            with col_btn1:
+                                apply_btn = st.form_submit_button("✨ Set Table (1st Row)", type="primary", use_container_width=True, help="Refines your answers with AI and populates the table.")
                             with col_btn2:
                                 append_btn = st.form_submit_button("➕ Add as New Row", use_container_width=True, help="Refines your answers with AI and appends as a new row to the existing table.")
+                            confirm_overwrite = True
                         else:
                             apply_btn = st.form_submit_button(f"✨ Apply to {sec_config['name']}", type="primary", use_container_width=True, help="Refines your answers with AI and populates the table.")
+                            confirm_overwrite = True
 
                         # Handle Set / Overwrite Table
                         if apply_btn:
-                            raw_rows = build_table_rows_from_answers(sec_id, answers)
-                            with st.spinner("🤖 Refining answers, correcting typos, and setting table..."):
-                                from services.llm_service import get_llm_provider
-                                llm = get_llm_provider()
-                                final_rows = llm.refine_table_rows_with_ai(
-                                    section_id=sec_id,
-                                    section_config=sec_config,
-                                    raw_rows=raw_rows,
-                                    answers_dict=answers,
-                                    process_name=current_note.process_name,
-                                    team_name=current_note.team
+                            if num_existing >= 2 and not confirm_overwrite:
+                                st.error(
+                                    f"🛑 Overwrite Blocked to Prevent Data Loss: Your table currently has {num_existing} rows! "
+                                    f"To keep your existing rows and add this new activity, please click '➕ Add as New Row'. "
+                                    f"If you intentionally want to wipe all {num_existing} rows, check the 'Confirm overwrite' checkbox above and submit again."
                                 )
-
-                            from core.rule_validator import RuleValidator
-                            from models.schemas import ProcessSectionSchema
-                            sec_schema = ProcessSectionSchema(section_id=sec_id, content="", structured_data=final_rows)
-                            issues = RuleValidator().validate(sec_schema, config)
-                            if issues:
-                                for issue in issues:
-                                    st.error(f"❌ Validation Error: {issue}")
-                                if sec_id == "1.8":
-                                    st.info("💡 **Requirement for End Point:** Exit Criteria must be descriptive (at least 4 words). Simply typing 'abc' or vague text is not accepted — specify what deliverable, authorization, or sign-off confirms completion.")
-                                elif sec_id == "1.7":
-                                    st.info("💡 **Requirement for Start Point:** Entry Criteria must be descriptive (at least 4 words) describing verified prerequisite documents or authorizations.")
                             else:
-                                if not existing_sec:
-                                    existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=final_rows)
-                                    db.add(existing_sec)
-                                    existing_sections[sec_id] = existing_sec
+                                raw_rows = build_table_rows_from_answers(sec_id, answers)
+                                with st.spinner("🤖 Refining answers, correcting typos, and setting table..."):
+                                    from services.llm_service import get_llm_provider
+                                    llm = get_llm_provider()
+                                    final_rows = llm.refine_table_rows_with_ai(
+                                        section_id=sec_id,
+                                        section_config=sec_config,
+                                        raw_rows=raw_rows,
+                                        answers_dict=answers,
+                                        process_name=current_note.process_name,
+                                        team_name=current_note.team
+                                    )
+
+                                from core.rule_validator import RuleValidator
+                                from models.schemas import ProcessSectionSchema
+                                sec_schema = ProcessSectionSchema(section_id=sec_id, content="", structured_data=final_rows)
+                                issues = RuleValidator().validate(sec_schema, config)
+                                if issues:
+                                    for issue in issues:
+                                        st.error(f"❌ Validation Error: {issue}")
+                                    if sec_id == "1.8":
+                                        st.info("💡 **Requirement for End Point:** Exit Criteria must be descriptive (at least 4 words). Simply typing 'abc' or vague text is not accepted — specify what deliverable, authorization, or sign-off confirms completion.")
+                                    elif sec_id == "1.7":
+                                        st.info("💡 **Requirement for Start Point:** Entry Criteria must be descriptive (at least 4 words) describing verified prerequisite documents or authorizations.")
                                 else:
-                                    existing_sec.structured_data = final_rows
-                                db.commit()
-                                is_completed = True
-                                st.session_state[f"show_guide_{sec_id}"] = False
-                                st.session_state[f"is_editing_{sec_id}"] = False
-                                st.success(f"✅ {sec_config['name']} refined and saved to table!")
-                                st.rerun()
+                                    import copy
+                                    # Snapshot existing rows for Undo
+                                    if existing_sec and existing_sec.structured_data:
+                                        st.session_state[f"undo_table_{sec_id}"] = copy.deepcopy(existing_sec.structured_data)
+
+                                    if not existing_sec:
+                                        existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=final_rows)
+                                        db.add(existing_sec)
+                                        existing_sections[sec_id] = existing_sec
+                                    else:
+                                        existing_sec.structured_data = final_rows
+                                    db.commit()
+                                    is_completed = True
+                                    st.session_state[f"show_guide_{sec_id}"] = False
+                                    st.session_state[f"is_editing_{sec_id}"] = False
+                                    st.success(f"✅ {sec_config['name']} refined and saved to table!")
+                                    st.rerun()
 
                         # Handle Add Row to Table
                         if append_btn:
@@ -707,6 +771,11 @@ try:
                                 for issue in issues:
                                     st.error(f"❌ Validation Error: {issue}")
                             else:
+                                import copy
+                                # Snapshot existing rows for Undo
+                                if existing_sec and existing_sec.structured_data:
+                                    st.session_state[f"undo_table_{sec_id}"] = copy.deepcopy(existing_sec.structured_data)
+
                                 if not existing_sec:
                                     existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=combined_rows)
                                     db.add(existing_sec)
@@ -1051,6 +1120,126 @@ try:
                                 st.rerun()
 
             elif sec_config["type"] == "table":
+                # Table Undo & Redo Banner
+                undo_rows = st.session_state.get(f"undo_table_{sec_id}")
+                redo_rows = st.session_state.get(f"redo_table_{sec_id}")
+                if undo_rows is not None:
+                    u_col1, u_col2 = st.columns([3, 1])
+                    with u_col1:
+                        st.warning(f"↩️ **Undo Snapshot Available:** A previous table version with **{len(undo_rows)} rows** is saved. Did you overwrite or lose rows by mistake?")
+                    with u_col2:
+                        if st.button(f"↩️ Undo & Restore ({len(undo_rows)} rows)", key=f"btn_undo_tbl_main_{sec_id}", type="secondary", use_container_width=True):
+                            import copy
+                            st.session_state[f"redo_table_{sec_id}"] = copy.deepcopy(existing_sec.structured_data if (existing_sec and existing_sec.structured_data) else [])
+                            existing_sec.structured_data = copy.deepcopy(undo_rows)
+                            db.commit()
+                            del st.session_state[f"undo_table_{sec_id}"]
+                            st.success(f"✅ Successfully restored previous table with {len(undo_rows)} rows!")
+                            st.rerun()
+                elif redo_rows is not None:
+                    r_col1, r_col2 = st.columns([3, 1])
+                    with r_col1:
+                        st.info(f"↪️ **Redo Snapshot Available:** You can reapply the state with **{len(redo_rows)} rows**.")
+                    with r_col2:
+                        if st.button(f"↪️ Redo ({len(redo_rows)} rows)", key=f"btn_redo_tbl_main_{sec_id}", type="secondary", use_container_width=True):
+                            import copy
+                            st.session_state[f"undo_table_{sec_id}"] = copy.deepcopy(existing_sec.structured_data if (existing_sec and existing_sec.structured_data) else [])
+                            existing_sec.structured_data = copy.deepcopy(redo_rows)
+                            db.commit()
+                            del st.session_state[f"redo_table_{sec_id}"]
+                            st.success(f"✅ Reapplied table with {len(redo_rows)} rows!")
+                            st.rerun()
+
+                # Special Quick-Recovery for Process Description (1.12) from Flowchart (1.11) or RACI Matrix (1.13)
+                if sec_id == "1.12":
+                    desc_rows = existing_sec.structured_data if (existing_sec and existing_sec.structured_data) else []
+                    flow_sec = existing_sections.get("1.11")
+                    f_steps = []
+                    if flow_sec and flow_sec.content:
+                        try:
+                            from config.guided_questions import parse_flowchart_steps
+                            res = parse_flowchart_steps(flow_sec.content)
+                            if isinstance(res, (tuple, list)) and len(res) == 2:
+                                f_steps, _ = res
+                        except Exception:
+                            pass
+
+                    raci_sec = existing_sections.get("1.13")
+                    raci_rows = raci_sec.structured_data if (raci_sec and raci_sec.structured_data) else []
+
+                    if len(f_steps) >= 2 or len(raci_rows) >= 2:
+                        cols_rec = st.columns(2 if (len(f_steps) >= 2 and len(raci_rows) >= 2) else 1)
+                        col_idx = 0
+                        if len(f_steps) >= 2:
+                            with cols_rec[col_idx]:
+                                if st.button(f"🔄 Recover All {len(f_steps)} Activities from Flowchart (1.11)", key="btn_rec_112_from_flow", use_container_width=True, help="Reconstructs all activities and roles from your Flowchart into Section 1.12 with full standard details"):
+                                    import copy
+                                    import re
+                                    if existing_sec and existing_sec.structured_data:
+                                        st.session_state["undo_table_1.12"] = copy.deepcopy(existing_sec.structured_data)
+                                    recovered = []
+                                    for i, raw_step in enumerate(f_steps, start=1):
+                                        m = re.match(r'^(?:\d+[\.\)]\s*)?(.*?)(?:<br\s*/?>\s*Owner:\s*(.*?))?$', raw_step, re.IGNORECASE)
+                                        act_name = m.group(1).strip() if m else raw_step.strip()
+                                        act_owner = m.group(2).strip() if (m and m.group(2)) else "Operations Lead"
+                                        recovered.append({
+                                            "Activity": act_name,
+                                            "Description": (
+                                                f"1. Inputs: District school registry, application records, and prerequisite authorizations.\n"
+                                                f"2. Sub-steps:\n1. Verify stage prerequisites.\n2. Execute {act_name} per established protocol.\n3. Log progress in MIS.\n"
+                                                f"3. Tools & Systems: Partner School Portal, Excel Tracker, MIS\n"
+                                                f"4. Stakeholders & Hand-offs: Handed over from stage executor to next sequential milestone owner\n"
+                                                f"5. Expected Deliverable: Verified and approved {act_name} dossier\n"
+                                                f"6. Checks & Validations: Managerial sign-off and validation against standard checklist"
+                                            ),
+                                            "Owner/Role": act_owner,
+                                            "TAT": "2 Business Days"
+                                        })
+                                    if not existing_sec:
+                                        existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id="1.12", structured_data=recovered)
+                                        db.add(existing_sec)
+                                        existing_sections["1.12"] = existing_sec
+                                    else:
+                                        existing_sec.structured_data = recovered
+                                    db.commit()
+                                    st.success(f"✅ Reconstructed all {len(recovered)} activities from Flowchart into Section 1.12!")
+                                    st.rerun()
+                            col_idx += 1
+                        if len(raci_rows) >= 2 and col_idx < len(cols_rec):
+                            with cols_rec[col_idx]:
+                                if st.button(f"🔄 Recover All {len(raci_rows)} Activities from RACI Matrix (1.13)", key="btn_rec_112_from_raci", use_container_width=True, help="Reconstructs Section 1.12 activities from RACI"):
+                                    import copy
+                                    if existing_sec and existing_sec.structured_data:
+                                        st.session_state["undo_table_1.12"] = copy.deepcopy(existing_sec.structured_data)
+                                    recovered = []
+                                    for i, r_item in enumerate(raci_rows, start=1):
+                                        act_name = r_item.get("Activity name") or r_item.get("Activity") or f"Activity {i}"
+                                        act_desc = r_item.get("Activity description") or f"Execute {act_name} per operating protocol."
+                                        act_owner = r_item.get("Responsible") or "Operations Lead"
+                                        act_tat = r_item.get("Timeline") or "2 Business Days"
+                                        recovered.append({
+                                            "Activity": act_name,
+                                            "Description": act_desc if len(str(act_desc).split()) >= 10 else (
+                                                f"1. Inputs: District school registry, application records, and prerequisite authorizations.\n"
+                                                f"2. Sub-steps:\n1. Execute {act_name}.\n2. Log progress.\n"
+                                                f"3. Tools & Systems: Operations MIS, Excel\n"
+                                                f"4. Stakeholders & Hand-offs: Handed to next stage owner\n"
+                                                f"5. Expected Deliverable: Verified {act_name} dossier\n"
+                                                f"6. Checks & Validations: Managerial verification"
+                                            ),
+                                            "Owner/Role": act_owner,
+                                            "TAT": act_tat
+                                        })
+                                    if not existing_sec:
+                                        existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id="1.12", structured_data=recovered)
+                                        db.add(existing_sec)
+                                        existing_sections["1.12"] = existing_sec
+                                    else:
+                                        existing_sec.structured_data = recovered
+                                    db.commit()
+                                    st.success(f"✅ Reconstructed all {len(recovered)} activities from RACI into Section 1.12!")
+                                    st.rerun()
+
                 # Special Quick-Action for RACI Matrix (1.13)
                 if sec_id == "1.13":
                     st.markdown("""
@@ -1065,6 +1254,9 @@ try:
                     desc_sec = existing_sections.get("1.12")
                     if desc_sec and desc_sec.structured_data:
                         if st.button("🔄 Auto-Populate Activities from Process Description (1.12)", key="btn_sync_raci"):
+                            import copy
+                            if existing_sec and existing_sec.structured_data:
+                                st.session_state[f"undo_table_{sec_id}"] = copy.deepcopy(existing_sec.structured_data)
                             new_raci_data = []
                             for i, row in enumerate(desc_sec.structured_data, start=1):
                                 new_raci_data.append({
@@ -1270,6 +1462,9 @@ try:
                                 for issue in issues:
                                     st.error(f"Validation Error: {issue}")
                             else:
+                                import copy
+                                if existing_sec and existing_sec.structured_data:
+                                    st.session_state[f"undo_table_{sec_id}"] = copy.deepcopy(existing_sec.structured_data)
                                 if not existing_sec:
                                     new_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=json_data)
                                     db.add(new_sec)
