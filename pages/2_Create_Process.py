@@ -439,17 +439,17 @@ try:
                         
                         calculated_next = compute_next_review_date(eff_val, freq_val)
                         combo_key = f"_combo_{sec_id}"
+                        next_date_key = f"qa_{sec_id}_next_date"
                         curr_combo = f"{eff_val}_{freq_val}"
-                        if st.session_state.get(combo_key) != curr_combo:
-                            st.session_state[f"qa_{sec_id}_next_date"] = calculated_next
+                        if st.session_state.get(combo_key) != curr_combo or next_date_key not in st.session_state:
+                            st.session_state[next_date_key] = calculated_next
                             st.session_state[combo_key] = curr_combo
 
                         c3, c4 = st.columns(2)
                         with c3:
                             next_val = st.date_input(
                                 "3. Scheduled Next Review Date:",
-                                value=st.session_state.get(f"qa_{sec_id}_next_date", calculated_next),
-                                key=f"qa_{sec_id}_next_date",
+                                key=next_date_key,
                                 help="Auto-calculated from Effective Date + Frequency (you can adjust if needed)."
                             )
                         with c4:
