@@ -241,7 +241,7 @@ class MockProvider(LLMProvider):
             if current_content:
                 current_content[0]["Description"] = current_content[0].get("Description", "") + f" [Clarification incorporated: {answer}]"
             return current_content
-        return f"{current_content}\n\n**Clarification Note ({question}):** {answer}"
+        return f"{current_content}\n\nClarification Note ({question}): {answer}"
 
     def refine_table_rows_with_ai(
         self,
@@ -525,7 +525,7 @@ Historical Context:
 {context_str}
 {draft_instruction}
 
-Generate a polished, professional, and audit-ready draft. Do not use generic filler. Do not include markdown heading hashes (such as ###, ##, #) or repeat the section title/ID at the top. Use bold labels (**Title:**) for subheadings. Output only the suggested draft.
+Generate a polished, professional, and audit-ready draft. Do not use generic filler. Do not include markdown heading hashes (such as ###, ##, #) or repeat the section title/ID at the top. Do not use markdown bold asterisks (**) around titles, headers, or bullet points. Use clean title lines followed by a colon instead. Output only the suggested draft.
 """
         try:
             response = self.model.generate_content(prompt)
@@ -644,7 +644,7 @@ OUTPUT FORMAT:
   Return ONLY the raw JSON array. No markdown code blocks.
 
 - If Section Type is 'text':
-  Return polished, professional, well-structured text with proper paragraphs or bullet points. Do not use generic filler. Do not include markdown heading hashes (such as ###, ##, #) or repeat the section title/ID at the top. Use bold labels (**Title:**) for subheadings.
+  Return polished, professional, well-structured text with proper paragraphs or bullet points. Do not use generic filler. Do not include markdown heading hashes (such as ###, ##, #) or repeat the section title/ID at the top. Do not use markdown bold asterisks (**) anywhere around titles, headers, or bullet points. Use clean title lines followed by a colon instead.
 """
         try:
             response = self.model.generate_content(prompt)
@@ -700,13 +700,14 @@ Return ONLY the updated content. If JSON, do not wrap in markdown fences.
                 data = json.loads(text)
                 if isinstance(data, list):
                     return data
-            return text
+            from config.guided_questions import clean_heading_hashes
+            return clean_heading_hashes(text, section_id)
         except Exception:
             if section_type == "table" and isinstance(current_content, list):
                 if current_content:
                     current_content[0]["Description"] = current_content[0].get("Description", "") + f" [Clarification: {answer}]"
                 return current_content
-            return f"{current_content}\n\n**Clarification ({question}):** {answer}"
+            return f"{current_content}\n\nClarification ({question}): {answer}"
 
     def refine_table_rows_with_ai(
         self,

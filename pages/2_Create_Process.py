@@ -819,6 +819,7 @@ try:
                                 st.session_state[f"show_guide_{sec_id}"] = False
                                 st.session_state[f"is_editing_{sec_id}"] = False
                                 st.success("✅ Section content updated from your answers! Check preview below.")
+                                st.rerun()
 
                         if ai_text_btn:
                             with st.spinner("AI is synthesizing professional enterprise content..."):
@@ -837,10 +838,8 @@ try:
                                 is_completed = True
                                 st.session_state[f"show_guide_{sec_id}"] = False
                                 st.session_state[f"is_editing_{sec_id}"] = False
-                                st.session_state[f"last_synthesized_{sec_id}"] = gen_result
                                 st.success("✅ Section synthesized with AI! Check preview below.")
-                                st.info("📋 **Synthesized Content:** Click the copy icon (`📋`) in the top-right corner of the box below to copy:")
-                                st.code(gen_result, language=None)
+                                st.rerun()
 
                 if is_completed:
                     if st.button("✖️ Collapse Guided Form", key=f"btn_close_expander_{sec_id}"):
@@ -886,9 +885,6 @@ try:
                         """,
                         unsafe_allow_html=True
                     )
-                    with st.expander("📋 View & Copy Raw Content", expanded=False):
-                        st.caption("Click the copy icon (`📋`) in the top-right corner of the box below:")
-                        st.code(clean_display, language=None)
                     col_act1, col_act2 = st.columns([1, 1])
                     with col_act1:
                         if st.button("✏️ Edit Content Directly", key=f"btn_edit_txt_{sec_id}", type="primary", use_container_width=True):

@@ -1141,40 +1141,67 @@ def build_table_rows_from_answers(sec_id: str, answers: Dict[str, Any]) -> List[
 
 
 def clean_heading_hashes(text: str, sec_id: str = "", sec_name: str = "") -> str:
-    """Removes redundant section title headers and converts markdown hash headers (###) into clean bold labels."""
+    """Removes redundant section title headers, markdown hashes (###), and all stars/asterisks (**) to keep corporate text plain and clean."""
     if not text:
         return ""
     lines = str(text).split("\n")
     cleaned_lines = []
+
+    sec_id_norm = sec_id.strip().lower() if sec_id else ""
+    sec_name_norm = sec_name.strip().lower() if sec_name else ""
+
     for line in lines:
         stripped = line.strip()
-        # Remove redundant section title repetition e.g. "### 1.6 Process Coverage / Scope"
-        if (sec_id and sec_id in stripped) or (sec_name and sec_name.lower() in stripped.lower()):
-            if re.match(r'^#{1,6}\s+', stripped):
+
+        # Omit lines that repeat the section id or title (e.g. '### 1.9 Introduction' or '**1.9 Introduction**')
+        stripped_clean = re.sub(r'^[#*_\-\s]+', '', stripped).lower()
+        if sec_id_norm and (sec_id_norm in stripped_clean):
+            if sec_name_norm and any(w in stripped_clean for w in sec_name_norm.split()):
                 continue
-        # Convert any heading line: ### Heading -> **Heading**
-        m = re.match(r'^#{1,6}\s+(.+)$', stripped)
-        if m:
-            heading_text = m.group(1).strip()
-            heading_text = re.sub(r'\s*#+$', '', heading_text).strip()
-            cleaned_lines.append(f"**{heading_text}**")
-        else:
-            cleaned_lines.append(line)
-    return "\n".join(cleaned_lines).strip()
+            if stripped_clean.startswith(sec_id_norm):
+                continue
+        elif sec_name_norm and (stripped_clean == sec_name_norm or stripped_clean == f"{sec_name_norm}:"):
+            continue
+
+        # If it's a markdown heading line like '### Heading' or '## Heading:'
+        m_head = re.match(r'^#{1,6}\s*(.+)$', stripped)
+        if m_head:
+            head_txt = m_head.group(1).strip()
+            head_txt = re.sub(r'\s*#+$', '', head_txt).strip()
+            head_txt = head_txt.replace('*', '').strip()
+            if head_txt and not head_txt.endswith(':'):
+                head_txt += ':'
+            cleaned_lines.append(head_txt)
+            continue
+
+        # Convert asterisk bullets like '* Item' to clean dash bullets '- Item'
+        line_clean = re.sub(r'^\s*[*•]\s+', '- ', line)
+
+        # Strip all asterisks/stars (bold, italic, or stray) completely from the line
+        line_clean = line_clean.replace('*', '')
+
+        # Strip any leading markdown hashes if any remained
+        line_clean = re.sub(r'^#{1,6}\s*', '', line_clean)
+
+        cleaned_lines.append(line_clean)
+
+    result = "\n".join(cleaned_lines).strip()
+    result = re.sub(r'\n{3,}', '\n\n', result)
+    return result
 
 
 def build_text_summary_from_answers(sec_id: str, answers: Dict[str, Any]) -> str:
-    """Formats structured questionnaire answers into clean, corporate markdown text for text sections without raw hash headers."""
+    """Formats structured questionnaire answers into clean, corporate text for text sections without markdown hashes or stars."""
     if sec_id == "1.6":
         in_scope = answers.get("in_scope", "All operational activities as detailed in this note.")
         out_scope = answers.get("out_of_scope", "Any external activities not explicitly mentioned.")
         stakeholders = answers.get("stakeholders", "All partner stakeholders.")
         return (
-            "**1. In-Scope Activities & Coverage:**\n"
+            "1. In-Scope Activities & Coverage:\n"
             f"{in_scope}\n\n"
-            "**2. Out-of-Scope Activities & Exclusions:**\n"
+            "2. Out-of-Scope Activities & Exclusions:\n"
             f"{out_scope}\n\n"
-            "**3. Target Stakeholders & Beneficiaries:**\n"
+            "3. Target Stakeholders & Beneficiaries:\n"
             f"{stakeholders}"
         )
 
@@ -1182,9 +1209,9 @@ def build_text_summary_from_answers(sec_id: str, answers: Dict[str, Any]) -> str
         bg = answers.get("background", "Standard operating protocol established for operational excellence.")
         imp = answers.get("importance", "Standardization ensures compliance, transparency, and accountability.")
         return (
-            "**Background Context:**\n"
+            "Background Context:\n"
             f"{bg}\n\n"
-            "**Strategic Organizational Importance:**\n"
+            "Strategic Organizational Importance:\n"
             f"{imp}"
         )
 
@@ -1192,9 +1219,9 @@ def build_text_summary_from_answers(sec_id: str, answers: Dict[str, Any]) -> str
         obj = answers.get("primary_obj", "To execute operational activities in a timely, compliant manner.")
         outcome = answers.get("measurable_outcome", "Zero-defect delivery and 100% adherence to timelines.")
         return (
-            "**Primary Business Objective:**\n"
+            "Primary Business Objective:\n"
             f"{obj}\n\n"
-            "**Expected Measurable Outcomes:**\n"
+            "Expected Measurable Outcomes:\n"
             f"{outcome}"
         )
 
@@ -1202,7 +1229,7 @@ def build_text_summary_from_answers(sec_id: str, answers: Dict[str, Any]) -> str
     summary_lines = []
     for k, v in answers.items():
         if v:
-            summary_lines.append(f"- **{k.replace('_', ' ').title()}:** {v}")
+            summary_lines.append(f"{k.replace('_', ' ').title()}: {v}")
     return "\n".join(summary_lines)
 
 

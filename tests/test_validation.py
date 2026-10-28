@@ -157,4 +157,24 @@ def test_start_and_end_point_criteria_validation():
     good_issues = validator.validate(good_sec, config)
     assert len(good_issues) == 0
 
+def test_clean_heading_hashes_removes_hashes_and_stars():
+    from config.guided_questions import clean_heading_hashes
+    raw = (
+        "### 1.9 Introduction\n"
+        "**Background & Context:**\n"
+        "Establishing structured relationships is key.\n\n"
+        "* Criteria 1\n"
+        "* Criteria 2\n\n"
+        "### Strategic & Operational Purpose:\n"
+        "This note defines procedures."
+    )
+    cleaned = clean_heading_hashes(raw, "1.9", "Introduction")
+    assert "#" not in cleaned
+    assert "*" not in cleaned
+    assert "Background & Context:" in cleaned
+    assert "Strategic & Operational Purpose:" in cleaned
+    assert "- Criteria 1" in cleaned
+    assert "1.9 Introduction" not in cleaned
+
+
 

@@ -349,7 +349,7 @@ def get_mermaid_svg_bytes(clean_code: str) -> bytes:
     return None
 
 
-def render_mermaid_flowchart(chart_code: str, height: int = None, show_code_toggle: bool = True):
+def render_mermaid_flowchart(chart_code: str, height: int = None, show_code_toggle: bool = False):
     """
     Renders Mermaid flowchart code as a high-fidelity visual SVG diagram with
     clean rectangular process boxes, decision diamonds, and labeled connection arrows,
