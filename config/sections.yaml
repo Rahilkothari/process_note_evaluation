@@ -9,7 +9,7 @@ sections:
   - Sign
   - Date
   help_text: List the key individuals responsible for reviewing and approving this process note. You must include Process Owner and Process Approver. If not applicable for some roles, enter N/A and state why.
-  example: "Example: \nName: John Doe | Role: Process Owner | Function: HR | Sign: JD | Date: 2023-10-01"
+  example: "Name: John Doe | Role: Process Owner | Function: HR | Sign: JD | Date: 2023-10-01"
   default_rows:
   - Role: "Process Owner"
   - Role: "Process Reviewer"

@@ -24,7 +24,6 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-@st.cache_data
 def load_sections_config():
     with open("config/sections.yaml", "r") as f:
         return yaml.safe_load(f)
@@ -342,40 +341,41 @@ try:
 
         is_completed = (curr_status == "ready")
 
+        example_clean = example_text.strip()
+        if example_clean.lower().startswith("example:"):
+            example_clean = example_clean[len("example:"):].strip()
+        example_clean = example_clean.replace("\n", " ")
+
         example_html = (
-            f'<div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #CBD5E1; color: #64748B; font-size: 12.5px; font-style: italic;"><b>Example:</b> {example_text}</div>'
-            if example_text
+            f'<div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #CBD5E1; color: #64748B; font-size: 12.5px; font-style: italic;"><b>Example:</b> {example_clean}</div>'
+            if example_clean
             else ""
         )
 
         issues_html = ""
         if curr_status == "needs_revision" and curr_issues:
             issues_list_str = "".join([f"<li>{iss}</li>" for iss in curr_issues])
-            issues_html = f"""
-            <div style="margin-top: 10px; background: #FFF1F2; border: 1px solid #FECDD3; border-radius: 6px; padding: 8px 12px; color: #9F1239; font-size: 12px;">
-                <div style="font-weight: 700; margin-bottom: 4px;">⚠️ Current Audit Gaps (Will result in 0 score if left unaddressed):</div>
-                <ul style="margin: 0; padding-left: 18px;">
-                    {issues_list_str}
-                </ul>
-            </div>
-            """
+            issues_html = (
+                f'<div style="margin-top: 10px; background: #FFF1F2; border: 1px solid #FECDD3; border-radius: 6px; padding: 8px 12px; color: #9F1239; font-size: 12px;">'
+                f'<div style="font-weight: 700; margin-bottom: 4px;">⚠️ Current Audit Gaps (Will result in 0 score if left unaddressed):</div>'
+                f'<ul style="margin: 0; padding-left: 18px;">{issues_list_str}</ul>'
+                f'</div>'
+            )
 
-        st.markdown(
-            f"""
-            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-left: 4px solid {'#16A34A' if curr_status == 'ready' else '#EF4444' if curr_status == 'needs_revision' else '#3B82F6'}; border-radius: 8px; padding: 12px 16px; margin: 8px 0 16px 0;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                    <span style="font-weight: 700; color: #1E293B; font-size: 13.5px;">📋 Instructions for {sec_config['name']}</span>
-                    {status_badge}
-                </div>
-                <div style="color: #334155; font-size: 13px; line-height: 1.5;">
-                    {help_text}
-                </div>
-                {example_html}
-                {issues_html}
-            </div>
-            """,
-            unsafe_allow_html=True
+        border_color = '#16A34A' if curr_status == 'ready' else '#EF4444' if curr_status == 'needs_revision' else '#3B82F6'
+
+        instructions_html = (
+            f'<div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-left: 4px solid {border_color}; border-radius: 8px; padding: 12px 16px; margin: 8px 0 16px 0;">'
+            f'<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">'
+            f'<span style="font-weight: 700; color: #1E293B; font-size: 13.5px;">📋 Instructions for {sec_config["name"]}</span>'
+            f'{status_badge}'
+            f'</div>'
+            f'<div style="color: #334155; font-size: 13px; line-height: 1.5;">{help_text}</div>'
+            f'{example_html}'
+            f'{issues_html}'
+            f'</div>'
         )
+        st.markdown(instructions_html, unsafe_allow_html=True)
 
         # AI Process Co-pilot: Interactive Guided Assistant for Creator
         import datetime
@@ -390,21 +390,19 @@ try:
         if spec:
             guide_expanded = st.session_state.get(f"show_guide_{sec_id}", not is_completed)
             with st.expander(f"✨ AI Process Co-pilot: Guided Assistant ({spec['title']})", expanded=guide_expanded):
-                st.markdown(
-                    f"""
-                    <div style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(168, 85, 247, 0.08) 100%); 
-                                border: 1px solid #C7D2FE; border-left: 4px solid #6366F1; border-radius: 8px; 
-                                padding: 10px 14px; margin-bottom: 14px;">
-                        <div style="font-weight: 700; color: #3730A3; font-size: 13.5px; display: flex; align-items: center; gap: 6px;">
-                            <span>🤖 Interactive AI Assistant</span>
-                        </div>
-                        <div style="color: #4B5563; font-size: 13px; margin-top: 3px; line-height: 1.4;">
-                            <i>{spec['intro']}</i> Answer the questions below and click <b>Auto-Fill Section</b> to generate high-quality, standardized content.
-                        </div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
+                copilot_banner = (
+                    f'<div style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(168, 85, 247, 0.08) 100%); '
+                    f'border: 1px solid #C7D2FE; border-left: 4px solid #6366F1; border-radius: 8px; '
+                    f'padding: 10px 14px; margin-bottom: 14px;">'
+                    f'<div style="font-weight: 700; color: #3730A3; font-size: 13.5px; display: flex; align-items: center; gap: 6px;">'
+                    f'<span>🤖 Interactive AI Assistant</span>'
+                    f'</div>'
+                    f'<div style="color: #4B5563; font-size: 13px; margin-top: 3px; line-height: 1.4;">'
+                    f'<i>{spec["intro"]}</i> Answer the questions below and click <b>Auto-Fill Section</b> to generate high-quality, standardized content.'
+                    f'</div>'
+                    f'</div>'
                 )
+                st.markdown(copilot_banner, unsafe_allow_html=True)
                 
                 with st.form(key=f"guided_qa_form_{sec_id}", clear_on_submit=False):
                     answers = {}
