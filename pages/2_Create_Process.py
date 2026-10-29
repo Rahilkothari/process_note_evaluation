@@ -386,6 +386,7 @@ try:
             build_text_summary_from_answers,
             build_mermaid_flowchart_from_answers
         )
+        multi_row_sections = ["1.12", "1.13", "1.5", "1.7", "1.8", "1.14", "1.15", "1.16", "1.17", "1.18", "1.19", "1.20", "1.21", "1.22", "1.4"]
         spec = SECTION_GUIDED_SPECS.get(sec_id)
         if spec:
             guide_expanded = st.session_state.get(f"show_guide_{sec_id}", not is_completed)
@@ -421,6 +422,39 @@ try:
                                 del st.session_state[f"undo_table_{sec_id}"]
                                 st.success(f"✅ Table restored to previous {len(undo_rows_guide)} rows!")
                                 st.rerun()
+
+                    # Show current rows with a dedicated Delete button at the end of each row
+                    if sec_id in multi_row_sections and existing_sec and existing_sec.structured_data:
+                        st.markdown(f'<div style="font-weight: 700; font-size: 13.5px; color: #1E293B; margin-top: 6px; margin-bottom: 6px;">📋 Current Rows in Table ({len(existing_sec.structured_data)}):</div>', unsafe_allow_html=True)
+                        for r_idx, r_item in enumerate(existing_sec.structured_data):
+                            c_info, c_del = st.columns([5, 1])
+                            with c_info:
+                                row_title = r_item.get("Activity") or r_item.get("Activity name") or r_item.get("Description") or r_item.get("Role") or r_item.get("KPI") or r_item.get("Sub Process") or r_item.get("Abbreviation")
+                                if not row_title:
+                                    row_title = next((str(v) for v in r_item.values() if v), f"Row {r_idx + 1}")
+                                row_title = str(row_title).replace("\n", " ")[:65]
+                                owner_label = r_item.get("Owner/Role") or r_item.get("Responsible") or r_item.get("Owner") or ""
+                                owner_html = f" &bull; <span style='color: #475569;'>Role: <b>{owner_label}</b></span>" if owner_label else ""
+                                st.markdown(
+                                    f"<div style='background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; padding: 7px 12px; margin-bottom: 4px; font-size: 13px;'>"
+                                    f"<b>Row {r_idx + 1}:</b> {row_title}{owner_html}"
+                                    f"</div>",
+                                    unsafe_allow_html=True
+                                )
+                            with c_del:
+                                if st.button("🗑️ Delete", key=f"guide_del_r_{sec_id}_{r_idx}", help=f"Delete Row {r_idx + 1}", use_container_width=True):
+                                    import copy
+                                    st.session_state[f"undo_table_{sec_id}"] = copy.deepcopy(existing_sec.structured_data)
+                                    new_rows = [r for i, r in enumerate(existing_sec.structured_data) if i != r_idx]
+                                    if sec_id == "1.13":
+                                        for i, r in enumerate(new_rows, start=1):
+                                            if "Sr. No." in r: r["Sr. No."] = i
+                                    existing_sec.structured_data = new_rows
+                                    db.commit()
+                                    st.success(f"Row {r_idx + 1} deleted!")
+                                    st.rerun()
+                        st.markdown('<hr style="margin: 10px 0; border: none; border-top: 1px dashed #CBD5E1;" />', unsafe_allow_html=True)
+                        st.markdown(f'<div style="font-weight: 700; color: #4338CA; font-size: 13.5px; margin-bottom: 6px;">➕ Add Next Row (Row {len(existing_sec.structured_data) + 1}):</div>', unsafe_allow_html=True)
 
                 with st.form(key=f"guided_qa_form_{sec_id}", clear_on_submit=False):
                     answers = {}
@@ -536,11 +570,13 @@ try:
                             existing_field_val = ""
                             if existing_sec:
                                 if sec_config["type"] == "table" and existing_sec.structured_data:
-                                    first_row = existing_sec.structured_data[0] if isinstance(existing_sec.structured_data, list) and len(existing_sec.structured_data) > 0 else {}
-                                    for col_k, col_v in first_row.items():
-                                        if col_k.lower() == fid.lower() or col_k.lower() in flabel.lower() or fid.lower() in col_k.lower():
-                                            existing_field_val = str(col_v or "")
-                                            break
+                                    # Prepopulate only for single-record sections, not when adding new rows to multi-row tables
+                                    if sec_id not in multi_row_sections or len(existing_sec.structured_data) == 0:
+                                        first_row = existing_sec.structured_data[0] if isinstance(existing_sec.structured_data, list) and len(existing_sec.structured_data) > 0 else {}
+                                        for col_k, col_v in first_row.items():
+                                            if col_k.lower() == fid.lower() or col_k.lower() in flabel.lower() or fid.lower() in col_k.lower():
+                                                existing_field_val = str(col_v or "")
+                                                break
                                 elif sec_config["type"] == "text" and existing_sec.content:
                                     existing_field_val = existing_sec.content
                                 elif sec_config["type"] in ["flowchart", "file"] and existing_sec.content:
@@ -645,111 +681,28 @@ try:
                     ai_text_btn = False
 
                     if sec_config["type"] == "table":
-                        multi_row_sections = ["1.12", "1.13", "1.5", "1.14", "1.15", "1.16", "1.17", "1.18", "1.19", "1.20", "1.21", "1.22"]
-                        apply_btn = False
-                        append_btn = False
-
                         existing_rows = existing_sec.structured_data if (existing_sec and existing_sec.structured_data) else []
                         num_existing = len(existing_rows)
 
-                        if sec_id in multi_row_sections and num_existing > 0:
-                            st.warning(
-                                f"⚠️ **Table currently contains {num_existing} row{'s' if num_existing > 1 else ''}.**\n\n"
-                                f"• **➕ Add as New Row (Recommended)**: Refines your answers with AI and appends as a new row (preserves existing {num_existing} rows).\n"
-                                f"• **⚠️ Overwrite Entire Table**: Wipes out all {num_existing} row{'s' if num_existing > 1 else ''} and resets the table to only this single row."
+                        if sec_id in multi_row_sections:
+                            btn_label = f"➕ Add as New Row (Row {num_existing + 1})" if num_existing > 0 else "➕ Add Row to Table"
+                            submit_table_btn = st.form_submit_button(
+                                btn_label,
+                                type="primary",
+                                use_container_width=True,
+                                help="Refines your answers with AI and appends as a row to the table. Existing rows are always preserved."
                             )
-                            confirm_overwrite = False
-                            if num_existing >= 2:
-                                confirm_overwrite = st.checkbox(
-                                    f"⚠️ Confirm overwrite: Delete all {num_existing} existing rows and replace with this 1 row",
-                                    key=f"confirm_overwrite_{sec_id}",
-                                    value=False,
-                                    help="Check this box only if you intentionally want to delete all current rows and replace them."
-                                )
-                            else:
-                                confirm_overwrite = True
-
-                            col_btn1, col_btn2 = st.columns([1, 1])
-                            with col_btn1:
-                                append_btn = st.form_submit_button(
-                                    f"➕ Add as New Row (Keep {num_existing} rows)",
-                                    type="primary",
-                                    use_container_width=True,
-                                    help="Refines your answers with AI and appends as a new row to the existing table."
-                                )
-                            with col_btn2:
-                                apply_btn = st.form_submit_button(
-                                    f"⚠️ Overwrite Entire Table ({num_existing} ➔ 1 row)",
-                                    use_container_width=True,
-                                    help=f"WARNING: Wipes out all {num_existing} rows and replaces with this single row."
-                                )
-                        elif sec_id in multi_row_sections:
-                            col_btn1, col_btn2 = st.columns([1, 1])
-                            with col_btn1:
-                                apply_btn = st.form_submit_button("✨ Set Table (1st Row)", type="primary", use_container_width=True, help="Refines your answers with AI and populates the table.")
-                            with col_btn2:
-                                append_btn = st.form_submit_button("➕ Add as New Row", use_container_width=True, help="Refines your answers with AI and appends as a new row to the existing table.")
-                            confirm_overwrite = True
                         else:
-                            apply_btn = st.form_submit_button(f"✨ Apply to {sec_config['name']}", type="primary", use_container_width=True, help="Refines your answers with AI and populates the table.")
-                            confirm_overwrite = True
+                            submit_table_btn = st.form_submit_button(
+                                f"💾 Save {sec_config['name']}",
+                                type="primary",
+                                use_container_width=True,
+                                help="Refines your answers with AI and saves to the table."
+                            )
 
-                        # Handle Set / Overwrite Table
-                        if apply_btn:
-                            if num_existing >= 2 and not confirm_overwrite:
-                                st.error(
-                                    f"🛑 Overwrite Blocked to Prevent Data Loss: Your table currently has {num_existing} rows! "
-                                    f"To keep your existing rows and add this new activity, please click '➕ Add as New Row'. "
-                                    f"If you intentionally want to wipe all {num_existing} rows, check the 'Confirm overwrite' checkbox above and submit again."
-                                )
-                            else:
-                                raw_rows = build_table_rows_from_answers(sec_id, answers)
-                                with st.spinner("🤖 Refining answers, correcting typos, and setting table..."):
-                                    from services.llm_service import get_llm_provider
-                                    llm = get_llm_provider()
-                                    final_rows = llm.refine_table_rows_with_ai(
-                                        section_id=sec_id,
-                                        section_config=sec_config,
-                                        raw_rows=raw_rows,
-                                        answers_dict=answers,
-                                        process_name=current_note.process_name,
-                                        team_name=current_note.team
-                                    )
-
-                                from core.rule_validator import RuleValidator
-                                from models.schemas import ProcessSectionSchema
-                                sec_schema = ProcessSectionSchema(section_id=sec_id, content="", structured_data=final_rows)
-                                issues = RuleValidator().validate(sec_schema, config)
-                                if issues:
-                                    for issue in issues:
-                                        st.error(f"❌ Validation Error: {issue}")
-                                    if sec_id == "1.8":
-                                        st.info("💡 **Requirement for End Point:** Exit Criteria must be descriptive (at least 4 words). Simply typing 'abc' or vague text is not accepted — specify what deliverable, authorization, or sign-off confirms completion.")
-                                    elif sec_id == "1.7":
-                                        st.info("💡 **Requirement for Start Point:** Entry Criteria must be descriptive (at least 4 words) describing verified prerequisite documents or authorizations.")
-                                else:
-                                    import copy
-                                    # Snapshot existing rows for Undo
-                                    if existing_sec and existing_sec.structured_data:
-                                        st.session_state[f"undo_table_{sec_id}"] = copy.deepcopy(existing_sec.structured_data)
-
-                                    if not existing_sec:
-                                        existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=final_rows)
-                                        db.add(existing_sec)
-                                        existing_sections[sec_id] = existing_sec
-                                    else:
-                                        existing_sec.structured_data = final_rows
-                                    db.commit()
-                                    is_completed = True
-                                    st.session_state[f"show_guide_{sec_id}"] = False
-                                    st.session_state[f"is_editing_{sec_id}"] = False
-                                    st.success(f"✅ {sec_config['name']} refined and saved to table!")
-                                    st.rerun()
-
-                        # Handle Add Row to Table
-                        if append_btn:
+                        if submit_table_btn:
                             raw_rows = build_table_rows_from_answers(sec_id, answers)
-                            with st.spinner("🤖 Refining answers, correcting typos, and adding new row..."):
+                            with st.spinner("🤖 Refining answers, correcting typos, and saving row..."):
                                 from services.llm_service import get_llm_provider
                                 llm = get_llm_provider()
                                 final_rows = llm.refine_table_rows_with_ai(
@@ -762,9 +715,13 @@ try:
                                 )
 
                             existing_rows = existing_sec.structured_data if (existing_sec and existing_sec.structured_data) else []
-                            if sec_id == "1.13" and final_rows:
-                                final_rows[0]["Sr. No."] = len(existing_rows) + 1
-                            combined_rows = existing_rows + final_rows
+                            if sec_id in multi_row_sections:
+                                if sec_id == "1.13" and final_rows:
+                                    final_rows[0]["Sr. No."] = len(existing_rows) + 1
+                                combined_rows = existing_rows + final_rows
+                            else:
+                                combined_rows = final_rows
+
                             from core.rule_validator import RuleValidator
                             from models.schemas import ProcessSectionSchema
                             sec_schema = ProcessSectionSchema(section_id=sec_id, content="", structured_data=combined_rows)
@@ -772,6 +729,10 @@ try:
                             if issues:
                                 for issue in issues:
                                     st.error(f"❌ Validation Error: {issue}")
+                                if sec_id == "1.8":
+                                    st.info("💡 **Requirement for End Point:** Exit Criteria must be descriptive (at least 4 words). Simply typing 'abc' or vague text is not accepted — specify what deliverable, authorization, or sign-off confirms completion.")
+                                elif sec_id == "1.7":
+                                    st.info("💡 **Requirement for Start Point:** Entry Criteria must be descriptive (at least 4 words) describing verified prerequisite documents or authorizations.")
                             else:
                                 import copy
                                 # Snapshot existing rows for Undo
@@ -788,7 +749,11 @@ try:
                                 is_completed = True
                                 st.session_state[f"show_guide_{sec_id}"] = False
                                 st.session_state[f"is_editing_{sec_id}"] = False
-                                st.success(f"✅ New refined row added to {sec_config['name']} table!")
+                                for f in spec.get("fields", []):
+                                    k = f"qa_{sec_id}_{f['id']}"
+                                    if k in st.session_state:
+                                        del st.session_state[k]
+                                st.success(f"✅ Row successfully added to {sec_config['name']} table!")
                                 st.rerun()
 
                     elif sec_config["type"] == "flowchart":
@@ -1422,13 +1387,45 @@ try:
                     )
                     st.dataframe(df, use_container_width=True)
 
+                    # Provide Delete option at the end of every row
+                    if sec_id in multi_row_sections and existing_sec and existing_sec.structured_data and len(existing_sec.structured_data) > 0:
+                        st.markdown('<div style="font-weight: 600; font-size: 13px; color: #334155; margin-top: 10px; margin-bottom: 6px;">🗑️ Delete Rows (Click Delete at the end of any row you wish to remove):</div>', unsafe_allow_html=True)
+                        for r_idx, r_item in enumerate(existing_sec.structured_data):
+                            col_r_info, col_r_del = st.columns([5, 1])
+                            with col_r_info:
+                                row_label = r_item.get("Activity") or r_item.get("Activity name") or r_item.get("Description") or r_item.get("Role") or r_item.get("KPI") or r_item.get("Sub Process") or r_item.get("Abbreviation")
+                                if not row_label:
+                                    row_label = next((str(v) for v in r_item.values() if v), f"Row {r_idx + 1}")
+                                row_label = str(row_label).replace("\n", " ")[:65]
+                                owner_label = r_item.get("Owner/Role") or r_item.get("Responsible") or r_item.get("Owner") or ""
+                                owner_str = f" &bull; <span style='color: #475569;'>Role: <b>{owner_label}</b></span>" if owner_label else ""
+                                st.markdown(
+                                    f"<div style='background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; padding: 7px 12px; margin-bottom: 4px; font-size: 13px;'>"
+                                    f"<b>Row {r_idx + 1}:</b> {row_label}{owner_str}"
+                                    f"</div>",
+                                    unsafe_allow_html=True
+                                )
+                            with col_r_del:
+                                if st.button("🗑️ Delete", key=f"tbl_view_del_r_{sec_id}_{r_idx}", help=f"Delete Row {r_idx + 1}", use_container_width=True):
+                                    import copy
+                                    st.session_state[f"undo_table_{sec_id}"] = copy.deepcopy(existing_sec.structured_data)
+                                    new_rows = [r for i, r in enumerate(existing_sec.structured_data) if i != r_idx]
+                                    if sec_id == "1.13":
+                                        for i, r in enumerate(new_rows, start=1):
+                                            if "Sr. No." in r: r["Sr. No."] = i
+                                    existing_sec.structured_data = new_rows
+                                    db.commit()
+                                    st.success(f"Row {r_idx + 1} deleted!")
+                                    st.rerun()
+
                     col_act1, col_act2 = st.columns([1, 1])
                     with col_act1:
                         if st.button("✏️ Edit Table Directly", key=f"btn_edit_tbl_{sec_id}", type="primary", use_container_width=True):
                             st.session_state[f"is_editing_{sec_id}"] = True
                             st.rerun()
                     with col_act2:
-                        if st.button("🤖 Modify via Guided Assistant", key=f"btn_reopen_qa_tbl_{sec_id}", use_container_width=True):
+                        btn_txt = "➕ Add Another Row via Guided Assistant" if sec_id in multi_row_sections else "🤖 Modify via Guided Assistant"
+                        if st.button(btn_txt, key=f"btn_reopen_qa_tbl_{sec_id}", use_container_width=True):
                             st.session_state[f"show_guide_{sec_id}"] = True
                             st.rerun()
                 else:
