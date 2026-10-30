@@ -9,7 +9,10 @@ st.set_page_config(
 
 logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "kef_logo.png")
 if os.path.exists(logo_path):
-    st.logo(logo_path, size="large")
+    try:
+        st.logo(logo_path)
+    except Exception:
+        pass
 
 from models.database import init_db
 from core.auth import require_login, logout
