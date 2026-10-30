@@ -58,7 +58,8 @@ class LLMProvider(ABC):
         answers_dict: Dict[str, Any],
         process_name: str = "",
         team_name: str = "",
-        existing_sections_data: Dict[str, Any] = None
+        existing_sections_data: Dict[str, Any] = None,
+        current_section_saved: Any = None
     ) -> Dict[str, Any]:
         """
         Audits user-filled guided form answers against standard enterprise rules.
@@ -330,12 +331,70 @@ class MockProvider(LLMProvider):
         answers_dict: Dict[str, Any],
         process_name: str = "",
         team_name: str = "",
-        existing_sections_data: Dict[str, Any] = None
+        existing_sections_data: Dict[str, Any] = None,
+        current_section_saved: Any = None
     ) -> Dict[str, Any]:
         """
         Mock implementation of guided input auditor with high-precision rules.
+        Acknowledge existing saved entries so sections with saved records are never falsely flagged as empty.
         """
         existing_sections_data = existing_sections_data or {}
+        saved = current_section_saved if current_section_saved is not None else existing_sections_data.get(section_id)
+        saved_rows = saved if isinstance(saved, list) else []
+        has_saved_rows = len(saved_rows) > 0
+        has_saved_content = bool(isinstance(saved, str) and saved.strip())
+        has_answers = any(str(v).strip() for v in answers_dict.values()) if answers_dict else False
+
+        # If completely empty (no saved data and no form answers)
+        if not has_saved_rows and not has_saved_content and not has_answers:
+            sec_name = section_config.get("name", "this section")
+            return {
+                "status": "WARNING",
+                "summary": f"Please enter details for {sec_name} above, then click '✨ Check with AI' to verify.",
+                "issues": ["No content has been added to this section yet."],
+                "suggestions": ["Fill in the relevant details above to proceed."],
+                "autofill_fixes": {}
+            }
+
+        # If user has saved rows and the draft row form is blank,
+        # they are asking whether their existing saved entries are sufficient!
+        if has_saved_rows and not has_answers:
+            if section_id == "1.4":
+                return {
+                    "status": "COMPLIANT",
+                    "summary": f"Related Documents section has {len(saved_rows)} documented reference(s). Whatever you have added is sufficient and compliant with enterprise standards.",
+                    "issues": [],
+                    "suggestions": [],
+                    "autofill_fixes": {}
+                }
+            elif section_id == "1.1":
+                # Check saved rows for segregation of duties
+                owner_val = next((r.get("Name", "") for r in saved_rows if r.get("Role") == "Process Owner"), "")
+                approver_val = next((r.get("Name", "") for r in saved_rows if r.get("Role") == "Process Approver"), "")
+                if owner_val and approver_val and owner_val.strip().lower() == approver_val.strip().lower():
+                    return {
+                        "status": "CRITICAL",
+                        "summary": "Governance Conflict Detected in Approval Matrix.",
+                        "issues": [f"Process Owner '{owner_val}' cannot also be the Process Approver (self-approval violation)."],
+                        "suggestions": ["Assign an independent managerial authority to approve the document."],
+                        "autofill_fixes": {}
+                    }
+                return {
+                    "status": "COMPLIANT",
+                    "summary": f"Approval Matrix has {len(saved_rows)} documented sign-off role(s) with valid segregation of duties. Whatever you have added is sufficient!",
+                    "issues": [],
+                    "suggestions": [],
+                    "autofill_fixes": {}
+                }
+            else:
+                return {
+                    "status": "COMPLIANT",
+                    "summary": f"Whatever you have added is sufficient and compliant ({len(saved_rows)} record(s) documented).",
+                    "issues": [],
+                    "suggestions": [],
+                    "autofill_fixes": {}
+                }
+
         issues = []
         suggestions = []
         autofill_fixes = {}
@@ -366,7 +425,17 @@ class MockProvider(LLMProvider):
                     initials = "".join([part[0].upper() for part in val.split() if part]) or "XX"
                     autofill_fixes[role_key] = f"{val} | {dept_guess} | {initials}"
 
-        # 2. Section 1.7 Start Point / 1.8 End Point
+        # 2. Section 1.4 Related Documents (with answers)
+        elif section_id == "1.4":
+            doc_name = str(answers_dict.get("doc_name", "") or answers_dict.get("title", "")).strip()
+            if doc_name:
+                val_lower = doc_name.lower()
+                if val_lower in ["done", "ok", "yes", "na", "n/a", "abc", "test", "xyz"]:
+                    status = "CRITICAL"
+                    issues.append(f"Document name cannot be placeholder text ('{doc_name}').")
+                    suggestions.append("Specify the official policy name or operational standard.")
+
+        # 3. Section 1.7 Start Point / 1.8 End Point
         elif section_id in ["1.7", "1.8"]:
             crit_key = "entry_criteria" if section_id == "1.7" else "exit_criteria"
             crit_val = str(answers_dict.get(crit_key, "")).strip()
@@ -383,7 +452,7 @@ class MockProvider(LLMProvider):
                     else:
                         autofill_fixes[crit_key] = f"Final sign-off, system handover, and archival of completed records"
 
-        # 3. Section 1.6 Scope
+        # 4. Section 1.6 Scope
         elif section_id == "1.6":
             inc = str(answers_dict.get("in_scope", "")).strip()
             exc = str(answers_dict.get("out_scope", "")).strip()
@@ -394,7 +463,7 @@ class MockProvider(LLMProvider):
                 suggestions.append("List at least one excluded activity or third-party task.")
                 autofill_fixes["out_scope"] = "External vendor procurement, statutory legal litigation, and off-scope technology customization."
 
-        # 4. Section 1.12 Process Description
+        # 5. Section 1.12 Process Description
         elif section_id == "1.12":
             sub_steps = str(answers_dict.get("sub_steps", "")).strip()
             if sub_steps:
@@ -404,7 +473,7 @@ class MockProvider(LLMProvider):
                     issues.append("Sub-activities cannot be generic placeholder text.")
                     suggestions.append("Outline 2-3 specific procedural steps (e.g., 1. Receive data, 2. Validate criteria).")
 
-        # 5. Section 1.13 RACI Matrix: Avoid Yes/No
+        # 6. Section 1.13 RACI Matrix: Avoid Yes/No
         elif section_id == "1.13":
             for r_key in ["resp", "acc", "cons", "inf"]:
                 val = str(answers_dict.get(r_key, "")).strip().lower()
@@ -414,7 +483,7 @@ class MockProvider(LLMProvider):
                     suggestions.append("Specify exact functional job titles.")
                     break
 
-        # 6. General check for literal nonsense / placeholder text only
+        # 7. General check for literal nonsense / placeholder text only
         for k, v in answers_dict.items():
             val_str = str(v).strip().lower()
             if val_str in ["abc", "xyz", "test", "asdf", "...", "123"]:
@@ -424,11 +493,15 @@ class MockProvider(LLMProvider):
                 issues.append(f"Field '{k}' contains generic placeholder text: '{v}'.")
                 suggestions.append(f"Provide substantive, domain-specific information for '{k}'.")
 
-        summary = (
-            "✅ Fully Compliant: Meets all enterprise process note standards." if status == "COMPLIANT" else
-            ("⚠️ Needs Attention: Found partial gaps or formatting issues that should be improved." if status == "WARNING" else
-             "🚨 Discrepancy Detected: Violates process note compliance rules. Please review and adjust.")
-        )
+        if status == "COMPLIANT":
+            if has_saved_rows:
+                summary = f"Whatever you have added is sufficient and compliant ({len(saved_rows)} saved record(s) + valid new entry)."
+            else:
+                summary = "✅ Fully Compliant: Whatever you have added is sufficient and meets enterprise process note standards."
+        elif status == "WARNING":
+            summary = "⚠️ Needs Attention: Found partial gaps or formatting issues that should be improved."
+        else:
+            summary = "🚨 Discrepancy Detected: Violates process note compliance rules. Please review and adjust."
 
         return {
             "status": status,
@@ -1054,15 +1127,23 @@ YOUR MANDATORY OBJECTIVES:
         answers_dict: Dict[str, Any],
         process_name: str = "",
         team_name: str = "",
-        existing_sections_data: Dict[str, Any] = None
+        existing_sections_data: Dict[str, Any] = None,
+        current_section_saved: Any = None
     ) -> Dict[str, Any]:
         """
         Uses Gemini to audit guided form answers against standard enterprise rules,
         checking for segregation of duties, incomplete data, and rule discrepancies.
+        Evaluates cumulative section content (existing saved records + draft form inputs)
+        so sections with saved entries are never falsely reported as empty.
         """
         existing_sections_data = existing_sections_data or {}
+        saved_items = current_section_saved if current_section_saved is not None else existing_sections_data.get(section_id)
+        saved_count = len(saved_items) if isinstance(saved_items, list) else (1 if (isinstance(saved_items, str) and saved_items.strip()) else 0)
+        has_draft_input = any(str(v).strip() for v in answers_dict.values()) if answers_dict else False
+        other_sections = {k: v for k, v in existing_sections_data.items() if k != section_id}
+
         prompt = f"""
-You are a Principal Enterprise Process Auditor and Quality Assurance Inspector reviewing draft answers for a standard corporate Process Note.
+You are a Principal Enterprise Process Auditor and Quality Assurance Inspector reviewing a section of a corporate Process Note.
 
 SECTION INFORMATION:
 - Section ID: {section_id}
@@ -1071,30 +1152,42 @@ SECTION INFORMATION:
 - Process Name: {process_name or 'Enterprise Process'}
 - Functional Team: {team_name or 'Operations'}
 
-USER INPUT ANSWERS:
+SAVED RECORDS ALREADY IN THIS SECTION ({saved_count} saved):
+{json.dumps(saved_items, indent=2) if saved_items else "None yet"}
+
+CURRENT DRAFT FORM INPUTS (NEW ENTRY BEING TYPED):
 {json.dumps(answers_dict, indent=2)}
 
-RELEVANT EXISTING SECTIONS CONTEXT:
-{json.dumps(existing_sections_data, indent=2)}
+RELEVANT CONTEXT FROM OTHER SECTIONS:
+{json.dumps(other_sections, indent=2)}
 
-AUDIT PHILOSOPHY & CRITICAL SCOPE:
-- YOU ARE AN ENABLER, NOT A NITPICKER. DO NOT frustrate the process note creator with pedantic, petty, or cosmetic complaints.
-- NEVER flag minor wording variations, date differences across revisions, informal names (e.g., 'John M' or 'Aarav'), or standard version labels like '1.0 (Initial Draft)' which are generated by the app dropdown itself!
-- The Business Excellence (BE) team handles minor cosmetic touch-ups later. You must ONLY flag GENUINE, HIGH-PRIORITY, BLOCKING GOVERNANCE VIOLATIONS.
+AUDIT PHILOSOPHY & OBJECTIVE:
+- YOU ARE AN ENABLER, NOT A NITPICKER. DO NOT frustrate the creator with cosmetic complaints.
+- The user clicked "✨ Check with AI" to verify: "IS WHATEVER I HAVE ADDED ENOUGH AND COMPLIANT?"
+- CRITICAL RULE REGARDING SAVED RECORDS vs EMPTY DRAFT FORM:
+  1. If this section ALREADY has saved records or content ({saved_count} saved items), THE SECTION IS NOT EMPTY!
+  2. The user is often clicking "✨ Check with AI" while the draft row fields are blank just to confirm if their existing saved entries are sufficient and compliant.
+  3. If the draft input form fields are blank but saved records exist ({saved_count} items):
+     - DO NOT claim or flag that the section is empty or missing!
+     - Evaluate the existing saved records. If they provide reasonable operational clarity for this section, mark it COMPLIANT and reassure the user with a crisp summary such as: "Whatever you have added is sufficient and compliant ({saved_count} record(s) documented)."
+  4. If the user has both existing saved records AND newly typed form answers, evaluate the cumulative entries together.
+  5. Only flag an empty field issue if BOTH the existing saved section has 0 records AND the draft form inputs are completely blank.
 
 WHAT CONSTITUTES A HIGH-PRIORITY ISSUE:
 1. APPROVAL MATRIX (Section 1.1):
    - Genuine Conflict of Interest / Segregation of Duties: ONLY flag if the Process Owner is also the Process Approver (self-approval).
    - Process Reviewer is OPTIONAL: NEVER flag missing Process Reviewer as an issue or warning. Process Owner and Approver are the only mandatory roles.
-   - If Reviewer and Approver have names without pipe characters or sign codes, DO NOT flag it as an issue; silently accept or refine it.
-2. START & END POINTS (1.7, 1.8):
+   - If Reviewer and Approver have names without pipe characters or sign codes, silently accept or format them.
+2. RELATED DOCUMENTS (Section 1.4):
+   - Having 1 or more relevant policies, SOPs, forms, or templates is sufficient. If saved rows exist, confirm they are sufficient.
+3. START & END POINTS (1.7, 1.8):
    - ONLY flag if completely empty or contains pure placeholder nonsense like 'abc', 'xyz', 'test', 'done'.
    - If the user provides a real business event (even if concise), accept it!
-3. RACI MATRIX (1.13):
+4. RACI MATRIX (1.13):
    - Flag if the user enters 'Yes'/'No' instead of actual roles or people.
-4. PROCESS DESCRIPTION (1.12):
+5. PROCESS DESCRIPTION (1.12):
    - Flag if the description has zero procedural steps or is completely uninformative.
-5. GENERAL NONSENSE:
+6. GENERAL NONSENSE:
    - Flag only gibberish or literal placeholder text like 'asdf', '123', 'none'.
 
 WHAT YOU MUST NEVER FLAG:
@@ -1104,19 +1197,19 @@ WHAT YOU MUST NEVER FLAG:
 - DO NOT complain about capitalization, punctuation, or case sensitivity.
 
 EVALUATION STATUSES:
-- 'COMPLIANT': Default for normal, sensible inputs even if brief or informal.
+- 'COMPLIANT': Default for normal, sensible inputs or existing saved records that provide adequate operational clarity. Crisp summary should confirm: "Whatever you have added is sufficient and compliant."
 - 'WARNING': Reserved ONLY for genuine, notable missing operational elements (e.g., completely missing Out-of-Scope in Section 1.6).
-- 'CRITICAL': Reserved EXCLUSIVELY for fatal governance violations (e.g., an author approving their own note) or complete gibberish/empty fields.
+- 'CRITICAL': Reserved EXCLUSIVELY for fatal governance violations (e.g., an author approving their own note) or complete gibberish/empty fields when no content exists at all.
 
 OUTPUT FORMAT (STRICT JSON ONLY):
 {{
   "status": "COMPLIANT" | "WARNING" | "CRITICAL",
-  "summary": "Crisp 1-line verdict for the user",
+  "summary": "Crisp 1-line verdict for the user confirming sufficiency and compliance",
   "issues": [
-    "High-priority issue explained in constructive, simple language"
+    "High-priority issue explained in constructive, simple language (empty list if COMPLIANT)"
   ],
   "suggestions": [
-    "Actionable instruction telling user what needs to be added"
+    "Actionable instruction telling user what needs to be added (empty list if COMPLIANT)"
   ],
   "autofill_fixes": {{
     "field_id": "recommended_value"
@@ -1145,7 +1238,8 @@ Return ONLY raw JSON. No markdown code blocks.
             answers_dict=answers_dict,
             process_name=process_name,
             team_name=team_name,
-            existing_sections_data=existing_sections_data
+            existing_sections_data=existing_sections_data,
+            current_section_saved=current_section_saved
         )
 
 

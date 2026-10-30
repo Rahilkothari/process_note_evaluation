@@ -64,3 +64,45 @@ def test_optional_reviewer_handling():
     audit_res = provider.audit_guided_input("1.1", {"name": "Approval Matrix", "type": "table"}, answers, "School Onboarding", "Operations")
     assert audit_res["status"] == "COMPLIANT"
     assert len(audit_res["issues"]) == 0
+
+def test_audit_guided_existing_saved_rows_acknowledged_in_section_1_4():
+    provider = MockProvider()
+    # 3 saved rows in Section 1.4 (Related Documents)
+    saved_rows = [
+        {"Doc ID": "SOP-OPS-001", "Document Name": "School Onboarding Policy", "Forms / Templates": "FORM-01"},
+        {"Doc ID": "SOP-OPS-002", "Document Name": "Infrastructure Verification SOP", "Forms / Templates": "FORM-02"},
+        {"Doc ID": "POL-GOV-003", "Document Name": "Code of Conduct & Governance", "Forms / Templates": ""}
+    ]
+    # Blank inputs for Row 4 (when user clicks Check with AI without typing new row)
+    blank_draft_answers = {"sop_id": "", "doc_name": "", "forms": ""}
+    
+    res = provider.audit_guided_input(
+        section_id="1.4",
+        section_config={"name": "Related Documents", "type": "table"},
+        answers_dict=blank_draft_answers,
+        process_name="Partner School Onboarding",
+        team_name="School Education",
+        existing_sections_data={"1.4": saved_rows},
+        current_section_saved=saved_rows
+    )
+    # Must be COMPLIANT and acknowledge the 3 saved rows, never say completely empty!
+    assert res["status"] == "COMPLIANT"
+    assert "3 documented reference(s)" in res["summary"]
+    assert "sufficient and compliant" in res["summary"]
+    assert len(res["issues"]) == 0
+
+def test_audit_guided_completely_empty_section():
+    provider = MockProvider()
+    blank_answers = {"sop_id": "", "doc_name": "", "forms": ""}
+    res = provider.audit_guided_input(
+        section_id="1.4",
+        section_config={"name": "Related Documents", "type": "table"},
+        answers_dict=blank_answers,
+        process_name="Partner School Onboarding",
+        team_name="School Education",
+        existing_sections_data={},
+        current_section_saved=[]
+    )
+    assert res["status"] == "WARNING"
+    assert "No content has been added" in res["issues"][0]
+

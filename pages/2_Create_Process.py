@@ -33,7 +33,7 @@ st.markdown("""
         </div>
         <div style="display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: #334155; line-height: 1.5;">
             <span style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #EEF2FF; color: #4F46E5; font-weight: 700; font-size: 11.5px; flex-shrink: 0; margin-top: 1px; border: 1px solid #C7D2FE;">3</span>
-            <div><b>AI Quality Audit:</b> Click <code>🔍 Check with AI</code> to catch discrepancies before applying.</div>
+            <div><b>AI Quality Audit:</b> Click <code>✨ Check with AI</code> to catch discrepancies before applying.</div>
         </div>
         <div style="display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: #334155; line-height: 1.5;">
             <span style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #EEF2FF; color: #4F46E5; font-weight: 700; font-size: 11.5px; flex-shrink: 0; margin-top: 1px; border: 1px solid #C7D2FE;">4</span>
@@ -759,18 +759,25 @@ try:
                     # ---------------------------------------------------------
                     # AI Compliance, Sanity & Quality Check for Guided Answers
                     # ---------------------------------------------------------
-                    # Simple administrative tables (Approval Matrix, Change History, Review Cycle) do not need AI audit
-                    show_ai_check = sec_id not in ["1.1", "1.2", "1.3"]
-                    run_audit_btn = False
-                    if show_ai_check:
-                        col_chk1, col_chk2 = st.columns([3, 1])
-                        with col_chk2:
-                            run_audit_btn = st.form_submit_button("🔍 Check with AI", help="Audit your answers with AI before saving to check if information is compliant, partially complete, or violating enterprise rules.")
+                    col_chk1, col_chk2 = st.columns([3, 1])
+                    with col_chk2:
+                        run_audit_btn = st.form_submit_button(
+                            "✨ Check with AI",
+                            help="Audit with AI to verify if whatever you have added is sufficient, complete, and compliant with enterprise standards."
+                        )
                     
                     if run_audit_btn:
-                        with st.spinner("🤖 AI Auditor is analyzing your answers against Business Excellence rules..."):
+                        with st.spinner("✨ AI Auditor is analyzing your entries against Business Excellence rules..."):
                             from services.llm_service import get_llm_provider
                             llm = get_llm_provider()
+
+                            existing_saved = None
+                            if existing_sec:
+                                if existing_sec.structured_data:
+                                    existing_saved = existing_sec.structured_data
+                                elif existing_sec.content:
+                                    existing_saved = existing_sec.content
+
                             audit_res = llm.audit_guided_input(
                                 section_id=sec_id,
                                 section_config=sec_config,
@@ -780,7 +787,8 @@ try:
                                 existing_sections_data={
                                     sid: (s.structured_data if s.structured_data else s.content)
                                     for sid, s in existing_sections.items() if s
-                                }
+                                },
+                                current_section_saved=existing_saved
                             )
                             st.session_state[f"audit_result_{sec_id}"] = audit_res
 
@@ -793,7 +801,7 @@ try:
                         a_fixes = active_audit.get("autofill_fixes", {})
 
                         if a_status == "COMPLIANT":
-                            st.success(f"🟢 **{a_summary}**\n\nYour inputs adhere to standard process note governance guidelines. You can safely apply them.")
+                            st.success(f"🟢 **{a_summary}**\n\nWhatever you have added adheres to standard process note governance guidelines. You can safely save and proceed.")
                         elif a_status == "WARNING":
                             st.warning(f"🟡 **{a_summary}**")
                             if a_issues:
@@ -816,7 +824,7 @@ try:
                                 st.markdown("</div>", unsafe_allow_html=True)
 
                         if a_fixes:
-                            st.caption("✨ AI has prepared auto-corrections to resolve these items. Re-click 'Check with AI' or proceed to apply.")
+                            st.caption("✨ AI has prepared auto-corrections to resolve these items. Re-click '✨ Check with AI' or proceed to apply.")
 
                     st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
                     
@@ -920,6 +928,7 @@ try:
                                     is_completed = True
                                     st.session_state[f"show_guide_{sec_id}"] = False
                                     st.session_state[f"is_editing_{sec_id}"] = False
+                                    st.session_state.pop(f"audit_result_{sec_id}", None)
                                     for f in spec.get("fields", []):
                                         k = f"qa_{sec_id}_{f['id']}"
                                         if k in st.session_state:
@@ -956,6 +965,7 @@ try:
                                 is_completed = True
                                 st.session_state[f"show_guide_{sec_id}"] = False
                                 st.session_state[f"is_editing_{sec_id}"] = False
+                                st.session_state.pop(f"audit_result_{sec_id}", None)
                                 st.success("✅ Flowchart updated from your steps! Check preview below.")
 
                         if ai_flow_btn:
@@ -999,6 +1009,7 @@ try:
                                 is_completed = True
                                 st.session_state[f"show_guide_{sec_id}"] = False
                                 st.session_state[f"is_editing_{sec_id}"] = False
+                                st.session_state.pop(f"audit_result_{sec_id}", None)
                                 st.success("✅ Flowchart synthesized and polished by AI! Check the diagram below.")
 
                     elif sec_config["type"] == "text":
@@ -1029,6 +1040,7 @@ try:
                                 is_completed = True
                                 st.session_state[f"show_guide_{sec_id}"] = False
                                 st.session_state[f"is_editing_{sec_id}"] = False
+                                st.session_state.pop(f"audit_result_{sec_id}", None)
                                 st.success("✅ Section content updated from your answers! Check preview below.")
                                 st.rerun()
 
@@ -1059,6 +1071,7 @@ try:
                                     is_completed = True
                                     st.session_state[f"show_guide_{sec_id}"] = False
                                     st.session_state[f"is_editing_{sec_id}"] = False
+                                    st.session_state.pop(f"audit_result_{sec_id}", None)
                                     st.session_state.pop(f"qa_clarify_{sec_id}", None)
                                     st.success("✅ Section synthesized with AI! Check preview below.")
                                     st.rerun()
@@ -1116,6 +1129,7 @@ try:
                                 is_completed = True
                                 st.session_state[f"show_guide_{sec_id}"] = False
                                 st.session_state[f"is_editing_{sec_id}"] = False
+                                st.session_state.pop(f"audit_result_{sec_id}", None)
                                 st.session_state.pop(f"qa_clarify_{sec_id}", None)
                                 st.success("✅ Section synthesized with your clarifications! Check preview below.")
                                 st.rerun()
@@ -1137,6 +1151,7 @@ try:
                                 is_completed = True
                                 st.session_state[f"show_guide_{sec_id}"] = False
                                 st.session_state[f"is_editing_{sec_id}"] = False
+                                st.session_state.pop(f"audit_result_{sec_id}", None)
                                 st.session_state.pop(f"qa_clarify_{sec_id}", None)
                                 st.success("✅ Section synthesized with AI! Check preview below.")
                                 st.rerun()
