@@ -1571,7 +1571,7 @@ try:
                         if st.button(btn_txt, key=f"btn_reopen_qa_tbl_{sec_id}", use_container_width=True):
                             st.session_state[f"show_guide_{sec_id}"] = True
                             st.rerun()
-                else:
+                    else:
                     col_h1, col_h2 = st.columns([3, 1])
                     with col_h1:
                         st.markdown(f'<div style="font-weight: 700; font-size: 15px; color: #1E293B; margin-bottom: 8px;">✏️ Editing {sec_config["name"]} Table:</div>', unsafe_allow_html=True)
@@ -1580,8 +1580,39 @@ try:
                             st.session_state[f"is_editing_{sec_id}"] = False
                             st.rerun()
 
+                    # Direct Multi-Row Selection & 1-Click Delete Bar
+                    tbl_event = st.dataframe(
+                        df,
+                        use_container_width=True,
+                        key=f"df_select_{sec_id}",
+                        on_select="rerun",
+                        selection_mode="multi-row"
+                    )
+
+                    selected_indices = []
+                    if tbl_event and hasattr(tbl_event, "selection") and tbl_event.selection:
+                        selected_indices = tbl_event.selection.get("rows", [])
+
+                    if selected_indices:
+                        del_col1, del_col2 = st.columns([4, 1])
+                        with del_col1:
+                            st.warning(f"⚠️ Selected **{len(selected_indices)} row(s)**: Row {', '.join([str(idx + 1) for idx in selected_indices])}")
+                        with del_col2:
+                            if st.button(f"🗑️ Delete Selected ({len(selected_indices)})", key=f"btn_del_selected_{sec_id}", type="primary", use_container_width=True):
+                                import copy
+                                if existing_sec and existing_sec.structured_data:
+                                    st.session_state[f"undo_table_{sec_id}"] = copy.deepcopy(existing_sec.structured_data)
+                                    new_rows = [r for i, r in enumerate(existing_sec.structured_data) if i not in selected_indices]
+                                    if sec_id == "1.13":
+                                        for i, r in enumerate(new_rows, start=1):
+                                            if "Sr. No." in r: r["Sr. No."] = i
+                                    existing_sec.structured_data = new_rows
+                                    db.commit()
+                                    st.success(f"Deleted {len(selected_indices)} row(s)!")
+                                    st.rerun()
+
                     with st.form(f"form_table_{sec_id}"):
-                        st.markdown("Edit the table below:")
+                        st.markdown("<div style='font-size: 13px; color: #475569; margin-bottom: 6px;'>💡 You can also edit text directly in the cells below, or add rows using the bottom row:</div>", unsafe_allow_html=True)
                         disabled_cols = ["Reviewer Comment"] if "Reviewer Comment" in df.columns else False
                         edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, key=f"editor_{sec_id}", column_config=column_config, disabled=disabled_cols)
             
