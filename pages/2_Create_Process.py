@@ -9,18 +9,37 @@ from sqlalchemy.orm import Session
 
 from core.ui_utils import inject_custom_css, render_mermaid_flowchart
 
+inject_custom_css()
 
-st.title("Create / Edit Process Note")
+# Header & Modern Executive Process Guide Card
 st.markdown("""
-<div style="background-color: #FFFBEB; border: 1px solid #FEF3C7; padding: 16px; border-radius: 8px; margin-bottom: 24px;">
-    <h4 style="color: #92400E; margin-top: 0;">📝 How to draft your process note:</h4>
-    <ol style="color: #92400E; margin-bottom: 0;">
-        <li><b>Start by filling out the Basic Information</b> below (Name, Team, SMEs, etc.) and click <b>Next</b>.</li>
-        <li><b>Select a Note:</b> If you already started one, select it from the dropdown to continue editing.</li>
-        <li><b>Fill Out Sections:</b> Scroll down to the 'Process Details' area. Use the dropdown to jump between sections (e.g. 1.0, 1.1).</li>
-        <li><b>Save Often:</b> Make sure to click the <b>Save Section</b> button inside each tab before moving to the next one!</li>
-        <li><b>Use AI:</b> Stuck on what to write? Click the <b>✨ Get AI Suggestion</b> button for a head start based on your team's history.</li>
-    </ol>
+<div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
+    <h1 style="margin: 0; padding: 0;">Create & Edit Process Note</h1>
+    <span style="background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;">Enterprise SOP Builder &bull; 22 Sections</span>
+</div>
+
+<div style="background-color: #FFFFFF; border: 1px solid #E2E8F0; border-left: 4.5px solid #4F46E5; border-radius: 12px; padding: 16px 22px; margin-bottom: 22px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);">
+    <div style="font-family: 'Outfit', sans-serif; font-size: 15.5px; font-weight: 700; color: #1E1B4B; display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+        <span>📋</span> Quick Guide to Drafting Your Process Note
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px;">
+        <div style="display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: #334155; line-height: 1.5;">
+            <span style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #EEF2FF; color: #4F46E5; font-weight: 700; font-size: 11.5px; flex-shrink: 0; margin-top: 1px; border: 1px solid #C7D2FE;">1</span>
+            <div><b>Basic Information:</b> Fill Process Name, Team, and Leadership Sign-off Roles below.</div>
+        </div>
+        <div style="display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: #334155; line-height: 1.5;">
+            <span style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #EEF2FF; color: #4F46E5; font-weight: 700; font-size: 11.5px; flex-shrink: 0; margin-top: 1px; border: 1px solid #C7D2FE;">2</span>
+            <div><b>Interactive Co-pilot:</b> Use the 22 guided assistant drawers to fill rough thoughts.</div>
+        </div>
+        <div style="display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: #334155; line-height: 1.5;">
+            <span style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #EEF2FF; color: #4F46E5; font-weight: 700; font-size: 11.5px; flex-shrink: 0; margin-top: 1px; border: 1px solid #C7D2FE;">3</span>
+            <div><b>AI Quality Audit:</b> Click <code>🔍 Check with AI</code> to catch discrepancies before applying.</div>
+        </div>
+        <div style="display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: #334155; line-height: 1.5;">
+            <span style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #EEF2FF; color: #4F46E5; font-weight: 700; font-size: 11.5px; flex-shrink: 0; margin-top: 1px; border: 1px solid #C7D2FE;">4</span>
+            <div><b>Smart Auto-fills:</b> Downstream sections auto-populate to eliminate duplicate entries.</div>
+        </div>
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -76,7 +95,14 @@ try:
             st.markdown("<br>", unsafe_allow_html=True)
 
     with st.container():
-        st.subheader("Basic Information")
+        st.markdown("""
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <div style="font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 700; color: #1E293B;">
+                📌 Step 1: Process Identity & Basic Information
+            </div>
+            <span style="font-size: 12px; color: #64748B; font-weight: 500;">Fill once &bull; Auto-synced across all 22 sections</span>
+        </div>
+        """, unsafe_allow_html=True)
         with st.form("basic_info_form"):
             col1, col2 = st.columns(2)
             with col1:
@@ -162,7 +188,14 @@ try:
     st.markdown("<br>", unsafe_allow_html=True)
 
     if current_note:
-        st.subheader("Process Details (Step-by-Step)")
+        st.markdown("""
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; margin-bottom: 8px;">
+            <div style="font-family: 'Outfit', sans-serif; font-size: 1.35rem; font-weight: 700; color: #0F172A;">
+                📑 Step 2: Process Details (22 Standard Sections)
+            </div>
+            <span style="background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;">Audit Standard Aligned</span>
+        </div>
+        """, unsafe_allow_html=True)
     
         team_lower = current_note.team.lower() if current_note.team else ""
         if "volunteer" in team_lower or "comm" in team_lower:
