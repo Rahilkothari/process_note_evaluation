@@ -759,9 +759,13 @@ try:
                     # ---------------------------------------------------------
                     # AI Compliance, Sanity & Quality Check for Guided Answers
                     # ---------------------------------------------------------
-                    col_chk1, col_chk2 = st.columns([3, 1])
-                    with col_chk2:
-                        run_audit_btn = st.form_submit_button("🔍 Check with AI", help="Audit your answers with AI before saving to check if information is compliant, partially complete, or violating enterprise rules.")
+                    # Simple administrative tables (Approval Matrix, Change History, Review Cycle) do not need AI audit
+                    show_ai_check = sec_id not in ["1.1", "1.2", "1.3"]
+                    run_audit_btn = False
+                    if show_ai_check:
+                        col_chk1, col_chk2 = st.columns([3, 1])
+                        with col_chk2:
+                            run_audit_btn = st.form_submit_button("🔍 Check with AI", help="Audit your answers with AI before saving to check if information is compliant, partially complete, or violating enterprise rules.")
                     
                     if run_audit_btn:
                         with st.spinner("🤖 AI Auditor is analyzing your answers against Business Excellence rules..."):
@@ -844,60 +848,84 @@ try:
                             )
 
                         if submit_table_btn:
-                            raw_rows = build_table_rows_from_answers(sec_id, answers)
-                            with st.spinner("🤖 Refining answers, correcting typos, and saving row..."):
-                                from services.llm_service import get_llm_provider
-                                llm = get_llm_provider()
-                                final_rows = llm.refine_table_rows_with_ai(
-                                    section_id=sec_id,
-                                    section_config=sec_config,
-                                    raw_rows=raw_rows,
-                                    answers_dict=answers,
-                                    process_name=current_note.process_name,
-                                    team_name=current_note.team
-                                )
+                            can_save_table = True
+                            if sec_id == "1.1":
+                                o_name = str(answers.get("owner_name") or answers.get("owner", "")).split("|")[0].strip()
+                                o_func = str(answers.get("owner_func", "")).strip()
+                                a_name = str(answers.get("approver_name") or answers.get("approver", "")).split("|")[0].strip()
+                                a_func = str(answers.get("approver_func", "")).strip()
 
-                            existing_rows = existing_sec.structured_data if (existing_sec and existing_sec.structured_data) else []
-                            if sec_id in multi_row_sections:
-                                if sec_id == "1.13" and final_rows:
-                                    final_rows[0]["Sr. No."] = len(existing_rows) + 1
-                                combined_rows = existing_rows + final_rows
-                            else:
-                                combined_rows = final_rows
+                                missing_fields = []
+                                if not o_name: missing_fields.append("Process Owner Name")
+                                if not o_func: missing_fields.append("Process Owner Function")
+                                if not a_name: missing_fields.append("Process Approver Name")
+                                if not a_func: missing_fields.append("Process Approver Function")
 
-                            from core.rule_validator import RuleValidator
-                            from models.schemas import ProcessSectionSchema
-                            sec_schema = ProcessSectionSchema(section_id=sec_id, content="", structured_data=combined_rows)
-                            issues = RuleValidator().validate(sec_schema, config)
-                            if issues:
-                                for issue in issues:
-                                    st.error(f"❌ Validation Error: {issue}")
-                                if sec_id == "1.8":
-                                    st.info("💡 **Requirement for End Point:** Exit Criteria must be descriptive (at least 4 words). Simply typing 'abc' or vague text is not accepted — specify what deliverable, authorization, or sign-off confirms completion.")
-                                elif sec_id == "1.7":
-                                    st.info("💡 **Requirement for Start Point:** Entry Criteria must be descriptive (at least 4 words) describing verified prerequisite documents or authorizations.")
-                            else:
-                                import copy
-                                # Snapshot existing rows for Undo
-                                if existing_sec and existing_sec.structured_data:
-                                    st.session_state[f"undo_table_{sec_id}"] = copy.deepcopy(existing_sec.structured_data)
+                                if missing_fields:
+                                    st.warning(f"⚠️ Please fill in all mandatory fields before saving: {', '.join(missing_fields)}.")
+                                    can_save_table = False
+                                elif o_name.lower() == a_name.lower():
+                                    st.error(f"❌ **Governance Conflict (Segregation of Duties):** The Process Owner and Process Approver cannot be the same individual ('{o_name}'). Corporate governance requires an independent managerial authority to approve this process note.")
+                                    can_save_table = False
 
-                                if not existing_sec:
-                                    existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=combined_rows)
-                                    db.add(existing_sec)
-                                    existing_sections[sec_id] = existing_sec
+                            if can_save_table:
+                                raw_rows = build_table_rows_from_answers(sec_id, answers)
+                                if sec_id in ["1.1", "1.2", "1.3"]:
+                                    final_rows = raw_rows
                                 else:
-                                    existing_sec.structured_data = combined_rows
-                                db.commit()
-                                is_completed = True
-                                st.session_state[f"show_guide_{sec_id}"] = False
-                                st.session_state[f"is_editing_{sec_id}"] = False
-                                for f in spec.get("fields", []):
-                                    k = f"qa_{sec_id}_{f['id']}"
-                                    if k in st.session_state:
-                                        del st.session_state[k]
-                                st.success(f"✅ Row successfully added to {sec_config['name']} table!")
-                                st.rerun()
+                                    with st.spinner("🤖 Refining answers, correcting typos, and saving row..."):
+                                        from services.llm_service import get_llm_provider
+                                        llm = get_llm_provider()
+                                        final_rows = llm.refine_table_rows_with_ai(
+                                            section_id=sec_id,
+                                            section_config=sec_config,
+                                            raw_rows=raw_rows,
+                                            answers_dict=answers,
+                                            process_name=current_note.process_name,
+                                            team_name=current_note.team
+                                        )
+
+                                existing_rows = existing_sec.structured_data if (existing_sec and existing_sec.structured_data) else []
+                                if sec_id in multi_row_sections:
+                                    if sec_id == "1.13" and final_rows:
+                                        final_rows[0]["Sr. No."] = len(existing_rows) + 1
+                                    combined_rows = existing_rows + final_rows
+                                else:
+                                    combined_rows = final_rows
+
+                                from core.rule_validator import RuleValidator
+                                from models.schemas import ProcessSectionSchema
+                                sec_schema = ProcessSectionSchema(section_id=sec_id, content="", structured_data=combined_rows)
+                                issues = RuleValidator().validate(sec_schema, config)
+                                if issues:
+                                    for issue in issues:
+                                        st.error(f"❌ Validation Error: {issue}")
+                                    if sec_id == "1.8":
+                                        st.info("💡 **Requirement for End Point:** Exit Criteria must be descriptive (at least 4 words). Simply typing 'abc' or vague text is not accepted — specify what deliverable, authorization, or sign-off confirms completion.")
+                                    elif sec_id == "1.7":
+                                        st.info("💡 **Requirement for Start Point:** Entry Criteria must be descriptive (at least 4 words) describing verified prerequisite documents or authorizations.")
+                                else:
+                                    import copy
+                                    # Snapshot existing rows for Undo
+                                    if existing_sec and existing_sec.structured_data:
+                                        st.session_state[f"undo_table_{sec_id}"] = copy.deepcopy(existing_sec.structured_data)
+
+                                    if not existing_sec:
+                                        existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=combined_rows)
+                                        db.add(existing_sec)
+                                        existing_sections[sec_id] = existing_sec
+                                    else:
+                                        existing_sec.structured_data = combined_rows
+                                    db.commit()
+                                    is_completed = True
+                                    st.session_state[f"show_guide_{sec_id}"] = False
+                                    st.session_state[f"is_editing_{sec_id}"] = False
+                                    for f in spec.get("fields", []):
+                                        k = f"qa_{sec_id}_{f['id']}"
+                                        if k in st.session_state:
+                                            del st.session_state[k]
+                                    st.success(f"✅ Row successfully added to {sec_config['name']} table!")
+                                    st.rerun()
 
                     elif sec_config["type"] == "flowchart":
                         col_fl1, col_fl2 = st.columns([1, 1])
