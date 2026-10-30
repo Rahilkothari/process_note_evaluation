@@ -1571,7 +1571,7 @@ try:
                         if st.button(btn_txt, key=f"btn_reopen_qa_tbl_{sec_id}", use_container_width=True):
                             st.session_state[f"show_guide_{sec_id}"] = True
                             st.rerun()
-                    else:
+                else:
                     col_h1, col_h2 = st.columns([3, 1])
                     with col_h1:
                         st.markdown(f'<div style="font-weight: 700; font-size: 15px; color: #1E293B; margin-bottom: 8px;">✏️ Editing {sec_config["name"]} Table:</div>', unsafe_allow_html=True)
