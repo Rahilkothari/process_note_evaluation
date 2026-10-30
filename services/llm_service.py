@@ -402,6 +402,9 @@ class MockProvider(LLMProvider):
 
         # 1. Section 1.1 Approval Matrix: Segregation of Duties & Format
         if section_id == "1.1":
+            role = str(answers_dict.get("role", "")).strip()
+            name = str(answers_dict.get("name", "")).strip()
+
             owner = str(answers_dict.get("owner_name") or answers_dict.get("owner", "")).strip()
             reviewer = str(answers_dict.get("reviewer_name") or answers_dict.get("reviewer", "")).strip()
             approver = str(answers_dict.get("approver_name") or answers_dict.get("approver", "")).strip()
@@ -411,11 +414,29 @@ class MockProvider(LLMProvider):
 
             o_name, r_name, a_name = extract_name(owner), extract_name(reviewer), extract_name(approver)
 
-            # Check Segregation of Duties - ONLY flag if Owner is also Approver (Critical governance violation)
+            # Check Segregation of Duties - legacy batch
             if o_name and a_name and o_name == a_name:
                 status = "CRITICAL"
                 issues.append(f"Governance Conflict: Process Owner '{owner.split('|')[0].strip()}' cannot also be the Process Approver (self-approval).")
                 suggestions.append("Assign an independent managerial authority (e.g., Director / Functional Head) to approve the document.")
+
+            # Check Segregation of Duties - row-by-row addition against saved rows
+            if name and has_saved_rows:
+                clean_name = name.lower()
+                if "approver" in role.lower():
+                    for r in saved_rows:
+                        if "owner" in str(r.get("Role", "")).lower() and str(r.get("Name", "")).strip().lower() == clean_name:
+                            status = "CRITICAL"
+                            issues.append(f"Governance Conflict: Process Owner '{name}' cannot also be the Process Approver (self-approval).")
+                            suggestions.append("Assign an independent managerial authority (e.g., Director / Functional Head) to approve the document.")
+                            break
+                elif "owner" in role.lower():
+                    for r in saved_rows:
+                        if "approver" in str(r.get("Role", "")).lower() and str(r.get("Name", "")).strip().lower() == clean_name:
+                            status = "CRITICAL"
+                            issues.append(f"Governance Conflict: Process Owner '{name}' cannot also be the Process Approver (self-approval).")
+                            suggestions.append("Assign an independent managerial authority (e.g., Director / Functional Head) to approve the document.")
+                            break
 
             # DO NOT complain about missing pipe characters or informal names - the backend auto-formats them cleanly!
             for role_key, label in [("owner", "Process Owner"), ("reviewer", "Process Reviewer"), ("approver", "Process Approver")]:

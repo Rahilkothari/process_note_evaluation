@@ -106,3 +106,58 @@ def test_audit_guided_completely_empty_section():
     assert res["status"] == "WARNING"
     assert "No content has been added" in res["issues"][0]
 
+def test_approval_matrix_row_by_row_build_and_validation():
+    # 1. Build single row for Process Owner
+    owner_answers = {
+        "role": "Process Owner",
+        "name": "Aarav Sharma",
+        "function": "Lead - School Operations",
+        "sign": "AS",
+        "date": "2026-10-30"
+    }
+    row1 = build_table_rows_from_answers("1.1", owner_answers)
+    assert len(row1) == 1
+    assert row1[0]["Role"] == "Process Owner"
+    assert row1[0]["Name"] == "Aarav Sharma"
+
+    # 2. RuleValidator accepts single owner row (no reviewer or approver yet)
+    validator = RuleValidator()
+    config = {"sections": [{"id": "1.1", "name": "Approval Matrix", "type": "table"}]}
+    sec = ProcessSectionSchema(section_id="1.1", content="", structured_data=row1)
+    issues = validator.validate(sec, config)
+    assert len(issues) == 0
+
+    # 3. Add custom role row (e.g. Quality Advisor)
+    custom_answers = {
+        "role": "Quality Advisor",
+        "name": "Meera Sen",
+        "function": "Business Excellence",
+        "sign": "MS",
+        "date": "2026-10-30"
+    }
+    row2 = build_table_rows_from_answers("1.1", custom_answers)
+    combined = row1 + row2
+    assert len(combined) == 2
+    assert combined[1]["Role"] == "Quality Advisor"
+
+    # 4. Check Segregation of Duties detection when adding self-approver
+    provider = MockProvider()
+    approver_conflict_answers = {
+        "role": "Process Approver",
+        "name": "Aarav Sharma",
+        "function": "Lead - School Operations",
+        "sign": "AS",
+        "date": "2026-10-30"
+    }
+    audit_res = provider.audit_guided_input(
+        "1.1",
+        {"name": "Approval Matrix", "type": "table"},
+        approver_conflict_answers,
+        "School Onboarding",
+        "Operations",
+        current_section_saved=row1
+    )
+    assert audit_res["status"] == "CRITICAL"
+    assert any("Governance Conflict" in iss for iss in audit_res["issues"])
+
+

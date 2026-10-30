@@ -419,7 +419,7 @@ try:
             build_text_summary_from_answers,
             build_mermaid_flowchart_from_answers
         )
-        multi_row_sections = ["1.12", "1.13", "1.5", "1.7", "1.8", "1.14", "1.15", "1.16", "1.17", "1.18", "1.19", "1.20", "1.21", "1.22", "1.4"]
+        multi_row_sections = ["1.1", "1.12", "1.13", "1.5", "1.7", "1.8", "1.14", "1.15", "1.16", "1.17", "1.18", "1.19", "1.20", "1.21", "1.22", "1.4"]
         spec = SECTION_GUIDED_SPECS.get(sec_id)
         if spec:
             guide_expanded = st.session_state.get(f"show_guide_{sec_id}", not is_completed)
@@ -462,12 +462,19 @@ try:
                         for r_idx, r_item in enumerate(existing_sec.structured_data):
                             c_info, c_del = st.columns([5, 1])
                             with c_info:
-                                row_title = r_item.get("Activity") or r_item.get("Activity name") or r_item.get("Description") or r_item.get("Role") or r_item.get("KPI") or r_item.get("Sub Process") or r_item.get("Abbreviation")
-                                if not row_title:
-                                    row_title = next((str(v) for v in r_item.values() if v), f"Row {r_idx + 1}")
-                                row_title = str(row_title).replace("\n", " ")[:65]
-                                owner_label = r_item.get("Owner/Role") or r_item.get("Responsible") or r_item.get("Owner") or ""
-                                owner_html = f" &bull; <span style='color: #475569;'>Role: <b>{owner_label}</b></span>" if owner_label else ""
+                                if sec_id == "1.1":
+                                    row_title = f"{r_item.get('Role', 'Sign-off')}: {r_item.get('Name', '')}"
+                                    dept_label = r_item.get('Function', '')
+                                    date_label = r_item.get('Date', '')
+                                    date_str = f" &bull; Date: <b>{date_label}</b>" if date_label else ""
+                                    owner_html = f" &bull; <span style='color: #475569;'>Dept: <b>{dept_label}</b>{date_str}</span>" if dept_label else ""
+                                else:
+                                    row_title = r_item.get("Activity") or r_item.get("Activity name") or r_item.get("Description") or r_item.get("Role") or r_item.get("KPI") or r_item.get("Sub Process") or r_item.get("Abbreviation")
+                                    if not row_title:
+                                        row_title = next((str(v) for v in r_item.values() if v), f"Row {r_idx + 1}")
+                                    row_title = str(row_title).replace("\n", " ")[:65]
+                                    owner_label = r_item.get("Owner/Role") or r_item.get("Responsible") or r_item.get("Owner") or ""
+                                    owner_html = f" &bull; <span style='color: #475569;'>Role: <b>{owner_label}</b></span>" if owner_label else ""
                                 st.markdown(
                                     f"<div style='background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; padding: 7px 12px; margin-bottom: 4px; font-size: 13px;'>"
                                     f"<b>Row {r_idx + 1}:</b> {row_title}{owner_html}"
@@ -858,23 +865,39 @@ try:
                         if submit_table_btn:
                             can_save_table = True
                             if sec_id == "1.1":
-                                o_name = str(answers.get("owner_name") or answers.get("owner", "")).split("|")[0].strip()
-                                o_func = str(answers.get("owner_func", "")).strip()
-                                a_name = str(answers.get("approver_name") or answers.get("approver", "")).split("|")[0].strip()
-                                a_func = str(answers.get("approver_func", "")).strip()
+                                role_val = str(answers.get("role", "Process Owner")).strip()
+                                name_val = str(answers.get("name", "")).strip()
+                                func_val = str(answers.get("function", "") or answers.get("func", "")).strip()
 
-                                missing_fields = []
-                                if not o_name: missing_fields.append("Process Owner Name")
-                                if not o_func: missing_fields.append("Process Owner Function")
-                                if not a_name: missing_fields.append("Process Approver Name")
-                                if not a_func: missing_fields.append("Process Approver Function")
-
-                                if missing_fields:
-                                    st.warning(f"⚠️ Please fill in all mandatory fields before saving: {', '.join(missing_fields)}.")
-                                    can_save_table = False
-                                elif o_name.lower() == a_name.lower():
-                                    st.error(f"❌ **Governance Conflict (Segregation of Duties):** The Process Owner and Process Approver cannot be the same individual ('{o_name}'). Corporate governance requires an independent managerial authority to approve this process note.")
-                                    can_save_table = False
+                                # Support legacy batch format if invoked
+                                if not name_val and ("owner_name" in answers or "owner" in answers):
+                                    o_name = str(answers.get("owner_name") or answers.get("owner", "")).split("|")[0].strip()
+                                    a_name = str(answers.get("approver_name") or answers.get("approver", "")).split("|")[0].strip()
+                                    if o_name and a_name and o_name.lower() == a_name.lower():
+                                        st.error(f"❌ **Governance Conflict (Segregation of Duties):** The Process Owner and Process Approver cannot be the same individual ('{o_name}'). Corporate governance requires an independent managerial authority to approve this process note.")
+                                        can_save_table = False
+                                else:
+                                    if not name_val:
+                                        st.warning("⚠️ Please provide the Stakeholder Name before adding this row.")
+                                        can_save_table = False
+                                    elif not func_val:
+                                        st.warning("⚠️ Please provide the Function / Department before adding this row.")
+                                        can_save_table = False
+                                    else:
+                                        # Check Segregation of Duties against already saved rows in Approval Matrix
+                                        existing_rows = existing_sec.structured_data if (existing_sec and existing_sec.structured_data) else []
+                                        if "approver" in role_val.lower():
+                                            for r in existing_rows:
+                                                if "owner" in str(r.get("Role", "")).lower() and str(r.get("Name", "")).strip().lower() == name_val.lower():
+                                                    st.error(f"❌ **Governance Conflict (Segregation of Duties):** '{name_val}' is already designated as the Process Owner. Corporate governance requires an independent managerial authority to approve this process note.")
+                                                    can_save_table = False
+                                                    break
+                                        elif "owner" in role_val.lower():
+                                            for r in existing_rows:
+                                                if "approver" in str(r.get("Role", "")).lower() and str(r.get("Name", "")).strip().lower() == name_val.lower():
+                                                    st.error(f"❌ **Governance Conflict (Segregation of Duties):** '{name_val}' is already designated as the Process Approver. Corporate governance requires an independent managerial authority to approve this process note.")
+                                                    can_save_table = False
+                                                    break
 
                             if can_save_table:
                                 raw_rows = build_table_rows_from_answers(sec_id, answers)

@@ -52,12 +52,21 @@ class RuleValidator:
             else:
                 # 1.1 Approval matrix
                 if section.section_id == "1.1":
-                    roles = [str(r.get("Role", "")).lower() for r in section.structured_data]
-                    names = [str(r.get("Name", "")).lower() for r in section.structured_data]
-                    mandatory_roles = ["process owner", "process approver"]
-                    for m_role in mandatory_roles:
-                        if not any(m_role in r_val for r_val in roles) and not any(m_role in n_val for n_val in names):
-                            issues.append(f"Missing mandatory role: {m_role.title()}")
+                    for idx, r in enumerate(section.structured_data, 1):
+                        r_name = str(r.get("Name", "")).strip()
+                        r_role = str(r.get("Role", "")).strip()
+                        if not r_name:
+                            issues.append(f"Row {idx}: Stakeholder Name cannot be blank.")
+                        if not r_role:
+                            issues.append(f"Row {idx}: Stakeholder Role must be selected.")
+
+                    # Check Segregation of Duties if both Process Owner and Process Approver exist
+                    owner_names = [str(r.get("Name", "")).strip().lower() for r in section.structured_data if "owner" in str(r.get("Role", "")).lower() and str(r.get("Name", "")).strip()]
+                    approver_names = [str(r.get("Name", "")).strip().lower() for r in section.structured_data if "approver" in str(r.get("Role", "")).lower() and str(r.get("Name", "")).strip()]
+                    for ow in owner_names:
+                        if ow in approver_names:
+                            issues.append(f"Governance Conflict: Process Owner '{ow.title()}' cannot also be the Process Approver (self-approval).")
+                            break
 
                 # 1.7 Start Point
                 elif section.section_id == "1.7":

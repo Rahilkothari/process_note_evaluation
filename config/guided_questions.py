@@ -41,90 +41,49 @@ def compute_next_review_date(eff_date: datetime.date, freq_str: str) -> datetime
 
 SECTION_GUIDED_SPECS: Dict[str, Dict[str, Any]] = {
     "1.1": {
-        "title": "Approval Matrix (Who Signs Off)",
-        "intro": "Specify who reviews and approves this process note. AI will format it into the standard corporate approval matrix. Note: Process Owner and Approver are strictly mandatory (*); Process Reviewer is optional:",
+        "title": "Approval Matrix (Sign-off Stakeholders)",
+        "intro": "Add sign-off stakeholders one by one. Select the role from the dropdown (Process Owner, Process Reviewer, Process Approver, or custom role), provide person details, and click Add Row to build your Approval Matrix:",
         "type": "table",
         "fields": [
             {
-                "id": "owner_name",
-                "label": "Process Owner Name *:",
+                "id": "role",
+                "label": "Sign-off Role *:",
+                "type": "select",
+                "options": [
+                    "Process Owner",
+                    "Process Reviewer",
+                    "Process Approver",
+                    "Other (Specify custom role...)"
+                ],
+                "default": "Process Owner",
+                "help": "💡 Select the sign-off role from the dropdown or choose Other to specify a custom role."
+            },
+            {
+                "id": "name",
+                "label": "Stakeholder Full Name *:",
                 "type": "text",
                 "placeholder": "e.g., Aarav Sharma",
-                "help": "💡 [Mandatory] Full name of the process author/owner."
+                "help": "💡 [Mandatory] Full name of the designated person."
             },
             {
-                "id": "owner_func",
-                "label": "Process Owner Function / Department *:",
+                "id": "function",
+                "label": "Function / Department *:",
                 "type": "text",
-                "placeholder": "e.g., School Operations",
-                "help": "💡 [Mandatory] Department or vertical responsible for executing the process."
+                "placeholder": "e.g., Lead - School Operations",
+                "help": "💡 [Mandatory] Functional department or vertical."
             },
             {
-                "id": "owner_sign",
-                "label": "Process Owner Sign / Initials (Optional):",
+                "id": "sign",
+                "label": "Sign / Initials (Optional):",
                 "type": "text",
                 "placeholder": "e.g., AS",
-                "help": "💡 [Optional] Signature code or initials (auto-generated if left blank)."
+                "help": "💡 [Optional] Initials or signature code (auto-generated from name if left blank)."
             },
             {
-                "id": "owner_date",
-                "label": "Process Owner Sign-off Date *:",
+                "id": "date",
+                "label": "Sign-off Date *:",
                 "type": "date",
-                "help": "💡 [Mandatory] Date when the owner finalized the document."
-            },
-            {
-                "id": "reviewer_name",
-                "label": "Process Reviewer Name (Optional):",
-                "type": "text",
-                "placeholder": "e.g., Meera Sen (or leave blank if none)",
-                "help": "💡 [Optional] Quality / Business Excellence Lead reviewing the note. Leave blank if not applicable."
-            },
-            {
-                "id": "reviewer_func",
-                "label": "Process Reviewer Function / Department (Optional):",
-                "type": "text",
-                "placeholder": "e.g., Business Excellence & Quality",
-                "help": "💡 [Optional] Department responsible for review."
-            },
-            {
-                "id": "reviewer_sign",
-                "label": "Process Reviewer Sign / Initials (Optional):",
-                "type": "text",
-                "placeholder": "e.g., MS",
-                "help": "💡 [Optional] Signature code or initials."
-            },
-            {
-                "id": "reviewer_date",
-                "label": "Process Reviewer Sign-off Date (Optional):",
-                "type": "date",
-                "help": "💡 [Optional] Date when the review was completed."
-            },
-            {
-                "id": "approver_name",
-                "label": "Process Approver Name *:",
-                "type": "text",
-                "placeholder": "e.g., Vikramaditya Roy",
-                "help": "💡 [Mandatory] Senior leadership authority providing final approval sign-off."
-            },
-            {
-                "id": "approver_func",
-                "label": "Process Approver Function / Department *:",
-                "type": "text",
-                "placeholder": "e.g., Field Programs",
-                "help": "💡 [Mandatory] Leadership department (e.g. Director - Programs)."
-            },
-            {
-                "id": "approver_sign",
-                "label": "Process Approver Sign / Initials (Optional):",
-                "type": "text",
-                "placeholder": "e.g., VR",
-                "help": "💡 [Optional] Signature code or initials (auto-generated if left blank)."
-            },
-            {
-                "id": "approver_date",
-                "label": "Final Approval Date *:",
-                "type": "date",
-                "help": "💡 [Mandatory] Date when leadership granted final authorization."
+                "help": "💡 [Mandatory] Date of sign-off or authorization."
             }
         ]
     },
@@ -1018,6 +977,23 @@ def _build_table_rows_raw(sec_id: str, answers: Dict[str, Any]) -> List[Dict[str
             elif len(parts) == 1:
                 return parts[0][:2].upper()
             return "TBD"
+
+        # 1. Row-by-Row Mode: When adding individual sign-off stakeholder rows one by one
+        if "role" in answers or ("name" in answers and "owner_name" not in answers):
+            role_val = str(answers.get("role") or "Process Owner").strip()
+            name_val = str(answers.get("name") or "").strip()
+            func_val = str(answers.get("function") or answers.get("func") or "Operations").strip()
+            sign_val = str(answers.get("sign") or "").strip() or make_sign(name_val)
+            date_val = str(answers.get("date") or today_str).strip()
+            if not name_val and not role_val:
+                return []
+            return [{
+                "Name": name_val,
+                "Role": role_val,
+                "Function": func_val,
+                "Sign": sign_val,
+                "Date": date_val
+            }]
 
         def get_val_or_pipe(prefix: str, fallback_func: str, fallback_name: str, is_optional: bool = False):
             # Check if user entered dedicated new fields: name, func, sign, date
