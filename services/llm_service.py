@@ -352,33 +352,19 @@ class MockProvider(LLMProvider):
 
             o_name, r_name, a_name = extract_name(owner), extract_name(reviewer), extract_name(approver)
 
-            # Check Segregation of Duties
-            if o_name and r_name and a_name:
-                if o_name == r_name == a_name:
-                    status = "CRITICAL"
-                    issues.append(f"Segregation of Duties Violation: '{owner.split('|')[0].strip()}' is assigned as Process Owner, Reviewer, AND Approver. An author cannot approve their own process note.")
-                    suggestions.append("Assign an independent designated reviewer (e.g., Quality Lead / Functional Specialist) and a distinct senior leadership approver (e.g., Director / Functional Head).")
-                elif o_name == a_name:
-                    status = "CRITICAL"
-                    issues.append(f"Governance Conflict: Process Owner '{owner.split('|')[0].strip()}' cannot also be the Process Approver.")
-                    suggestions.append("Ensure the final sign-off is granted by an independent managerial authority.")
-                elif r_name == a_name:
-                    status = "WARNING"
-                    issues.append(f"Dual Responsibility: The Reviewer and Approver are identical ('{reviewer.split('|')[0].strip()}').")
-                    suggestions.append("Best practice recommends separating review (quality inspection) from final approval (management authorization).")
+            # Check Segregation of Duties - ONLY flag if Owner is also Approver (Critical governance violation)
+            if o_name and a_name and o_name == a_name:
+                status = "CRITICAL"
+                issues.append(f"Governance Conflict: Process Owner '{owner.split('|')[0].strip()}' cannot also be the Process Approver (self-approval).")
+                suggestions.append("Assign an independent managerial authority (e.g., Director / Functional Head) to approve the document.")
 
-            # Check Pipe delimiter format
+            # DO NOT complain about missing pipe characters or informal names - the backend auto-formats them cleanly!
             for role_key, label in [("owner", "Process Owner"), ("reviewer", "Process Reviewer"), ("approver", "Process Approver")]:
                 val = str(answers_dict.get(role_key, "")).strip()
                 if val and "|" not in val:
-                    if status != "CRITICAL":
-                        status = "WARNING"
-                    issues.append(f"{label} format incomplete: Expected 'Name | Function/Team | Sign Code', but found plain text '{val}'.")
                     dept_guess = team_name or "Operations"
                     initials = "".join([part[0].upper() for part in val.split() if part]) or "XX"
-                    fix_val = f"{val} | {dept_guess} | {initials}"
-                    suggestions.append(f"Format {label} with department and sign code (e.g., '{fix_val}').")
-                    autofill_fixes[role_key] = fix_val
+                    autofill_fixes[role_key] = f"{val} | {dept_guess} | {initials}"
 
         # 2. Section 1.7 Start Point / 1.8 End Point
         elif section_id in ["1.7", "1.8"]:
@@ -386,51 +372,37 @@ class MockProvider(LLMProvider):
             crit_val = str(answers_dict.get(crit_key, "")).strip()
             label = "Entry Criteria" if section_id == "1.7" else "Exit Criteria"
             if crit_val:
-                words = crit_val.split()
-                if len(words) < 4:
-                    status = "WARNING" if len(words) >= 2 else "CRITICAL"
-                    issues.append(f"{label} is too brief ({len(words)} words): '{crit_val}'.")
-                    suggestions.append(f"{label} must be descriptive (at least 4 words) specifying verified prerequisites, sign-offs, or handover documentation.")
+                val_lower = crit_val.lower()
+                # Only flag pure placeholder or single meaningless words
+                if val_lower in ["done", "start", "ok", "yes", "na", "n/a", "abc", "test", "xyz"]:
+                    status = "CRITICAL"
+                    issues.append(f"{label} requires a meaningful operational milestone, not placeholder text ('{crit_val}').")
+                    suggestions.append(f"Specify what document, sign-off, or deliverable initiates or concludes this process.")
                     if section_id == "1.7":
-                        autofill_fixes[crit_key] = f"Receipt and administrative verification of {process_name or 'operational'} authorization dossier"
+                        autofill_fixes[crit_key] = f"Receipt and verification of {process_name or 'operational'} authorization dossier"
                     else:
-                        autofill_fixes[crit_key] = f"Final sign-off, system handover, and archival of completed {process_name or 'process'} records"
+                        autofill_fixes[crit_key] = f"Final sign-off, system handover, and archival of completed records"
 
         # 3. Section 1.6 Scope
         elif section_id == "1.6":
             inc = str(answers_dict.get("in_scope", "")).strip()
             exc = str(answers_dict.get("out_scope", "")).strip()
+            # Only flag if user left out-of-scope completely blank when in-scope is present
             if inc and not exc:
                 status = "WARNING"
-                issues.append("Out of Scope is empty: Standard compliance requires defining clear process boundaries.")
-                suggestions.append("Specify at least 1 adjacent activity, program, or vendor task that is explicitly excluded.")
+                issues.append("Process boundaries: Specify what is excluded (Out of Scope) to avoid scope ambiguity.")
+                suggestions.append("List at least one excluded activity or third-party task.")
                 autofill_fixes["out_scope"] = "External vendor procurement, statutory legal litigation, and off-scope technology customization."
 
         # 4. Section 1.12 Process Description
         elif section_id == "1.12":
             sub_steps = str(answers_dict.get("sub_steps", "")).strip()
-            inputs = str(answers_dict.get("inputs", "")).strip()
-            tools = str(answers_dict.get("tools", "")).strip()
-            checks = str(answers_dict.get("checks", "")).strip()
-
-            if sub_steps and len(sub_steps.split()) < 5:
-                status = "CRITICAL"
-                issues.append("Sub-activities are too vague or incomplete (less than 5 words).")
-                suggestions.append("Break the activity down into numbered procedural steps (e.g., 1. Filter applications, 2. Conduct on-ground audit).")
-
-            if not inputs or not tools or not checks:
-                if status != "CRITICAL":
-                    status = "WARNING"
-                missing_items = []
-                if not inputs: missing_items.append("Inputs/Data Sources")
-                if not tools: missing_items.append("Tools/Applications")
-                if not checks: missing_items.append("Checks/Approvals")
-                issues.append(f"Incomplete Activity Specification: Missing {', '.join(missing_items)}.")
-                suggestions.append("Enterprise process notes require specifying data inputs, software tools, and validation approvals for every row.")
-                if not tools:
-                    autofill_fixes["tools"] = "KEF ERP Portal, Google Sheets, State MIS Database"
-                if not checks:
-                    autofill_fixes["checks"] = "Functional Lead verification and QA approval against standard rubric"
+            if sub_steps:
+                val_lower = sub_steps.lower()
+                if val_lower in ["test", "abc", "steps", "none", "na", "n/a", "asdf"]:
+                    status = "CRITICAL"
+                    issues.append("Sub-activities cannot be generic placeholder text.")
+                    suggestions.append("Outline 2-3 specific procedural steps (e.g., 1. Receive data, 2. Validate criteria).")
 
         # 5. Section 1.13 RACI Matrix: Avoid Yes/No
         elif section_id == "1.13":
@@ -442,12 +414,13 @@ class MockProvider(LLMProvider):
                     suggestions.append("Specify exact functional job titles.")
                     break
 
-        # 6. General check for placeholder or nonsensical text across any section
+        # 6. General check for literal nonsense / placeholder text only
         for k, v in answers_dict.items():
             val_str = str(v).strip().lower()
-            if val_str in ["abc", "xyz", "test", "na", "n/a", "none", "asdf", "...", "123"]:
-                if status != "CRITICAL":
-                    status = "WARNING"
+            if val_str in ["abc", "xyz", "test", "asdf", "...", "123"]:
+                status = "CRITICAL"
+                issues.append(f"Field contains placeholder text: '{v}'.")
+                suggestions.append(f"Provide real business information.")
                 issues.append(f"Field '{k}' contains generic placeholder text: '{v}'.")
                 suggestions.append(f"Provide substantive, domain-specific information for '{k}'.")
 
@@ -1104,38 +1077,48 @@ USER INPUT ANSWERS:
 RELEVANT EXISTING SECTIONS CONTEXT:
 {json.dumps(existing_sections_data, indent=2)}
 
-AUDIT GUIDELINES & RULE CHECKS:
+AUDIT PHILOSOPHY & CRITICAL SCOPE:
+- YOU ARE AN ENABLER, NOT A NITPICKER. DO NOT frustrate the process note creator with pedantic, petty, or cosmetic complaints.
+- NEVER flag minor wording variations, date differences across revisions, informal names (e.g., 'John M' or 'Aarav'), or standard version labels like '1.0 (Initial Draft)' which are generated by the app dropdown itself!
+- The Business Excellence (BE) team handles minor cosmetic touch-ups later. You must ONLY flag GENUINE, HIGH-PRIORITY, BLOCKING GOVERNANCE VIOLATIONS.
+
+WHAT CONSTITUTES A HIGH-PRIORITY ISSUE:
 1. APPROVAL MATRIX (Section 1.1):
-   - Segregation of Duties: Check if Process Owner, Reviewer, and Approver are the same individual. An author CANNOT approve their own document.
-   - Format: Must follow 'Name | Function/Team | Sign Code'. Flag if user only entered names without department or sign initials.
+   - Genuine Conflict of Interest / Segregation of Duties: ONLY flag if the Process Owner is also the Process Approver (self-approval).
+   - If Reviewer and Approver have names without pipe characters or sign codes, DO NOT flag it as an issue; silently accept or refine it.
 2. START & END POINTS (1.7, 1.8):
-   - Entry/Exit Criteria must be descriptive (at least 4 words). Single-word or vague criteria ('done', 'approved', 'start') must be flagged.
-3. SCOPE (1.6):
-   - Scope must define both IN-SCOPE and OUT-OF-SCOPE. An empty Out-of-Scope boundary must be flagged.
+   - ONLY flag if completely empty or contains pure placeholder nonsense like 'abc', 'xyz', 'test', 'done'.
+   - If the user provides a real business event (even if concise), accept it!
+3. RACI MATRIX (1.13):
+   - Flag if the user enters 'Yes'/'No' instead of actual roles or people.
 4. PROCESS DESCRIPTION (1.12):
-   - Check if inputs, tools, sub-steps, and approval checks are specified.
-5. RACI MATRIX (1.13):
-   - RACI roles must be job designations, NEVER Yes/No or checkmarks.
-6. GENERAL QUALITY:
-   - Check if user entered generic placeholders like 'abc', 'test', 'xyz', 'na'.
+   - Flag if the description has zero procedural steps or is completely uninformative.
+5. GENERAL NONSENSE:
+   - Flag only gibberish or literal placeholder text like 'asdf', '123', 'none'.
+
+WHAT YOU MUST NEVER FLAG:
+- DO NOT complain about date alignments between different sections (e.g. effective date vs change date).
+- DO NOT complain about version string formatting (e.g. '1.0 (Initial Draft)' is completely valid).
+- DO NOT complain about short names, initials, or missing department pipes in names.
+- DO NOT complain about capitalization, punctuation, or case sensitivity.
 
 EVALUATION STATUSES:
-- 'COMPLIANT': Input is high quality, complete, and adheres to all governance rules.
-- 'WARNING': Input is partially correct or acceptable, but missing standard formatting, department info, or clear boundaries.
-- 'CRITICAL': Severe discrepancy, governance conflict (e.g., self-approval), or completely vague/empty input.
+- 'COMPLIANT': Default for normal, sensible inputs even if brief or informal.
+- 'WARNING': Reserved ONLY for genuine, notable missing operational elements (e.g., completely missing Out-of-Scope in Section 1.6).
+- 'CRITICAL': Reserved EXCLUSIVELY for fatal governance violations (e.g., an author approving their own note) or complete gibberish/empty fields.
 
 OUTPUT FORMAT (STRICT JSON ONLY):
 {{
   "status": "COMPLIANT" | "WARNING" | "CRITICAL",
   "summary": "Crisp 1-line verdict for the user",
   "issues": [
-    "Specific issue or rule discrepancy explained in simple, constructive terms"
+    "High-priority issue explained in constructive, simple language"
   ],
   "suggestions": [
-    "Actionable instruction telling user what needs to be added or fixed"
+    "Actionable instruction telling user what needs to be added"
   ],
   "autofill_fixes": {{
-    "field_id": "recommended_corrected_or_enhanced_value"
+    "field_id": "recommended_value"
   }}
 }}
 

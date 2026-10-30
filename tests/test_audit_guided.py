@@ -10,15 +10,15 @@ def test_audit_guided_approval_matrix_segregation_of_duties():
     }
     res = provider.audit_guided_input("1.1", {"name": "Approval Matrix", "type": "table"}, answers, "School Onboarding", "Operations")
     assert res["status"] == "CRITICAL"
-    assert any("Segregation of Duties" in issue for issue in res["issues"])
+    assert any("Governance Conflict" in issue for issue in res["issues"])
     assert any("owner" in k for k in res["autofill_fixes"].keys())
 
-def test_audit_guided_criteria_length():
+def test_audit_guided_criteria_placeholder():
     provider = MockProvider()
     answers = {"entry_criteria": "start"}
     res = provider.audit_guided_input("1.7", {"name": "Start Point", "type": "table"}, answers, "School Onboarding", "Operations")
-    assert res["status"] in ["WARNING", "CRITICAL"]
-    assert any("too brief" in issue for issue in res["issues"])
+    assert res["status"] == "CRITICAL"
+    assert any("meaningful operational milestone" in issue for issue in res["issues"])
 
 def test_audit_guided_compliant_matrix():
     provider = MockProvider()
@@ -30,3 +30,4 @@ def test_audit_guided_compliant_matrix():
     res = provider.audit_guided_input("1.1", {"name": "Approval Matrix", "type": "table"}, answers, "School Onboarding", "Operations")
     assert res["status"] == "COMPLIANT"
     assert len(res["issues"]) == 0
+
