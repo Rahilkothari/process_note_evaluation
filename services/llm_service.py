@@ -50,6 +50,29 @@ class LLMProvider(ABC):
     def detect_clarifications_needed(self, section_id: str, section_config: Dict[str, Any], user_answers: str, team_name: str = "") -> List[str]:
         pass
 
+    @abstractmethod
+    def audit_guided_input(
+        self,
+        section_id: str,
+        section_config: Dict[str, Any],
+        answers_dict: Dict[str, Any],
+        process_name: str = "",
+        team_name: str = "",
+        existing_sections_data: Dict[str, Any] = None
+    ) -> Dict[str, Any]:
+        """
+        Audits user-filled guided form answers against standard enterprise rules.
+        Returns:
+            {
+                "status": "COMPLIANT" | "WARNING" | "CRITICAL",
+                "summary": "Brief 1-line overview",
+                "issues": ["Clear explanation of gaps or discrepancies"],
+                "suggestions": ["Specific instructions on what needs to be done to fix"],
+                "autofill_fixes": {"field_id": "suggested_better_value"}
+            }
+        """
+        pass
+
 
 class MockProvider(LLMProvider):
     def validate_section(self, section_content: str, section_rules: Dict[str, Any], global_rules: Dict[str, Any] = None, team_name: str = "") -> SectionValidationResult:
@@ -299,6 +322,148 @@ class MockProvider(LLMProvider):
                 cleaned_row[k] = val_str
             refined.append(cleaned_row)
         return refined
+
+    def audit_guided_input(
+        self,
+        section_id: str,
+        section_config: Dict[str, Any],
+        answers_dict: Dict[str, Any],
+        process_name: str = "",
+        team_name: str = "",
+        existing_sections_data: Dict[str, Any] = None
+    ) -> Dict[str, Any]:
+        """
+        Mock implementation of guided input auditor with high-precision rules.
+        """
+        existing_sections_data = existing_sections_data or {}
+        issues = []
+        suggestions = []
+        autofill_fixes = {}
+        status = "COMPLIANT"
+
+        # 1. Section 1.1 Approval Matrix: Segregation of Duties & Format
+        if section_id == "1.1":
+            owner = str(answers_dict.get("owner", "")).strip()
+            reviewer = str(answers_dict.get("reviewer", "")).strip()
+            approver = str(answers_dict.get("approver", "")).strip()
+
+            def extract_name(val):
+                return val.split("|")[0].strip().lower() if val else ""
+
+            o_name, r_name, a_name = extract_name(owner), extract_name(reviewer), extract_name(approver)
+
+            # Check Segregation of Duties
+            if o_name and r_name and a_name:
+                if o_name == r_name == a_name:
+                    status = "CRITICAL"
+                    issues.append(f"Segregation of Duties Violation: '{owner.split('|')[0].strip()}' is assigned as Process Owner, Reviewer, AND Approver. An author cannot approve their own process note.")
+                    suggestions.append("Assign an independent designated reviewer (e.g., Quality Lead / Functional Specialist) and a distinct senior leadership approver (e.g., Director / Functional Head).")
+                elif o_name == a_name:
+                    status = "CRITICAL"
+                    issues.append(f"Governance Conflict: Process Owner '{owner.split('|')[0].strip()}' cannot also be the Process Approver.")
+                    suggestions.append("Ensure the final sign-off is granted by an independent managerial authority.")
+                elif r_name == a_name:
+                    status = "WARNING"
+                    issues.append(f"Dual Responsibility: The Reviewer and Approver are identical ('{reviewer.split('|')[0].strip()}').")
+                    suggestions.append("Best practice recommends separating review (quality inspection) from final approval (management authorization).")
+
+            # Check Pipe delimiter format
+            for role_key, label in [("owner", "Process Owner"), ("reviewer", "Process Reviewer"), ("approver", "Process Approver")]:
+                val = str(answers_dict.get(role_key, "")).strip()
+                if val and "|" not in val:
+                    if status != "CRITICAL":
+                        status = "WARNING"
+                    issues.append(f"{label} format incomplete: Expected 'Name | Function/Team | Sign Code', but found plain text '{val}'.")
+                    dept_guess = team_name or "Operations"
+                    initials = "".join([part[0].upper() for part in val.split() if part]) or "XX"
+                    fix_val = f"{val} | {dept_guess} | {initials}"
+                    suggestions.append(f"Format {label} with department and sign code (e.g., '{fix_val}').")
+                    autofill_fixes[role_key] = fix_val
+
+        # 2. Section 1.7 Start Point / 1.8 End Point
+        elif section_id in ["1.7", "1.8"]:
+            crit_key = "entry_criteria" if section_id == "1.7" else "exit_criteria"
+            crit_val = str(answers_dict.get(crit_key, "")).strip()
+            label = "Entry Criteria" if section_id == "1.7" else "Exit Criteria"
+            if crit_val:
+                words = crit_val.split()
+                if len(words) < 4:
+                    status = "WARNING" if len(words) >= 2 else "CRITICAL"
+                    issues.append(f"{label} is too brief ({len(words)} words): '{crit_val}'.")
+                    suggestions.append(f"{label} must be descriptive (at least 4 words) specifying verified prerequisites, sign-offs, or handover documentation.")
+                    if section_id == "1.7":
+                        autofill_fixes[crit_key] = f"Receipt and administrative verification of {process_name or 'operational'} authorization dossier"
+                    else:
+                        autofill_fixes[crit_key] = f"Final sign-off, system handover, and archival of completed {process_name or 'process'} records"
+
+        # 3. Section 1.6 Scope
+        elif section_id == "1.6":
+            inc = str(answers_dict.get("in_scope", "")).strip()
+            exc = str(answers_dict.get("out_scope", "")).strip()
+            if inc and not exc:
+                status = "WARNING"
+                issues.append("Out of Scope is empty: Standard compliance requires defining clear process boundaries.")
+                suggestions.append("Specify at least 1 adjacent activity, program, or vendor task that is explicitly excluded.")
+                autofill_fixes["out_scope"] = "External vendor procurement, statutory legal litigation, and off-scope technology customization."
+
+        # 4. Section 1.12 Process Description
+        elif section_id == "1.12":
+            sub_steps = str(answers_dict.get("sub_steps", "")).strip()
+            inputs = str(answers_dict.get("inputs", "")).strip()
+            tools = str(answers_dict.get("tools", "")).strip()
+            checks = str(answers_dict.get("checks", "")).strip()
+
+            if sub_steps and len(sub_steps.split()) < 5:
+                status = "CRITICAL"
+                issues.append("Sub-activities are too vague or incomplete (less than 5 words).")
+                suggestions.append("Break the activity down into numbered procedural steps (e.g., 1. Filter applications, 2. Conduct on-ground audit).")
+
+            if not inputs or not tools or not checks:
+                if status != "CRITICAL":
+                    status = "WARNING"
+                missing_items = []
+                if not inputs: missing_items.append("Inputs/Data Sources")
+                if not tools: missing_items.append("Tools/Applications")
+                if not checks: missing_items.append("Checks/Approvals")
+                issues.append(f"Incomplete Activity Specification: Missing {', '.join(missing_items)}.")
+                suggestions.append("Enterprise process notes require specifying data inputs, software tools, and validation approvals for every row.")
+                if not tools:
+                    autofill_fixes["tools"] = "KEF ERP Portal, Google Sheets, State MIS Database"
+                if not checks:
+                    autofill_fixes["checks"] = "Functional Lead verification and QA approval against standard rubric"
+
+        # 5. Section 1.13 RACI Matrix: Avoid Yes/No
+        elif section_id == "1.13":
+            for r_key in ["resp", "acc", "cons", "inf"]:
+                val = str(answers_dict.get(r_key, "")).strip().lower()
+                if val in ["yes", "no", "y", "n", "true", "false", "check"]:
+                    status = "CRITICAL"
+                    issues.append(f"Invalid RACI Entry: '{val}' found. RACI roles must be specific job designations (e.g., PH, Manager, Vertical Lead), never Yes/No.")
+                    suggestions.append("Specify exact functional job titles.")
+                    break
+
+        # 6. General check for placeholder or nonsensical text across any section
+        for k, v in answers_dict.items():
+            val_str = str(v).strip().lower()
+            if val_str in ["abc", "xyz", "test", "na", "n/a", "none", "asdf", "...", "123"]:
+                if status != "CRITICAL":
+                    status = "WARNING"
+                issues.append(f"Field '{k}' contains generic placeholder text: '{v}'.")
+                suggestions.append(f"Provide substantive, domain-specific information for '{k}'.")
+
+        summary = (
+            "✅ Fully Compliant: Meets all enterprise process note standards." if status == "COMPLIANT" else
+            ("⚠️ Needs Attention: Found partial gaps or formatting issues that should be improved." if status == "WARNING" else
+             "🚨 Discrepancy Detected: Violates process note compliance rules. Please review and adjust.")
+        )
+
+        return {
+            "status": status,
+            "summary": summary,
+            "issues": issues,
+            "suggestions": suggestions,
+            "autofill_fixes": autofill_fixes
+        }
 
 
 class GeminiProvider(LLMProvider):
@@ -908,6 +1073,96 @@ YOUR MANDATORY OBJECTIVES:
         for r in raw_rows:
             sanitized.append({k: sanitize_rough_text(str(v or "")).replace("&amp;", "&") for k, v in r.items()})
         return sanitized
+
+    def audit_guided_input(
+        self,
+        section_id: str,
+        section_config: Dict[str, Any],
+        answers_dict: Dict[str, Any],
+        process_name: str = "",
+        team_name: str = "",
+        existing_sections_data: Dict[str, Any] = None
+    ) -> Dict[str, Any]:
+        """
+        Uses Gemini to audit guided form answers against standard enterprise rules,
+        checking for segregation of duties, incomplete data, and rule discrepancies.
+        """
+        existing_sections_data = existing_sections_data or {}
+        prompt = f"""
+You are a Principal Enterprise Process Auditor and Quality Assurance Inspector reviewing draft answers for a standard corporate Process Note.
+
+SECTION INFORMATION:
+- Section ID: {section_id}
+- Section Name: {section_config.get('name', 'N/A')}
+- Section Type: {section_config.get('type', 'text')}
+- Process Name: {process_name or 'Enterprise Process'}
+- Functional Team: {team_name or 'Operations'}
+
+USER INPUT ANSWERS:
+{json.dumps(answers_dict, indent=2)}
+
+RELEVANT EXISTING SECTIONS CONTEXT:
+{json.dumps(existing_sections_data, indent=2)}
+
+AUDIT GUIDELINES & RULE CHECKS:
+1. APPROVAL MATRIX (Section 1.1):
+   - Segregation of Duties: Check if Process Owner, Reviewer, and Approver are the same individual. An author CANNOT approve their own document.
+   - Format: Must follow 'Name | Function/Team | Sign Code'. Flag if user only entered names without department or sign initials.
+2. START & END POINTS (1.7, 1.8):
+   - Entry/Exit Criteria must be descriptive (at least 4 words). Single-word or vague criteria ('done', 'approved', 'start') must be flagged.
+3. SCOPE (1.6):
+   - Scope must define both IN-SCOPE and OUT-OF-SCOPE. An empty Out-of-Scope boundary must be flagged.
+4. PROCESS DESCRIPTION (1.12):
+   - Check if inputs, tools, sub-steps, and approval checks are specified.
+5. RACI MATRIX (1.13):
+   - RACI roles must be job designations, NEVER Yes/No or checkmarks.
+6. GENERAL QUALITY:
+   - Check if user entered generic placeholders like 'abc', 'test', 'xyz', 'na'.
+
+EVALUATION STATUSES:
+- 'COMPLIANT': Input is high quality, complete, and adheres to all governance rules.
+- 'WARNING': Input is partially correct or acceptable, but missing standard formatting, department info, or clear boundaries.
+- 'CRITICAL': Severe discrepancy, governance conflict (e.g., self-approval), or completely vague/empty input.
+
+OUTPUT FORMAT (STRICT JSON ONLY):
+{{
+  "status": "COMPLIANT" | "WARNING" | "CRITICAL",
+  "summary": "Crisp 1-line verdict for the user",
+  "issues": [
+    "Specific issue or rule discrepancy explained in simple, constructive terms"
+  ],
+  "suggestions": [
+    "Actionable instruction telling user what needs to be added or fixed"
+  ],
+  "autofill_fixes": {{
+    "field_id": "recommended_corrected_or_enhanced_value"
+  }}
+}}
+
+Return ONLY raw JSON. No markdown code blocks.
+"""
+        try:
+            response = self.model.generate_content(prompt)
+            text = response.text.strip()
+            match = re.search(r'\{.*\}', text, re.DOTALL)
+            if match:
+                text = match.group(0)
+            data = json.loads(text)
+            if isinstance(data, dict) and "status" in data:
+                return data
+        except Exception as e:
+            print(f"Error in Gemini audit_guided_input: {e}")
+
+        # Fallback to deterministic MockProvider audit logic
+        mock = MockProvider()
+        return mock.audit_guided_input(
+            section_id=section_id,
+            section_config=section_config,
+            answers_dict=answers_dict,
+            process_name=process_name,
+            team_name=team_name,
+            existing_sections_data=existing_sections_data
+        )
 
 
 def get_llm_provider() -> LLMProvider:

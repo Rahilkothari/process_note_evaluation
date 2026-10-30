@@ -566,7 +566,7 @@ try:
                             fhelp = field_dict.get("help")
                             k = f"qa_{sec_id}_{fid}"
                             
-                            # Prepopulate from existing section data if not already modified in session
+                            # Prepopulate from existing section data or cross-section smart autofills if not already modified in session
                             existing_field_val = ""
                             if existing_sec:
                                 if sec_config["type"] == "table" and existing_sec.structured_data:
@@ -593,6 +593,56 @@ try:
                                             existing_field_val = "\n".join(p_decs)
                                     except Exception:
                                         pass
+
+                            # Cross-Section Smart Auto-fills: Don't force user to re-enter info already given
+                            if not existing_field_val and k not in st.session_state:
+                                # Section 1.3 Review Cycle autofill from Section 1.1 Approval Matrix
+                                if sec_id == "1.3":
+                                    s1_sec = existing_sections.get("1.1")
+                                    if s1_sec and s1_sec.structured_data:
+                                        owner_row = next((r for r in s1_sec.structured_data if "owner" in str(r.get("Role", "")).lower()), {})
+                                        if fid == "owner" and owner_row.get("Name"):
+                                            dept = owner_row.get("Function") or current_note.team or ""
+                                            sign = owner_row.get("Sign") or ""
+                                            existing_field_val = f"{owner_row['Name']} | {dept} | {sign}".strip(" |")
+                                        elif fid == "eff_date" and owner_row.get("Date"):
+                                            existing_field_val = str(owner_row["Date"])
+
+                                # Section 1.11 Flowchart autofill from Section 1.12 Process Description
+                                elif sec_id == "1.11":
+                                    s12_sec = existing_sections.get("1.12")
+                                    if s12_sec and s12_sec.structured_data:
+                                        if fid == "steps":
+                                            existing_field_val = "\n".join([f"{i}. {r.get('Activity', '')} (Owner: {r.get('Owner/Role', '')})" for i, r in enumerate(s12_sec.structured_data, 1) if r.get('Activity')])
+
+                                # Section 1.13 RACI Matrix autofill from Section 1.12 Process Description
+                                elif sec_id == "1.13":
+                                    s12_sec = existing_sections.get("1.12")
+                                    if s12_sec and s12_sec.structured_data:
+                                        existing_raci = existing_sec.structured_data if (existing_sec and existing_sec.structured_data) else []
+                                        next_idx = len(existing_raci)
+                                        if next_idx < len(s12_sec.structured_data):
+                                            src_row = s12_sec.structured_data[next_idx]
+                                            if fid == "act_name":
+                                                existing_field_val = src_row.get("Activity", "")
+                                            elif fid == "act_desc":
+                                                existing_field_val = src_row.get("Description", "")
+                                            elif fid == "timeline":
+                                                existing_field_val = src_row.get("TAT", "")
+                                            elif fid == "resp":
+                                                existing_field_val = src_row.get("Owner/Role", "")
+
+                                # Section 1.22 SIPOC autofill from Section 1.7 / 1.8 / 1.12
+                                elif sec_id == "1.22":
+                                    s7_sec = existing_sections.get("1.7")
+                                    s8_sec = existing_sections.get("1.8")
+                                    s12_sec = existing_sections.get("1.12")
+                                    if fid == "inputs" and s7_sec and s7_sec.structured_data:
+                                        existing_field_val = s7_sec.structured_data[0].get("Entry Criteria", "")
+                                    elif fid == "outputs" and s8_sec and s8_sec.structured_data:
+                                        existing_field_val = s8_sec.structured_data[0].get("Exit Criteria", "")
+                                    elif fid == "process" and s12_sec and s12_sec.structured_data:
+                                        existing_field_val = " -> ".join([r.get("Activity", "") for r in s12_sec.structured_data if r.get("Activity")][:4])
                             
                             if ftype == "date":
                                 def_date = datetime.date.today()
@@ -670,6 +720,64 @@ try:
                             else:
                                 answers[f["id"]] = get_qa_answer(f)
                                 i += 1
+
+                    st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
+
+                    # ---------------------------------------------------------
+                    # AI Compliance, Sanity & Quality Check for Guided Answers
+                    # ---------------------------------------------------------
+                    col_chk1, col_chk2 = st.columns([3, 1])
+                    with col_chk2:
+                        run_audit_btn = st.form_submit_button("🔍 Check with AI", help="Audit your answers with AI before saving to check if information is compliant, partially complete, or violating enterprise rules.")
+                    
+                    if run_audit_btn:
+                        with st.spinner("🤖 AI Auditor is analyzing your answers against Business Excellence rules..."):
+                            from services.llm_service import get_llm_provider
+                            llm = get_llm_provider()
+                            audit_res = llm.audit_guided_input(
+                                section_id=sec_id,
+                                section_config=sec_config,
+                                answers_dict=answers,
+                                process_name=current_note.process_name,
+                                team_name=current_note.team,
+                                existing_sections_data={
+                                    sid: (s.structured_data if s.structured_data else s.content)
+                                    for sid, s in existing_sections.items() if s
+                                }
+                            )
+                            st.session_state[f"audit_result_{sec_id}"] = audit_res
+
+                    active_audit = st.session_state.get(f"audit_result_{sec_id}")
+                    if active_audit:
+                        a_status = active_audit.get("status", "COMPLIANT")
+                        a_summary = active_audit.get("summary", "")
+                        a_issues = active_audit.get("issues", [])
+                        a_suggestions = active_audit.get("suggestions", [])
+                        a_fixes = active_audit.get("autofill_fixes", {})
+
+                        if a_status == "COMPLIANT":
+                            st.success(f"🟢 **{a_summary}**\n\nYour inputs adhere to standard process note governance guidelines. You can safely apply them.")
+                        elif a_status == "WARNING":
+                            st.warning(f"🟡 **{a_summary}**")
+                            if a_issues:
+                                for iss in a_issues:
+                                    st.markdown(f"• ⚠️ {iss}")
+                            if a_suggestions:
+                                with st.expander("💡 Recommended Fixes & Guidance", expanded=True):
+                                    for sug in a_suggestions:
+                                        st.markdown(f"- {sug}")
+                        else:  # CRITICAL
+                            st.error(f"🔴 **{a_summary}**")
+                            if a_issues:
+                                for iss in a_issues:
+                                    st.markdown(f"• ⛔ **Discrepancy:** {iss}")
+                            if a_suggestions:
+                                with st.expander("🛠️ Required Action Before Final Approval", expanded=True):
+                                    for sug in a_suggestions:
+                                        st.markdown(f"- {sug}")
+
+                        if a_fixes:
+                            st.caption("✨ AI has prepared auto-corrections to resolve these items. Re-click 'Check with AI' or proceed to apply.")
 
                     st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
                     
