@@ -456,45 +456,8 @@ try:
                                 st.success(f"✅ Table restored to previous {len(undo_rows_guide)} rows!")
                                 st.rerun()
 
-                    # Show current rows with a dedicated Delete button at the end of each row
                     if sec_id in multi_row_sections and existing_sec and existing_sec.structured_data:
-                        st.markdown(f'<div style="font-weight: 700; font-size: 13.5px; color: #1E293B; margin-top: 6px; margin-bottom: 6px;">📋 Current Rows in Table ({len(existing_sec.structured_data)}):</div>', unsafe_allow_html=True)
-                        for r_idx, r_item in enumerate(existing_sec.structured_data):
-                            c_info, c_del = st.columns([5, 1])
-                            with c_info:
-                                if sec_id == "1.1":
-                                    row_title = f"{r_item.get('Role', 'Sign-off')}: {r_item.get('Name', '')}"
-                                    dept_label = r_item.get('Function', '')
-                                    date_label = r_item.get('Date', '')
-                                    date_str = f" &bull; Date: <b>{date_label}</b>" if date_label else ""
-                                    owner_html = f" &bull; <span style='color: #475569;'>Dept: <b>{dept_label}</b>{date_str}</span>" if dept_label else ""
-                                else:
-                                    row_title = r_item.get("Activity") or r_item.get("Activity name") or r_item.get("Description") or r_item.get("Role") or r_item.get("KPI") or r_item.get("Sub Process") or r_item.get("Abbreviation")
-                                    if not row_title:
-                                        row_title = next((str(v) for v in r_item.values() if v), f"Row {r_idx + 1}")
-                                    row_title = str(row_title).replace("\n", " ")[:65]
-                                    owner_label = r_item.get("Owner/Role") or r_item.get("Responsible") or r_item.get("Owner") or ""
-                                    owner_html = f" &bull; <span style='color: #475569;'>Role: <b>{owner_label}</b></span>" if owner_label else ""
-                                st.markdown(
-                                    f"<div style='background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; padding: 7px 12px; margin-bottom: 4px; font-size: 13px;'>"
-                                    f"<b>Row {r_idx + 1}:</b> {row_title}{owner_html}"
-                                    f"</div>",
-                                    unsafe_allow_html=True
-                                )
-                            with c_del:
-                                if st.button("🗑️ Delete", key=f"guide_del_r_{sec_id}_{r_idx}", help=f"Delete Row {r_idx + 1}", use_container_width=True):
-                                    import copy
-                                    st.session_state[f"undo_table_{sec_id}"] = copy.deepcopy(existing_sec.structured_data)
-                                    new_rows = [r for i, r in enumerate(existing_sec.structured_data) if i != r_idx]
-                                    if sec_id == "1.13":
-                                        for i, r in enumerate(new_rows, start=1):
-                                            if "Sr. No." in r: r["Sr. No."] = i
-                                    existing_sec.structured_data = new_rows
-                                    db.commit()
-                                    st.success(f"Row {r_idx + 1} deleted!")
-                                    st.rerun()
-                        st.markdown('<hr style="margin: 10px 0; border: none; border-top: 1px dashed #CBD5E1;" />', unsafe_allow_html=True)
-                        st.markdown(f'<div style="font-weight: 700; color: #4338CA; font-size: 13.5px; margin-bottom: 6px;">➕ Add Next Row (Row {len(existing_sec.structured_data) + 1}):</div>', unsafe_allow_html=True)
+                        st.markdown(f'<div style="font-weight: 700; color: #4338CA; font-size: 13.5px; margin-top: 6px; margin-bottom: 8px;">➕ Add Next Row (Row {len(existing_sec.structured_data) + 1}):</div>', unsafe_allow_html=True)
 
                 with st.container():
                     answers = {}
@@ -1606,37 +1569,34 @@ try:
                         """,
                         unsafe_allow_html=True
                     )
-                    st.dataframe(df, use_container_width=True)
+                    tbl_event_view = st.dataframe(
+                        df,
+                        use_container_width=True,
+                        key=f"df_view_{sec_id}",
+                        on_select="rerun",
+                        selection_mode="multi-row"
+                    )
 
-                    # Provide Delete option at the end of every row
-                    if sec_id in multi_row_sections and existing_sec and existing_sec.structured_data and len(existing_sec.structured_data) > 0:
-                        st.markdown('<div style="font-weight: 600; font-size: 13px; color: #334155; margin-top: 10px; margin-bottom: 6px;">🗑️ Delete Rows (Click Delete at the end of any row you wish to remove):</div>', unsafe_allow_html=True)
-                        for r_idx, r_item in enumerate(existing_sec.structured_data):
-                            col_r_info, col_r_del = st.columns([5, 1])
-                            with col_r_info:
-                                row_label = r_item.get("Activity") or r_item.get("Activity name") or r_item.get("Description") or r_item.get("Role") or r_item.get("KPI") or r_item.get("Sub Process") or r_item.get("Abbreviation")
-                                if not row_label:
-                                    row_label = next((str(v) for v in r_item.values() if v), f"Row {r_idx + 1}")
-                                row_label = str(row_label).replace("\n", " ")[:65]
-                                owner_label = r_item.get("Owner/Role") or r_item.get("Responsible") or r_item.get("Owner") or ""
-                                owner_str = f" &bull; <span style='color: #475569;'>Role: <b>{owner_label}</b></span>" if owner_label else ""
-                                st.markdown(
-                                    f"<div style='background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; padding: 7px 12px; margin-bottom: 4px; font-size: 13px;'>"
-                                    f"<b>Row {r_idx + 1}:</b> {row_label}{owner_str}"
-                                    f"</div>",
-                                    unsafe_allow_html=True
-                                )
-                            with col_r_del:
-                                if st.button("🗑️ Delete", key=f"tbl_view_del_r_{sec_id}_{r_idx}", help=f"Delete Row {r_idx + 1}", use_container_width=True):
-                                    import copy
+                    selected_indices_view = []
+                    if tbl_event_view and hasattr(tbl_event_view, "selection") and tbl_event_view.selection:
+                        selected_indices_view = tbl_event_view.selection.get("rows", [])
+
+                    if selected_indices_view:
+                        del_col1, del_col2 = st.columns([4, 1])
+                        with del_col1:
+                            st.warning(f"⚠️ Selected **{len(selected_indices_view)} row(s)** to delete: Row {', '.join([str(idx + 1) for idx in selected_indices_view])}")
+                        with del_col2:
+                            if st.button(f"🗑️ Delete Selected ({len(selected_indices_view)})", key=f"btn_del_selected_view_{sec_id}", type="primary", use_container_width=True):
+                                import copy
+                                if existing_sec and existing_sec.structured_data:
                                     st.session_state[f"undo_table_{sec_id}"] = copy.deepcopy(existing_sec.structured_data)
-                                    new_rows = [r for i, r in enumerate(existing_sec.structured_data) if i != r_idx]
+                                    new_rows = [r for i, r in enumerate(existing_sec.structured_data) if i not in selected_indices_view]
                                     if sec_id == "1.13":
                                         for i, r in enumerate(new_rows, start=1):
                                             if "Sr. No." in r: r["Sr. No."] = i
                                     existing_sec.structured_data = new_rows
                                     db.commit()
-                                    st.success(f"Row {r_idx + 1} deleted!")
+                                    st.success(f"Deleted {len(selected_indices_view)} row(s)!")
                                     st.rerun()
 
                     col_act1, col_act2 = st.columns([1, 1])
