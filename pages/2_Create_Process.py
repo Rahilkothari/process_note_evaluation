@@ -796,18 +796,20 @@ try:
                                 for iss in a_issues:
                                     st.markdown(f"• ⚠️ {iss}")
                             if a_suggestions:
-                                with st.expander("💡 Recommended Fixes & Guidance", expanded=True):
-                                    for sug in a_suggestions:
-                                        st.markdown(f"- {sug}")
+                                st.markdown("<div style='background: #FFFBEB; border: 1px solid #FDE68A; border-left: 3px solid #F59E0B; border-radius: 6px; padding: 10px 14px; margin-top: 8px; margin-bottom: 8px;'><div style='font-weight: 700; color: #92400E; margin-bottom: 4px;'>💡 Recommended Fixes & Guidance:</div>", unsafe_allow_html=True)
+                                for sug in a_suggestions:
+                                    st.markdown(f"<div style='font-size: 13px; color: #78350F; margin-bottom: 3px;'>• {sug}</div>", unsafe_allow_html=True)
+                                st.markdown("</div>", unsafe_allow_html=True)
                         else:  # CRITICAL
                             st.error(f"🔴 **{a_summary}**")
                             if a_issues:
                                 for iss in a_issues:
                                     st.markdown(f"• ⛔ **Discrepancy:** {iss}")
                             if a_suggestions:
-                                with st.expander("🛠️ Required Action Before Final Approval", expanded=True):
-                                    for sug in a_suggestions:
-                                        st.markdown(f"- {sug}")
+                                st.markdown("<div style='background: #FEF2F2; border: 1px solid #FECACA; border-left: 3px solid #EF4444; border-radius: 6px; padding: 10px 14px; margin-top: 8px; margin-bottom: 8px;'><div style='font-weight: 700; color: #991B1B; margin-bottom: 4px;'>🛠️ Required Action Before Final Approval:</div>", unsafe_allow_html=True)
+                                for sug in a_suggestions:
+                                    st.markdown(f"<div style='font-size: 13px; color: #7F1D1D; margin-bottom: 3px;'>• {sug}</div>", unsafe_allow_html=True)
+                                st.markdown("</div>", unsafe_allow_html=True)
 
                         if a_fixes:
                             st.caption("✨ AI has prepared auto-corrections to resolve these items. Re-click 'Check with AI' or proceed to apply.")
