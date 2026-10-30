@@ -8,10 +8,21 @@ def inject_custom_css():
 
         /* Hide Streamlit Branding completely */
         #MainMenu {visibility: hidden;}
-        header {visibility: hidden;}
+        header[data-testid="stHeader"] {visibility: hidden;}
         footer {visibility: hidden;}
         .stDeployButton {display:none;}
         [data-testid="stStatusWidget"] {visibility: hidden;}
+
+        /* Brand Logo at Top Left in Sidebar Header */
+        [data-testid="stSidebarHeader"] {
+            visibility: visible !important;
+            display: flex !important;
+            padding: 16px 16px 6px 16px !important;
+        }
+        [data-testid="stSidebarHeader"] img {
+            max-height: 48px !important;
+            width: auto !important;
+        }
         
         /* Global Typography */
         html, body, [class*="css"], .stMarkdown {
