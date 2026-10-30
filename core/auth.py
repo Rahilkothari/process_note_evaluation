@@ -18,6 +18,18 @@ def get_supabase_client() -> Client:
     )
     return create_client(supabase_url, supabase_key, options=options)
 
+def get_kef_logo_base64() -> str:
+    import base64
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    logo_path = os.path.join(base_dir, "assets", "kef_logo.png")
+    if os.path.exists(logo_path):
+        try:
+            with open(logo_path, "rb") as f:
+                return base64.b64encode(f.read()).decode("utf-8")
+        except Exception:
+            return ""
+    return ""
+
 def is_authorized_email(email: str) -> bool:
     return True
 
@@ -74,6 +86,13 @@ def require_login():
     if st.session_state.user is not None:
         # Render sidebar status and logout button for active logged in user
         with st.sidebar:
+            logo_b64 = get_kef_logo_base64()
+            if logo_b64:
+                st.markdown(f"""
+                <div style="text-align: center; margin-bottom: 12px;">
+                    <img src="data:image/png;base64,{logo_b64}" alt="Kotak Education Foundation" style="max-width: 175px; width: 85%; height: auto;" />
+                </div>
+                """, unsafe_allow_html=True)
             st.markdown("---")
             display_name = st.session_state.current_user_name.title() if "current_user_name" in st.session_state and st.session_state.current_user_name else ""
             st.markdown(f"Logged in as: **{display_name}**")
@@ -92,8 +111,18 @@ def require_login():
             </style>
             """, unsafe_allow_html=True)
             
-            st.markdown("<h2 style='text-align: center; margin-top: 50px;'>Login Required</h2>", unsafe_allow_html=True)
-            st.markdown("<p style='text-align: center; color: #64748B;'>Please sign in to access the Process Note Validator.</p>", unsafe_allow_html=True)
+            logo_b64 = get_kef_logo_base64()
+            if logo_b64:
+                st.markdown(f"""
+                <div style="text-align: center; margin-top: 36px; margin-bottom: 16px;">
+                    <img src="data:image/png;base64,{logo_b64}" alt="Kotak Education Foundation" style="max-width: 290px; width: 80%; height: auto;" />
+                </div>
+                """, unsafe_allow_html=True)
+                st.markdown("<h2 style='text-align: center; margin-top: 0px; margin-bottom: 6px; color: #0F172A; font-weight: 700;'>Login Required</h2>", unsafe_allow_html=True)
+            else:
+                st.markdown("<h2 style='text-align: center; margin-top: 50px; color: #0F172A; font-weight: 700;'>Login Required</h2>", unsafe_allow_html=True)
+            
+            st.markdown("<p style='text-align: center; color: #64748B; font-size: 14.5px; margin-top: 0; margin-bottom: 24px;'>Please sign in to access the Process Note Validator.</p>", unsafe_allow_html=True)
             
             col1, col2, col3 = st.columns([1, 2, 1])
             with col2:
