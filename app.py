@@ -22,6 +22,15 @@ def main():
     # Enforce authentication
     require_login()
 
+    from core.auth import get_kef_logo_base64
+    logo_b64 = get_kef_logo_base64()
+    if logo_b64:
+        st.sidebar.markdown(f"""
+        <div style="display: flex; justify-content: flex-start; align-items: center; padding: 4px 0 12px 0;">
+            <img src="data:image/png;base64,{logo_b64}" alt="Kotak Education Foundation" style="max-width: 175px; width: 85%; height: auto;" />
+        </div>
+        """, unsafe_allow_html=True)
+
     st.sidebar.title("Process Validator")
 
     role = st.session_state.get("current_user_role", "creator")
@@ -42,6 +51,14 @@ def main():
 
     from core.notifications import render_notifications_sidebar
     render_notifications_sidebar()
+
+    # Brand header on top left of the main page canvas
+    if logo_b64:
+        st.markdown(f"""
+        <div style="display: flex; justify-content: flex-start; align-items: center; padding-top: 2px; margin-bottom: 14px;">
+            <img src="data:image/png;base64,{logo_b64}" alt="Kotak Education Foundation" style="max-height: 44px; width: auto;" />
+        </div>
+        """, unsafe_allow_html=True)
 
     pg.run()
 

@@ -114,14 +114,12 @@ def require_login():
             logo_b64 = get_kef_logo_base64()
             if logo_b64:
                 st.markdown(f"""
-                <div style="text-align: center; margin-top: 36px; margin-bottom: 16px;">
-                    <img src="data:image/png;base64,{logo_b64}" alt="Kotak Education Foundation" style="max-width: 290px; width: 80%; height: auto;" />
+                <div style="display: flex; justify-content: flex-start; align-items: center; padding: 12px 16px 20px 16px; border-bottom: 1px solid #E2E8F0; margin-bottom: 24px;">
+                    <img src="data:image/png;base64,{logo_b64}" alt="Kotak Education Foundation" style="max-height: 46px; width: auto;" />
                 </div>
                 """, unsafe_allow_html=True)
-                st.markdown("<h2 style='text-align: center; margin-top: 0px; margin-bottom: 6px; color: #0F172A; font-weight: 700;'>Login Required</h2>", unsafe_allow_html=True)
-            else:
-                st.markdown("<h2 style='text-align: center; margin-top: 50px; color: #0F172A; font-weight: 700;'>Login Required</h2>", unsafe_allow_html=True)
             
+            st.markdown("<h2 style='text-align: center; margin-top: 15px; margin-bottom: 6px; color: #0F172A; font-weight: 700;'>Login Required</h2>", unsafe_allow_html=True)
             st.markdown("<p style='text-align: center; color: #64748B; font-size: 14.5px; margin-top: 0; margin-bottom: 24px;'>Please sign in to access the Process Note Validator.</p>", unsafe_allow_html=True)
             
             col1, col2, col3 = st.columns([1, 2, 1])
