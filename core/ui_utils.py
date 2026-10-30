@@ -14,14 +14,13 @@ def inject_custom_css():
         [data-testid="stStatusWidget"] {visibility: hidden;}
 
         /* Brand Logo at Top Left in Sidebar Header */
-        [data-testid="stSidebarHeader"] {
-            visibility: visible !important;
-            display: flex !important;
-            padding: 16px 16px 6px 16px !important;
+        [data-testid="stSidebar"] [data-testid="stSidebarHeader"] {
+            display: flex;
+            padding: 16px 16px 6px 16px;
         }
-        [data-testid="stSidebarHeader"] img {
-            max-height: 48px !important;
-            width: auto !important;
+        [data-testid="stSidebar"] [data-testid="stSidebarHeader"] img {
+            max-height: 48px;
+            width: auto;
         }
         
         /* Global Typography */

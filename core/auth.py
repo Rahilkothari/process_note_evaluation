@@ -18,6 +18,7 @@ def get_supabase_client() -> Client:
     )
     return create_client(supabase_url, supabase_key, options=options)
 
+@st.cache_data
 def get_kef_logo_base64() -> str:
     import base64
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

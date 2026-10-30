@@ -7,12 +7,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "kef_logo.png")
-if os.path.exists(logo_path):
-    try:
-        st.logo(logo_path)
-    except Exception:
-        pass
+
 
 from models.database import init_db
 from core.auth import require_login, logout
@@ -30,6 +25,14 @@ def main():
     
     # Enforce authentication
     require_login()
+
+    # AFTER LOGIN ONLY: Render single brand logo in sidebar top-left corner
+    logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "kef_logo.png")
+    if os.path.exists(logo_path):
+        try:
+            st.logo(logo_path)
+        except Exception:
+            pass
 
     st.sidebar.title("Process Validator")
 
