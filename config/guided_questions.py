@@ -42,35 +42,89 @@ def compute_next_review_date(eff_date: datetime.date, freq_str: str) -> datetime
 SECTION_GUIDED_SPECS: Dict[str, Dict[str, Any]] = {
     "1.1": {
         "title": "Approval Matrix (Who Signs Off)",
-        "intro": "Specify who reviews and approves this process note. AI will format it into the standard corporate approval matrix:",
+        "intro": "Specify who reviews and approves this process note. AI will format it into the standard corporate approval matrix with designated roles, functions, sign initials, and approval dates:",
         "type": "table",
         "fields": [
             {
-                "id": "owner",
-                "label": "Process Owner (Name | Function/Team | Sign Code):",
+                "id": "owner_name",
+                "label": "Process Owner Name:",
                 "type": "text",
-                "placeholder": "e.g., John Doe | Operations | JD",
-                "help": "💡 Full name, functional department, and short initials of the process owner."
+                "placeholder": "e.g., Aarav Sharma",
+                "help": "💡 Full name of the process author/owner."
             },
             {
-                "id": "reviewer",
-                "label": "Process Reviewer (Name | Function/Team | Sign Code):",
+                "id": "owner_func",
+                "label": "Process Owner Function / Department:",
                 "type": "text",
-                "placeholder": "e.g., Jane Smith | Quality & Excellence | JS",
-                "help": "💡 The designated person responsible for checking accuracy and quality."
+                "placeholder": "e.g., School Operations",
+                "help": "💡 Department or vertical responsible for executing the process."
             },
             {
-                "id": "approver",
-                "label": "Process Approver (Name | Function/Team | Sign Code):",
+                "id": "owner_sign",
+                "label": "Process Owner Sign / Initials:",
                 "type": "text",
-                "placeholder": "e.g., Robert Brown | Director, Operations | RB",
-                "help": "💡 Leadership authority providing final approval sign-off."
+                "placeholder": "e.g., AS",
+                "help": "💡 Signature code or initials (e.g. AS)."
             },
             {
-                "id": "sign_date",
-                "label": "Approval Date:",
+                "id": "owner_date",
+                "label": "Process Owner Sign-off Date:",
                 "type": "date",
-                "help": "💡 Effective date of final approval sign-off."
+                "help": "💡 Date when the owner finalized the document."
+            },
+            {
+                "id": "reviewer_name",
+                "label": "Process Reviewer Name:",
+                "type": "text",
+                "placeholder": "e.g., Meera Sen",
+                "help": "💡 Quality / Business Excellence Lead reviewing the note."
+            },
+            {
+                "id": "reviewer_func",
+                "label": "Process Reviewer Function / Department:",
+                "type": "text",
+                "placeholder": "e.g., Business Excellence & Quality",
+                "help": "💡 Department responsible for review."
+            },
+            {
+                "id": "reviewer_sign",
+                "label": "Process Reviewer Sign / Initials:",
+                "type": "text",
+                "placeholder": "e.g., MS",
+                "help": "💡 Signature code or initials (e.g. MS)."
+            },
+            {
+                "id": "reviewer_date",
+                "label": "Process Reviewer Sign-off Date:",
+                "type": "date",
+                "help": "💡 Date when the review was completed."
+            },
+            {
+                "id": "approver_name",
+                "label": "Process Approver Name:",
+                "type": "text",
+                "placeholder": "e.g., Vikramaditya Roy",
+                "help": "💡 Senior leadership authority providing final approval sign-off."
+            },
+            {
+                "id": "approver_func",
+                "label": "Process Approver Function / Department:",
+                "type": "text",
+                "placeholder": "e.g., Field Programs",
+                "help": "💡 Leadership department (e.g. Director - Programs)."
+            },
+            {
+                "id": "approver_sign",
+                "label": "Process Approver Sign / Initials:",
+                "type": "text",
+                "placeholder": "e.g., VR",
+                "help": "💡 Signature code or initials (e.g. VR)."
+            },
+            {
+                "id": "approver_date",
+                "label": "Final Approval Date:",
+                "type": "date",
+                "help": "💡 Date when leadership granted final authorization."
             }
         ]
     },
@@ -954,17 +1008,49 @@ def _build_table_rows_raw(sec_id: str, answers: Dict[str, Any]) -> List[Dict[str
     today_str = str(datetime.date.today())
 
     if sec_id == "1.1":
-        sign_date = str(answers.get("sign_date", today_str))
-        def parse_role_entry(text: str, default_role: str):
-            parts = [p.strip() for p in text.split("|")]
-            name = parts[0] if len(parts) > 0 and parts[0] else "TBD"
-            func = parts[1] if len(parts) > 1 and parts[1] else "Operations"
-            sign = parts[2] if len(parts) > 2 and parts[2] else name[:2].upper()
-            return {"Name": name, "Role": default_role, "Function": func, "Sign": sign, "Date": sign_date}
+        def make_sign(name_val: str, explicit_sign: str = ""):
+            if explicit_sign.strip():
+                return explicit_sign.strip().upper()
+            clean_n = name_val.strip()
+            parts = [p for p in clean_n.split() if p]
+            if len(parts) >= 2:
+                return f"{parts[0][0]}{parts[1][0]}".upper()
+            elif len(parts) == 1:
+                return parts[0][:2].upper()
+            return "TBD"
+
+        def get_val_or_pipe(prefix: str, fallback_func: str, fallback_name: str):
+            # Check if user entered dedicated new fields: name, func, sign, date
+            name = str(answers.get(f"{prefix}_name", "")).strip()
+            func = str(answers.get(f"{prefix}_func", "")).strip()
+            sign = str(answers.get(f"{prefix}_sign", "")).strip()
+            date_val = str(answers.get(f"{prefix}_date", ""))
+
+            # Support legacy pipe syntax if typed in old input
+            if not name and prefix in answers:
+                raw_str = str(answers.get(prefix, "")).strip()
+                if "|" in raw_str:
+                    parts = [p.strip() for p in raw_str.split("|")]
+                    name = parts[0] if len(parts) > 0 and parts[0] else fallback_name
+                    func = parts[1] if len(parts) > 1 and parts[1] else fallback_func
+                    sign = parts[2] if len(parts) > 2 and parts[2] else make_sign(name)
+                else:
+                    name = raw_str
+
+            name = name or fallback_name
+            func = func or fallback_func
+            sign = sign or make_sign(name)
+            date_val = date_val or str(answers.get("sign_date", today_str))
+            return name, func, sign, date_val
+
+        o_name, o_func, o_sign, o_date = get_val_or_pipe("owner", "School Operations", "Aarav Sharma")
+        r_name, r_func, r_sign, r_date = get_val_or_pipe("reviewer", "Business Excellence & Quality", "Meera Sen")
+        a_name, a_func, a_sign, a_date = get_val_or_pipe("approver", "Field Programs", "Vikramaditya Roy")
+
         return [
-            parse_role_entry(str(answers.get("owner", "Process Owner | Operations | PO")), "Process Owner"),
-            parse_role_entry(str(answers.get("reviewer", "Quality Lead | Business Excellence | QL")), "Process Reviewer"),
-            parse_role_entry(str(answers.get("approver", "Program Director | Leadership | DIR")), "Process Approver")
+            {"Name": o_name, "Role": "Process Owner", "Function": o_func, "Sign": o_sign, "Date": o_date},
+            {"Name": r_name, "Role": "Process Reviewer", "Function": r_func, "Sign": r_sign, "Date": r_date},
+            {"Name": a_name, "Role": "Process Approver", "Function": a_func, "Sign": a_sign, "Date": a_date}
         ]
 
     elif sec_id == "1.2":
