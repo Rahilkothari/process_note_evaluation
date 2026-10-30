@@ -496,7 +496,7 @@ try:
                         st.markdown('<hr style="margin: 10px 0; border: none; border-top: 1px dashed #CBD5E1;" />', unsafe_allow_html=True)
                         st.markdown(f'<div style="font-weight: 700; color: #4338CA; font-size: 13.5px; margin-bottom: 6px;">➕ Add Next Row (Row {len(existing_sec.structured_data) + 1}):</div>', unsafe_allow_html=True)
 
-                with st.form(key=f"guided_qa_form_{sec_id}", clear_on_submit=False):
+                with st.container():
                     answers = {}
                     fields = spec.get("fields", [])
                     
@@ -562,13 +562,16 @@ try:
                                 key=f"qa_{sec_id}_owner_sel",
                                 help="Select standard organizational designation responsible for periodic review."
                             )
-                            custom_owner = st.text_input(
-                                "↳ If 'Other' role selected above, specify custom role:",
-                                value=ex_data.get("Process Owner") if (ex_data.get("Process Owner") not in owner_options) else "",
-                                placeholder="e.g. Operations Director",
-                                key=f"qa_{sec_id}_owner_custom"
-                            )
-                            owner_role = custom_owner.strip() if ("other" in owner_sel.lower() and custom_owner.strip()) else owner_sel
+                            if "other" in str(owner_sel).lower():
+                                custom_owner = st.text_input(
+                                    "↳ Specify custom role:",
+                                    value=ex_data.get("Process Owner") if (ex_data.get("Process Owner") not in owner_options) else "",
+                                    placeholder="e.g. Operations Director",
+                                    key=f"qa_{sec_id}_owner_custom"
+                                )
+                                owner_role = custom_owner.strip() or owner_sel
+                            else:
+                                owner_role = owner_sel
                         
                         c5, c6 = st.columns(2)
                         with c5:
@@ -713,13 +716,19 @@ try:
                                     del st.session_state[k]
 
                                 sel = st.selectbox(flabel, options=opts, index=d_idx, key=k, help=fhelp)
-                                if any("other" in str(o).lower() for o in opts):
+                                if "other" in str(sel).lower():
                                     custom_k = f"{k}_custom"
                                     if custom_k not in st.session_state and existing_field_val and existing_field_val not in opts:
                                         st.session_state[custom_k] = existing_field_val
-                                    custom = st.text_input(f"↳ If Other, specify {flabel.split('(')[0].strip()}:", placeholder="e.g. Lead Coordinator / External Auditor", key=custom_k)
-                                    if "other" in str(sel).lower() and custom.strip():
+                                    clean_lbl = flabel.split('(')[0].replace('*', '').strip()
+                                    custom = st.text_input(
+                                        f"↳ Specify custom {clean_lbl}:",
+                                        placeholder="e.g. Lead Coordinator / External Auditor",
+                                        key=custom_k
+                                    )
+                                    if custom.strip():
                                         return custom.strip()
+                                    return sel
                                 return sel
 
                             elif ftype == "textarea":
@@ -768,8 +777,9 @@ try:
                     # ---------------------------------------------------------
                     col_chk1, col_chk2 = st.columns([3, 1])
                     with col_chk2:
-                        run_audit_btn = st.form_submit_button(
+                        run_audit_btn = st.button(
                             "✨ Check with AI",
+                            key=f"btn_audit_guided_{sec_id}",
                             help="Audit with AI to verify if whatever you have added is sufficient, complete, and compliant with enterprise standards."
                         )
                     
@@ -848,17 +858,19 @@ try:
 
                         if sec_id in multi_row_sections:
                             btn_label = f"➕ Add as New Row (Row {num_existing + 1})" if num_existing > 0 else "➕ Add Row to Table"
-                            submit_table_btn = st.form_submit_button(
+                            submit_table_btn = st.button(
                                 btn_label,
                                 type="primary",
                                 use_container_width=True,
+                                key=f"btn_submit_table_{sec_id}",
                                 help="Refines your answers with AI and appends as a row to the table. Existing rows are always preserved."
                             )
                         else:
-                            submit_table_btn = st.form_submit_button(
+                            submit_table_btn = st.button(
                                 f"💾 Save {sec_config['name']}",
                                 type="primary",
                                 use_container_width=True,
+                                key=f"btn_submit_table_{sec_id}",
                                 help="Refines your answers with AI and saves to the table."
                             )
 
@@ -962,9 +974,9 @@ try:
                     elif sec_config["type"] == "flowchart":
                         col_fl1, col_fl2 = st.columns([1, 1])
                         with col_fl1:
-                            flow_btn = st.form_submit_button("✨ Standard Generate from Steps", type="primary", use_container_width=True)
+                            flow_btn = st.button("✨ Standard Generate from Steps", type="primary", use_container_width=True, key=f"btn_flow_gen_{sec_id}")
                         with col_fl2:
-                            ai_flow_btn = st.form_submit_button("🤖 Ask AI to Draft & Polish Flowchart", use_container_width=True)
+                            ai_flow_btn = st.button("🤖 Ask AI to Draft & Polish Flowchart", use_container_width=True, key=f"btn_flow_ai_{sec_id}")
 
                         if flow_btn:
                             mermaid_code = build_mermaid_flowchart_from_answers(answers)
@@ -1038,9 +1050,9 @@ try:
                     elif sec_config["type"] == "text":
                         col_t1, col_t2 = st.columns([1, 1])
                         with col_t1:
-                            apply_text_btn = st.form_submit_button("✨ Apply Answers to Section", type="primary", use_container_width=True)
+                            apply_text_btn = st.button("✨ Apply Answers to Section", type="primary", use_container_width=True, key=f"btn_apply_text_{sec_id}")
                         with col_t2:
-                            ai_text_btn = st.form_submit_button("🤖 Polish & Synthesize with AI", use_container_width=True)
+                            ai_text_btn = st.button("🤖 Polish & Synthesize with AI", use_container_width=True, key=f"btn_ai_text_{sec_id}")
 
                         if apply_text_btn:
                             from config.guided_questions import clean_heading_hashes
