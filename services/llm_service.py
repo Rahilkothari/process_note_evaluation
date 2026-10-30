@@ -343,9 +343,9 @@ class MockProvider(LLMProvider):
 
         # 1. Section 1.1 Approval Matrix: Segregation of Duties & Format
         if section_id == "1.1":
-            owner = str(answers_dict.get("owner", "")).strip()
-            reviewer = str(answers_dict.get("reviewer", "")).strip()
-            approver = str(answers_dict.get("approver", "")).strip()
+            owner = str(answers_dict.get("owner_name") or answers_dict.get("owner", "")).strip()
+            reviewer = str(answers_dict.get("reviewer_name") or answers_dict.get("reviewer", "")).strip()
+            approver = str(answers_dict.get("approver_name") or answers_dict.get("approver", "")).strip()
 
             def extract_name(val):
                 return val.split("|")[0].strip().lower() if val else ""
@@ -1085,6 +1085,7 @@ AUDIT PHILOSOPHY & CRITICAL SCOPE:
 WHAT CONSTITUTES A HIGH-PRIORITY ISSUE:
 1. APPROVAL MATRIX (Section 1.1):
    - Genuine Conflict of Interest / Segregation of Duties: ONLY flag if the Process Owner is also the Process Approver (self-approval).
+   - Process Reviewer is OPTIONAL: NEVER flag missing Process Reviewer as an issue or warning. Process Owner and Approver are the only mandatory roles.
    - If Reviewer and Approver have names without pipe characters or sign codes, DO NOT flag it as an issue; silently accept or refine it.
 2. START & END POINTS (1.7, 1.8):
    - ONLY flag if completely empty or contains pure placeholder nonsense like 'abc', 'xyz', 'test', 'done'.

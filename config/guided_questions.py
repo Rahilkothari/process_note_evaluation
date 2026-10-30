@@ -42,89 +42,89 @@ def compute_next_review_date(eff_date: datetime.date, freq_str: str) -> datetime
 SECTION_GUIDED_SPECS: Dict[str, Dict[str, Any]] = {
     "1.1": {
         "title": "Approval Matrix (Who Signs Off)",
-        "intro": "Specify who reviews and approves this process note. AI will format it into the standard corporate approval matrix with designated roles, functions, sign initials, and approval dates:",
+        "intro": "Specify who reviews and approves this process note. AI will format it into the standard corporate approval matrix. Note: Process Owner and Approver are strictly mandatory (*); Process Reviewer is optional:",
         "type": "table",
         "fields": [
             {
                 "id": "owner_name",
-                "label": "Process Owner Name:",
+                "label": "Process Owner Name *:",
                 "type": "text",
                 "placeholder": "e.g., Aarav Sharma",
-                "help": "💡 Full name of the process author/owner."
+                "help": "💡 [Mandatory] Full name of the process author/owner."
             },
             {
                 "id": "owner_func",
-                "label": "Process Owner Function / Department:",
+                "label": "Process Owner Function / Department *:",
                 "type": "text",
                 "placeholder": "e.g., School Operations",
-                "help": "💡 Department or vertical responsible for executing the process."
+                "help": "💡 [Mandatory] Department or vertical responsible for executing the process."
             },
             {
                 "id": "owner_sign",
-                "label": "Process Owner Sign / Initials:",
+                "label": "Process Owner Sign / Initials (Optional):",
                 "type": "text",
                 "placeholder": "e.g., AS",
-                "help": "💡 Signature code or initials (e.g. AS)."
+                "help": "💡 [Optional] Signature code or initials (auto-generated if left blank)."
             },
             {
                 "id": "owner_date",
-                "label": "Process Owner Sign-off Date:",
+                "label": "Process Owner Sign-off Date *:",
                 "type": "date",
-                "help": "💡 Date when the owner finalized the document."
+                "help": "💡 [Mandatory] Date when the owner finalized the document."
             },
             {
                 "id": "reviewer_name",
-                "label": "Process Reviewer Name:",
+                "label": "Process Reviewer Name (Optional):",
                 "type": "text",
-                "placeholder": "e.g., Meera Sen",
-                "help": "💡 Quality / Business Excellence Lead reviewing the note."
+                "placeholder": "e.g., Meera Sen (or leave blank if none)",
+                "help": "💡 [Optional] Quality / Business Excellence Lead reviewing the note. Leave blank if not applicable."
             },
             {
                 "id": "reviewer_func",
-                "label": "Process Reviewer Function / Department:",
+                "label": "Process Reviewer Function / Department (Optional):",
                 "type": "text",
                 "placeholder": "e.g., Business Excellence & Quality",
-                "help": "💡 Department responsible for review."
+                "help": "💡 [Optional] Department responsible for review."
             },
             {
                 "id": "reviewer_sign",
-                "label": "Process Reviewer Sign / Initials:",
+                "label": "Process Reviewer Sign / Initials (Optional):",
                 "type": "text",
                 "placeholder": "e.g., MS",
-                "help": "💡 Signature code or initials (e.g. MS)."
+                "help": "💡 [Optional] Signature code or initials."
             },
             {
                 "id": "reviewer_date",
-                "label": "Process Reviewer Sign-off Date:",
+                "label": "Process Reviewer Sign-off Date (Optional):",
                 "type": "date",
-                "help": "💡 Date when the review was completed."
+                "help": "💡 [Optional] Date when the review was completed."
             },
             {
                 "id": "approver_name",
-                "label": "Process Approver Name:",
+                "label": "Process Approver Name *:",
                 "type": "text",
                 "placeholder": "e.g., Vikramaditya Roy",
-                "help": "💡 Senior leadership authority providing final approval sign-off."
+                "help": "💡 [Mandatory] Senior leadership authority providing final approval sign-off."
             },
             {
                 "id": "approver_func",
-                "label": "Process Approver Function / Department:",
+                "label": "Process Approver Function / Department *:",
                 "type": "text",
                 "placeholder": "e.g., Field Programs",
-                "help": "💡 Leadership department (e.g. Director - Programs)."
+                "help": "💡 [Mandatory] Leadership department (e.g. Director - Programs)."
             },
             {
                 "id": "approver_sign",
-                "label": "Process Approver Sign / Initials:",
+                "label": "Process Approver Sign / Initials (Optional):",
                 "type": "text",
                 "placeholder": "e.g., VR",
-                "help": "💡 Signature code or initials (e.g. VR)."
+                "help": "💡 [Optional] Signature code or initials (auto-generated if left blank)."
             },
             {
                 "id": "approver_date",
-                "label": "Final Approval Date:",
+                "label": "Final Approval Date *:",
                 "type": "date",
-                "help": "💡 Date when leadership granted final authorization."
+                "help": "💡 [Mandatory] Date when leadership granted final authorization."
             }
         ]
     },
@@ -1019,7 +1019,7 @@ def _build_table_rows_raw(sec_id: str, answers: Dict[str, Any]) -> List[Dict[str
                 return parts[0][:2].upper()
             return "TBD"
 
-        def get_val_or_pipe(prefix: str, fallback_func: str, fallback_name: str):
+        def get_val_or_pipe(prefix: str, fallback_func: str, fallback_name: str, is_optional: bool = False):
             # Check if user entered dedicated new fields: name, func, sign, date
             name = str(answers.get(f"{prefix}_name", "")).strip()
             func = str(answers.get(f"{prefix}_func", "")).strip()
@@ -1031,27 +1031,39 @@ def _build_table_rows_raw(sec_id: str, answers: Dict[str, Any]) -> List[Dict[str
                 raw_str = str(answers.get(prefix, "")).strip()
                 if "|" in raw_str:
                     parts = [p.strip() for p in raw_str.split("|")]
-                    name = parts[0] if len(parts) > 0 and parts[0] else fallback_name
-                    func = parts[1] if len(parts) > 1 and parts[1] else fallback_func
-                    sign = parts[2] if len(parts) > 2 and parts[2] else make_sign(name)
+                    name = parts[0] if len(parts) > 0 and parts[0] else ""
+                    func = parts[1] if len(parts) > 1 and parts[1] else ""
+                    sign = parts[2] if len(parts) > 2 and parts[2] else ""
                 else:
                     name = raw_str
 
+            if is_optional and (not name or name.lower() in ["na", "n/a", "none"]):
+                return name, func, sign, date_val
+
             name = name or fallback_name
             func = func or fallback_func
-            sign = sign or make_sign(name)
+            sign = sign or (make_sign(name) if name else "TBD")
             date_val = date_val or str(answers.get("sign_date", today_str))
             return name, func, sign, date_val
 
         o_name, o_func, o_sign, o_date = get_val_or_pipe("owner", "School Operations", "Aarav Sharma")
-        r_name, r_func, r_sign, r_date = get_val_or_pipe("reviewer", "Business Excellence & Quality", "Meera Sen")
+        r_name, r_func, r_sign, r_date = get_val_or_pipe("reviewer", "Business Excellence & Quality", "", is_optional=True)
         a_name, a_func, a_sign, a_date = get_val_or_pipe("approver", "Field Programs", "Vikramaditya Roy")
 
-        return [
-            {"Name": o_name, "Role": "Process Owner", "Function": o_func, "Sign": o_sign, "Date": o_date},
-            {"Name": r_name, "Role": "Process Reviewer", "Function": r_func, "Sign": r_sign, "Date": r_date},
-            {"Name": a_name, "Role": "Process Approver", "Function": a_func, "Sign": a_sign, "Date": a_date}
+        rows = [
+            {"Name": o_name, "Role": "Process Owner", "Function": o_func, "Sign": o_sign, "Date": o_date}
         ]
+        if r_name:
+            is_na = r_name.lower() in ["na", "n/a", "none"]
+            rows.append({
+                "Name": r_name if not is_na else "N/A",
+                "Role": "Process Reviewer",
+                "Function": (r_func or "Business Excellence & Quality") if not is_na else "N/A",
+                "Sign": (r_sign or make_sign(r_name)) if not is_na else "N/A",
+                "Date": (r_date or o_date) if not is_na else "N/A"
+            })
+        rows.append({"Name": a_name, "Role": "Process Approver", "Function": a_func, "Sign": a_sign, "Date": a_date})
+        return rows
 
     elif sec_id == "1.2":
         return [{

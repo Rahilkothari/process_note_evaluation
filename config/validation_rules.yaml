@@ -4,7 +4,7 @@ rules:
   criteria:
   - Must define the stakeholders responsible for reviewing and approving the Process
     Note at different levels.
-  - Must include the Process Owner, Process Reviewer, and Process Approver.
+  - Must include the Process Owner and Process Approver (Process Reviewer is optional / recommended).
   - Names, Roles, Functions, and Dates must be clearly stated.
 - section_id: '1.2'
   name: Document Change History
