@@ -46,11 +46,14 @@ class ValidationEngine:
             stype = section_config.get("type", "text")
             is_empty = False
             if stype == "table":
-                is_empty = not section.structured_data or len(section.structured_data) == 0
+                from core.rule_validator import is_row_meaningfully_filled
+                raw_rows = section.structured_data or []
+                valid_rows = [r for r in raw_rows if is_row_meaningfully_filled(section.section_id, r)]
+                is_empty = (len(valid_rows) == 0)
             elif stype in ["file", "flowchart"]:
-                is_empty = not section.content or not str(section.content).strip()
+                is_empty = not section.content or not str(section.content).strip() or str(section.content).strip().lower() in ["none", "nan", "null"]
             else:
-                is_empty = not section.content or not str(section.content).strip()
+                is_empty = not section.content or not str(section.content).strip() or str(section.content).strip().lower() in ["none", "nan", "null"]
 
             if is_empty:
                 return SectionValidationResult(

@@ -239,18 +239,28 @@ try:
                 
         st.markdown("Scroll down to fill out all sections of the process note. **Read the instruction box** in each section before entering data.")
     
+        from core.rule_validator import is_row_meaningfully_filled
+
+        def is_table_empty(sec_id, data):
+            if not data or not isinstance(data, list) or len(data) == 0:
+                return True
+            for r in data:
+                if is_row_meaningfully_filled(sec_id, r):
+                    return False
+            return True
+
         def get_section_audit_status(sec, s_config):
             if not sec:
                 return "pending", ["Section not yet filled."]
             stype = s_config.get("type", "text")
             if stype == "table":
-                if not sec.structured_data:
+                if is_table_empty(s_config["id"], sec.structured_data):
                     return "pending", ["Table is empty."]
             elif stype in ["file", "flowchart"]:
-                if not sec.content or not str(sec.content).strip():
+                if not sec.content or not str(sec.content).strip() or str(sec.content).strip().lower() in ["none", "nan", "null"]:
                     return "pending", ["Flowchart / file is missing."]
             else:
-                if not sec.content or not str(sec.content).strip():
+                if not sec.content or not str(sec.content).strip() or str(sec.content).strip().lower() in ["none", "nan", "null"]:
                     return "pending", ["Section content is empty."]
             
             from core.rule_validator import RuleValidator
@@ -456,8 +466,9 @@ try:
                                 st.success(f"✅ Table restored to previous {len(undo_rows_guide)} rows!")
                                 st.rerun()
 
-                    if sec_id in multi_row_sections and existing_sec and existing_sec.structured_data:
-                        st.markdown(f'<div style="font-weight: 700; color: #4338CA; font-size: 13.5px; margin-top: 6px; margin-bottom: 8px;">➕ Add Next Row (Row {len(existing_sec.structured_data) + 1}):</div>', unsafe_allow_html=True)
+                    real_rows_for_guide = [r for r in (existing_sec.structured_data or []) if is_row_meaningfully_filled(sec_id, r)] if (existing_sec and existing_sec.structured_data) else []
+                    if sec_id in multi_row_sections and real_rows_for_guide:
+                        st.markdown(f'<div style="font-weight: 700; color: #4338CA; font-size: 13.5px; margin-top: 6px; margin-bottom: 8px;">➕ Add Next Row (Row {len(real_rows_for_guide) + 1}):</div>', unsafe_allow_html=True)
 
                 with st.container():
                     answers = {}
@@ -816,7 +827,7 @@ try:
                     ai_text_btn = False
 
                     if sec_config["type"] == "table":
-                        existing_rows = existing_sec.structured_data if (existing_sec and existing_sec.structured_data) else []
+                        existing_rows = [r for r in (existing_sec.structured_data or []) if is_row_meaningfully_filled(sec_id, r)] if (existing_sec and existing_sec.structured_data) else []
                         num_existing = len(existing_rows)
 
                         if sec_id in multi_row_sections:
@@ -1435,8 +1446,15 @@ try:
 
                 fields = sec_config.get("fields", [])
     
+                real_saved_rows = []
                 if existing_sec and existing_sec.structured_data:
-                    df = pd.DataFrame(existing_sec.structured_data)
+                    real_saved_rows = [
+                        r for r in existing_sec.structured_data
+                        if is_row_meaningfully_filled(sec_id, r)
+                    ]
+
+                if real_saved_rows:
+                    df = pd.DataFrame(real_saved_rows)
                     df.index = df.index + 1
         
                     render_fields = list(fields)
@@ -1542,7 +1560,9 @@ try:
                     else:
                         column_config[f] = st.column_config.TextColumn(f)
 
-                if not is_completed and not is_editing:
+                has_saved_data = (len(real_saved_rows) > 0)
+
+                if not has_saved_data and not is_editing:
                     st.markdown(
                         """
                         <div style="background: #F8FAFC; border: 1.5px dashed #CBD5E1; border-radius: 8px; padding: 18px 20px; text-align: center; margin: 16px 0; color: #64748B;">
@@ -1559,12 +1579,17 @@ try:
                     if st.button("🛠️ Enter Data Manually in Raw Table Instead (Skip Guide)", key=f"btn_manual_tbl_{sec_id}"):
                         st.session_state[f"is_editing_{sec_id}"] = True
                         st.rerun()
-                elif is_completed and not is_editing:
+                elif has_saved_data and not is_editing:
+                    badge_html = (
+                        '<span style="font-size: 11.5px; background: #DCFCE7; color: #166534; font-weight: 600; padding: 3px 10px; border-radius: 12px; border: 1px solid #86EFAC;">✓ Saved & Active</span>'
+                        if is_completed
+                        else f'<span style="font-size: 11.5px; background: #FEE2E2; color: #991B1B; font-weight: 600; padding: 3px 10px; border-radius: 12px; border: 1px solid #FCA5A5;">⚠️ Incomplete ({len(curr_issues)} issue{"s" if len(curr_issues) > 1 else ""})</span>'
+                    )
                     st.markdown(
                         f"""
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; margin-bottom: 8px;">
                             <span style="font-weight: 700; color: #1E293B; font-size: 14px;">📄 Current {sec_config['name']} Table ({len(df)} row{'s' if len(df) != 1 else ''}):</span>
-                            <span style="font-size: 11.5px; background: #DCFCE7; color: #166534; font-weight: 600; padding: 3px 10px; border-radius: 12px; border: 1px solid #86EFAC;">✓ Saved & Active</span>
+                            {badge_html}
                         </div>
                         """,
                         unsafe_allow_html=True
@@ -1666,7 +1691,8 @@ try:
                                         clean_row[k] = v.isoformat()
                                     else:
                                         clean_row[k] = v
-                                json_data.append(clean_row)
+                                if any(v is not None and str(v).strip() != "" and str(v).strip().lower() not in ["none", "nan", "null"] for v in clean_row.values()):
+                                    json_data.append(clean_row)
                 
                             from core.rule_validator import RuleValidator
                             from models.schemas import ProcessSectionSchema

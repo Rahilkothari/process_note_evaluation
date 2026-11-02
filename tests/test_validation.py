@@ -274,6 +274,84 @@ def test_ampersand_normalization():
     flow_llm = llm.assist_flowchart('Review &amp; Test', decisions='Approved &amp; Verified?')
     assert '&amp;' not in flow_llm
 
+def test_empty_and_none_table_rows_flagged():
+    from core.rule_validator import RuleValidator
+    validator = RuleValidator()
+    config = {
+        "sections": [
+            {"id": "1.17", "name": "Compliance Management", "type": "table"}
+        ]
+    }
+
+    # 1. Table with 2 rows of all None values (like the bug reported by user)
+    none_rows = [
+        {"Sub Process": None, "Compliance particulars": None, "Target date": None},
+        {"Sub Process": None, "Compliance particulars": None, "Target date": None}
+    ]
+    sec = ProcessSectionSchema(section_id="1.17", content="", structured_data=none_rows)
+    issues = validator.validate(sec, config)
+    assert len(issues) > 0
+    assert any("Table is empty" in iss for iss in issues)
+
+    # 2. Table with empty strings
+    blank_rows = [
+        {"Sub Process": "", "Compliance particulars": "   ", "Target date": ""}
+    ]
+    sec2 = ProcessSectionSchema(section_id="1.17", content="", structured_data=blank_rows)
+    issues2 = validator.validate(sec2, config)
+    assert len(issues2) > 0
+    assert any("Table is empty" in iss for iss in issues2)
+
+    # 3. Table with valid data passes
+    valid_rows = [
+        {"Sub Process": "Onboarding", "Compliance particulars": "POCSO compliance and police verification", "Target date": "2026-12-31"}
+    ]
+    sec3 = ProcessSectionSchema(section_id="1.17", content="", structured_data=valid_rows)
+    issues3 = validator.validate(sec3, config)
+    assert len(issues3) == 0
+
+def test_section_1_19_missing_definition_flagged():
+    from core.rule_validator import RuleValidator
+    validator = RuleValidator()
+    config = {
+        "sections": [
+            {"id": "1.19", "name": "Abbreviations & Acronyms", "type": "table"}
+        ]
+    }
+
+    # User's exact scenario: Acronyms added but Definition is None
+    rows = [
+        {"Abbreviation": "MOU", "Definition": None},
+        {"Abbreviation": "UDISE", "Definition": None},
+        {"Abbreviation": "SMC", "Definition": None},
+        {"Abbreviation": "DEO", "Definition": None}
+    ]
+    sec = ProcessSectionSchema(section_id="1.19", content="", structured_data=rows)
+    issues = validator.validate(sec, config)
+    assert len(issues) == 4
+    assert any("Row 1: Abbreviation Definition is missing." in iss for iss in issues)
+
+def test_section_1_18_missing_title_flagged():
+    from core.rule_validator import RuleValidator
+    validator = RuleValidator()
+    config = {
+        "sections": [
+            {"id": "1.18", "name": "Data Archival", "type": "table"}
+        ]
+    }
+
+    # User's scenario: Storage Type selected but Document Title is None
+    rows = [
+        {"Document Title": None, "Storage Type": "Hard & Soft Copy", "Retention period": None},
+        {"Document Title": None, "Storage Type": "Soft Copy", "Retention period": None}
+    ]
+    sec = ProcessSectionSchema(section_id="1.18", content="", structured_data=rows)
+    issues = validator.validate(sec, config)
+    assert len(issues) > 0
+    assert any("Document Title is missing" in iss or "Table is empty" in iss for iss in issues)
+
+
+
 
 
 
