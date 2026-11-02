@@ -200,12 +200,6 @@ SECTION_GUIDED_SPECS: Dict[str, Dict[str, Any]] = {
                 "label": "2. Official Document Name:",
                 "type": "text",
                 "placeholder": "e.g., Partner School Onboarding Policy & Guidelines"
-            },
-            {
-                "id": "template_name",
-                "label": "3. Associated Assessment Forms / Templates (Optional):",
-                "type": "text",
-                "placeholder": "e.g., FORM-04 Due Diligence Assessment Scorecard"
             }
         ]
     },
@@ -481,41 +475,6 @@ SECTION_GUIDED_SPECS: Dict[str, Dict[str, Any]] = {
                 "type": "text",
                 "placeholder": "e.g., 2 Business Days (or 5 Days)",
                 "help": "💡 How long does this activity usually take to complete?"
-            },
-            {
-                "id": "inputs",
-                "label": "Inputs & Records Needed (Optional - leave blank for AI auto-fill):",
-                "type": "text",
-                "placeholder": "e.g., District school registry, application form, budget allocation (Leave blank for AI auto-fill)",
-                "help": "💡 Optional: What documents or records are needed to start? (Leave blank to let AI auto-generate standard inputs)."
-            },
-            {
-                "id": "tools",
-                "label": "Tools, Systems & Apps Used (Optional - leave blank for AI auto-fill):",
-                "type": "text",
-                "placeholder": "e.g., KEF Field App, Google Sheets, State Portal (Leave blank for AI auto-fill)",
-                "help": "💡 Optional: Portals, apps, or software used."
-            },
-            {
-                "id": "handoffs",
-                "label": "Next Hand-off / Stakeholder (Optional - leave blank for AI auto-fill):",
-                "type": "text",
-                "placeholder": "e.g., Field Officer hands dossier to Operations Manager (Leave blank for AI auto-fill)",
-                "help": "💡 Optional: Who receives the work once completed?"
-            },
-            {
-                "id": "deliverables",
-                "label": "Expected Deliverable / Output (Optional - leave blank for AI auto-fill):",
-                "type": "text",
-                "placeholder": "e.g., Completed Due Diligence Scorecard & Recommendation Report (Leave blank for AI auto-fill)",
-                "help": "💡 Optional: The tangible output or document produced."
-            },
-            {
-                "id": "validations",
-                "label": "Checks & Approvals (Optional - leave blank for AI auto-fill):",
-                "type": "text",
-                "placeholder": "e.g., Manager checks scorecard against minimum 80% criteria (Leave blank for AI auto-fill)",
-                "help": "💡 Optional: Who reviews or signs off on this step?"
             }
         ]
     },
@@ -617,17 +576,10 @@ SECTION_GUIDED_SPECS: Dict[str, Dict[str, Any]] = {
         "fields": [
             {
                 "id": "rule_statement",
-                "label": "1. Ground Rule or Policy Statement:",
+                "label": "Ground Rule or Policy Statement:",
                 "type": "textarea",
                 "placeholder": "e.g., All translated scripts must pass a peer grammar check before recording.",
                 "help": "💡 What is the mandatory standard or boundary that cannot be bypassed?"
-            },
-            {
-                "id": "enforcement",
-                "label": "2. Who enforces this and how? (Optional - leave blank for AI auto-fill):",
-                "type": "textarea",
-                "placeholder": "e.g., Quality Lead verifies against standard translation rubric before releasing to studio (Leave blank for AI auto-fill)",
-                "help": "💡 Optional: Who checks compliance? If left blank, AI assigns the Process Owner and designated Reviewer."
             }
         ]
     },
@@ -849,7 +801,7 @@ SECTION_GUIDED_SPECS: Dict[str, Dict[str, Any]] = {
     },
     "1.19": {
         "title": "Abbreviations & Acronyms",
-        "intro": "List any abbreviations or shorthand used in this document (e.g. MOU, TAT, MIS). You can add one by one or paste multiple at once:",
+        "intro": "List any abbreviations or shorthand used in this document (e.g. MOU, TAT, MIS):",
         "type": "table",
         "fields": [
             {
@@ -863,13 +815,6 @@ SECTION_GUIDED_SPECS: Dict[str, Dict[str, Any]] = {
                 "label": "2. Full Meaning / Definition:",
                 "type": "text",
                 "placeholder": "e.g., Program Head"
-            },
-            {
-                "id": "bulk",
-                "label": "Or paste multiple acronyms at once (one per line):",
-                "type": "textarea",
-                "placeholder": "TAT: Turnaround Time\nMOU: Memorandum of Understanding\nMIS: Management Information System\nPOCSO: Protection of Children from Sexual Offences",
-                "help": "💡 Paste as many acronyms as you like, formatted as 'ACRONYM: Definition'."
             }
         ]
     },
