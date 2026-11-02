@@ -22,22 +22,18 @@ st.markdown("""
     <div style="font-family: 'Outfit', sans-serif; font-size: 15.5px; font-weight: 700; color: #1E1B4B; display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
         <span>📋</span> Quick Guide to Drafting Your Process Note
     </div>
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px;">
         <div style="display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: #334155; line-height: 1.5;">
             <span style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #EEF2FF; color: #4F46E5; font-weight: 700; font-size: 11.5px; flex-shrink: 0; margin-top: 1px; border: 1px solid #C7D2FE;">1</span>
             <div><b>Basic Information:</b> Fill Process Name, Team, and Leadership Sign-off Roles below.</div>
         </div>
         <div style="display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: #334155; line-height: 1.5;">
             <span style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #EEF2FF; color: #4F46E5; font-weight: 700; font-size: 11.5px; flex-shrink: 0; margin-top: 1px; border: 1px solid #C7D2FE;">2</span>
-            <div><b>Interactive Co-pilot:</b> Use the 22 guided assistant drawers to fill rough thoughts.</div>
+            <div><b>Interactive Co-pilot:</b> Use the 22 guided assistant drawers with smart auto-fills to draft steps.</div>
         </div>
         <div style="display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: #334155; line-height: 1.5;">
             <span style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #EEF2FF; color: #4F46E5; font-weight: 700; font-size: 11.5px; flex-shrink: 0; margin-top: 1px; border: 1px solid #C7D2FE;">3</span>
-            <div><b>AI Quality Audit:</b> Click <code>✨ Check with AI</code> to catch discrepancies before applying.</div>
-        </div>
-        <div style="display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: #334155; line-height: 1.5;">
-            <span style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #EEF2FF; color: #4F46E5; font-weight: 700; font-size: 11.5px; flex-shrink: 0; margin-top: 1px; border: 1px solid #C7D2FE;">4</span>
-            <div><b>Smart Auto-fills:</b> Downstream sections auto-populate to eliminate duplicate entries.</div>
+            <div><b>AI Quality Audit:</b> Click <code>✨ Check with AI</code> to catch discrepancies and ensure compliance.</div>
         </div>
     </div>
 </div>
