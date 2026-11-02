@@ -90,100 +90,162 @@ try:
             st.error(f"**Reviewer Feedback ({latest_review.reviewer}):**\n\n{latest_review.comments}")
             st.markdown("<br>", unsafe_allow_html=True)
 
-    with st.container():
-        st.markdown("""
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-            <div style="font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 700; color: #1E293B;">
-                📌 Step 1: Process Identity & Basic Information
-            </div>
-            <span style="font-size: 12px; color: #64748B; font-weight: 500;">Fill once &bull; Auto-synced across all 22 sections</span>
-        </div>
-        """, unsafe_allow_html=True)
-        with st.form("basic_info_form"):
-            col1, col2 = st.columns(2)
-            with col1:
-                process_name = st.text_input("Process Name *", value=current_note.process_name if current_note else "", help="The official name of the process being documented.")
-                team = st.text_input("Team *", value=current_note.team if current_note else "", help="The department or team responsible for this process.")
-                version = st.text_input("Version Number", value=current_note.version if current_note else "1.0", help="e.g., 1.0 for new, 1.1 for minor updates.")
-                subject_matter_expert = st.text_input("Subject Matter Expert", value=current_note.subject_matter_expert if current_note else "", help="The person with deep technical/domain knowledge of this process.")
-                process_owner = st.text_input("Process Owner", value=current_note.process_owner if current_note else "", help="The leader ultimately responsible for the execution of this process.")
-            with col2:
-                process_champion = st.text_input("Process Champion", value=current_note.process_champion if current_note else "", help="The person driving the adoption and improvement of this process.")
-                process_reviewer = st.text_input("Process Reviewer", value=current_note.process_reviewer if current_note else "", help="The person responsible for reviewing this document for accuracy.")
-                process_approver = st.text_input("Process Approver", value=current_note.process_approver if current_note else "", help="The person who provides final sign-off on this document.")
-            
-                import datetime
-                def parse_date(date_str):
-                    if date_str:
-                        try:
-                            return datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
-                        except ValueError:
-                            return None
-                    return None
-                
-                eff_date_val = parse_date(current_note.effective_date if current_note else None)
-                rev_date_val = parse_date(current_note.next_review_date if current_note else None)
-            
-                effective_date = st.date_input("Effective Date", value=eff_date_val, help="The date this version of the process goes live.")
-                next_review_date = st.date_input("Next Review Date", value=rev_date_val, help="When this document should be reviewed again.")
-            
-                # Convert date objects back to strings for DB storage
-                effective_date = str(effective_date) if effective_date else ""
-                next_review_date = str(next_review_date) if next_review_date else ""
-        
-            st.markdown("<p style='font-size: 13px; color: #64748B; margin-top: 8px;'>* Required fields. <strong>You MUST click the button below to save this information!</strong></p>", unsafe_allow_html=True)
-            save_basic = st.form_submit_button("💾 Save Basic Information", type="primary")
+    # Manage Wizard Step: 1 for Process Identity, 2 for Process Details (22 Sections)
+    if "process_step" not in st.session_state:
+        st.session_state["process_step"] = 2 if current_note else 1
+    if current_note is None:
+        st.session_state["process_step"] = 1
+    curr_step = st.session_state.get("process_step", 1)
 
-    if save_basic:
-        if not process_name or not process_name.strip():
-            st.error("Process Name is a required field. Please provide it before proceeding.")
-            st.stop()
-        if not team or not team.strip():
-            st.error("Team is a required field. Please provide it before proceeding.")
-            st.stop()
-        
-        # Validation passed
-        if current_note is None:
-            import uuid
-            current_note = ProcessNote(
-                document_id=str(uuid.uuid4()),
-                process_name=process_name if process_name else "Untitled Process",
-                team=team if team else "Unassigned",
-                version=version,
-                status="DRAFT",
-                subject_matter_expert=subject_matter_expert,
-                process_owner=process_owner,
-                process_champion=process_champion,
-                process_reviewer=process_reviewer,
-                process_approver=process_approver,
-                effective_date=effective_date,
-                next_review_date=next_review_date,
-                created_by=st.session_state.get("current_user_id")
-            )
-            db.add(current_note)
-            db.commit()
-            db.refresh(current_note)
-            st.session_state["action_radio"] = "Edit Existing Process Note"
-            st.session_state.selected_note_key = f"[{current_note.id}] {current_note.process_name} (v{current_note.version}) - {current_note.status}"
-            st.success("Draft created! You can now fill in the 22 sections below.")
+    # Top Stepper Navigation Bar
+    step_col1, step_col2 = st.columns(2)
+    with step_col1:
+        s1_active = (curr_step == 1)
+        s1_type = "primary" if s1_active else "secondary"
+        if st.button(
+            "📌 Step 1: Process Identity & Basic Information" + ("  (Active)" if s1_active else ""),
+            key="btn_step_tab_1",
+            type=s1_type,
+            use_container_width=True
+        ):
+            st.session_state["process_step"] = 1
             st.rerun()
-        else:
-            current_note.process_name = process_name if process_name else "Untitled Process"
-            current_note.team = team if team else "Unassigned"
-            current_note.version = version
-            current_note.subject_matter_expert = subject_matter_expert
-            current_note.process_owner = process_owner
-            current_note.process_champion = process_champion
-            current_note.process_reviewer = process_reviewer
-            current_note.process_approver = process_approver
-            current_note.effective_date = effective_date
-            current_note.next_review_date = next_review_date
-            db.commit()
-            st.success("Basic info updated successfully!")
+    with step_col2:
+        s2_active = (curr_step == 2)
+        s2_type = "primary" if s2_active else "secondary"
+        s2_disabled = (current_note is None)
+        s2_label = ("📑 Step 2: Process Details (22 Sections)" + ("  (Active)" if s2_active else "")) if current_note else "📑 Step 2: Process Details (Complete Step 1 First)"
+        if st.button(
+            s2_label,
+            key="btn_step_tab_2",
+            type=s2_type,
+            disabled=s2_disabled,
+            use_container_width=True
+        ):
+            st.session_state["process_step"] = 2
+            st.rerun()
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    if current_note:
+    if curr_step == 1:
+        with st.container():
+            st.markdown("""
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <div style="font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 700; color: #1E293B;">
+                    📌 Step 1: Process Identity & Basic Information
+                </div>
+                <span style="font-size: 12px; color: #64748B; font-weight: 500;">Fill once &bull; Auto-synced across all 22 sections</span>
+            </div>
+            """, unsafe_allow_html=True)
+            with st.form("basic_info_form"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    process_name = st.text_input("Process Name *", value=current_note.process_name if current_note else "", help="The official name of the process being documented.")
+                    team = st.text_input("Team *", value=current_note.team if current_note else "", help="The department or team responsible for this process.")
+                    version = st.text_input("Version Number", value=current_note.version if current_note else "1.0", help="e.g., 1.0 for new, 1.1 for minor updates.")
+                    subject_matter_expert = st.text_input("Subject Matter Expert", value=current_note.subject_matter_expert if current_note else "", help="The person with deep technical/domain knowledge of this process.")
+                    process_owner = st.text_input("Process Owner", value=current_note.process_owner if current_note else "", help="The leader ultimately responsible for the execution of this process.")
+                with col2:
+                    process_champion = st.text_input("Process Champion", value=current_note.process_champion if current_note else "", help="The person driving the adoption and improvement of this process.")
+                    process_reviewer = st.text_input("Process Reviewer", value=current_note.process_reviewer if current_note else "", help="The person responsible for reviewing this document for accuracy.")
+                    process_approver = st.text_input("Process Approver", value=current_note.process_approver if current_note else "", help="The person who provides final sign-off on this document.")
+                
+                    import datetime
+                    def parse_date(date_str):
+                        if date_str:
+                            try:
+                                return datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
+                            except ValueError:
+                                return None
+                        return None
+                    
+                    eff_date_val = parse_date(current_note.effective_date if current_note else None)
+                    rev_date_val = parse_date(current_note.next_review_date if current_note else None)
+                
+                    effective_date = st.date_input("Effective Date", value=eff_date_val, help="The date this version of the process goes live.")
+                    next_review_date = st.date_input("Next Review Date", value=rev_date_val, help="When this document should be reviewed again.")
+                
+                    # Convert date objects back to strings for DB storage
+                    effective_date = str(effective_date) if effective_date else ""
+                    next_review_date = str(next_review_date) if next_review_date else ""
+            
+                st.markdown("<p style='font-size: 13px; color: #64748B; margin-top: 8px;'>* Required fields. <strong>You MUST click the button below to save and proceed to Step 2!</strong></p>", unsafe_allow_html=True)
+                save_basic = st.form_submit_button("💾 Save & Proceed to Step 2 (22 Sections) ➔", type="primary")
+
+        if save_basic:
+            if not process_name or not process_name.strip():
+                st.error("Process Name is a required field. Please provide it before proceeding.")
+                st.stop()
+            if not team or not team.strip():
+                st.error("Team is a required field. Please provide it before proceeding.")
+                st.stop()
+            
+            # Validation passed
+            if current_note is None:
+                import uuid
+                current_note = ProcessNote(
+                    document_id=str(uuid.uuid4()),
+                    process_name=process_name if process_name else "Untitled Process",
+                    team=team if team else "Unassigned",
+                    version=version,
+                    status="DRAFT",
+                    subject_matter_expert=subject_matter_expert,
+                    process_owner=process_owner,
+                    process_champion=process_champion,
+                    process_reviewer=process_reviewer,
+                    process_approver=process_approver,
+                    effective_date=effective_date,
+                    next_review_date=next_review_date,
+                    created_by=st.session_state.get("current_user_id")
+                )
+                db.add(current_note)
+                db.commit()
+                db.refresh(current_note)
+                st.session_state["action_radio"] = "Edit Existing Process Note"
+                st.session_state.selected_note_key = f"[{current_note.id}] {current_note.process_name} (v{current_note.version}) - {current_note.status}"
+                st.session_state["process_step"] = 2
+                st.success("Draft created! Proceeding to Step 2 (22 Sections)...")
+                st.rerun()
+            else:
+                current_note.process_name = process_name if process_name else "Untitled Process"
+                current_note.team = team if team else "Unassigned"
+                current_note.version = version
+                current_note.subject_matter_expert = subject_matter_expert
+                current_note.process_owner = process_owner
+                current_note.process_champion = process_champion
+                current_note.process_reviewer = process_reviewer
+                current_note.process_approver = process_approver
+                current_note.effective_date = effective_date
+                current_note.next_review_date = next_review_date
+                db.commit()
+                st.session_state["process_step"] = 2
+                st.success("Basic info updated! Proceeding to Step 2 (22 Sections)...")
+                st.rerun()
+
+        if current_note:
+            st.markdown("<br>", unsafe_allow_html=True)
+            col_skip_l, col_skip_r = st.columns([3, 1])
+            with col_skip_r:
+                if st.button("⏩ Skip to Step 2 ➔", key="btn_skip_step2", use_container_width=True):
+                    st.session_state["process_step"] = 2
+                    st.rerun()
+
+    elif curr_step == 2 and current_note:
+        # Active Process Note Banner with Step 1 quick edit link
+        ban_col1, ban_col2 = st.columns([4, 1])
+        with ban_col1:
+            st.markdown(f"""
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px 16px;">
+                <span style="font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px;">Active Process: </span>
+                <strong style="color: #1E293B; font-size: 14px;">{current_note.process_name}</strong>
+                <span style="color: #64748B; font-size: 12px;"> &bull; v{current_note.version} &bull; {current_note.team}</span>
+            </div>
+            """, unsafe_allow_html=True)
+        with ban_col2:
+            if st.button("✏️ Edit Step 1 Info", key="btn_back_to_s1", use_container_width=True):
+                st.session_state["process_step"] = 1
+                st.rerun()
+
         st.markdown("""
         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; margin-bottom: 8px;">
             <div style="font-family: 'Outfit', sans-serif; font-size: 1.35rem; font-weight: 700; color: #0F172A;">
