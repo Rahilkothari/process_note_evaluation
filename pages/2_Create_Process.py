@@ -18,7 +18,9 @@ st.markdown("""
     <span style="background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;">Enterprise SOP Builder &bull; 22 Sections</span>
 </div>
 
-<div style="background-color: #FFFFFF; border: 1px solid #E2E8F0; border-left: 4.5px solid #4F46E5; border-radius: 12px; padding: 16px 22px; margin-bottom: 22px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);">
+""", unsafe_allow_html=True)
+if st.session_state.get("process_step", 1) == 1:
+    st.markdown("""<div style="background-color: #FFFFFF; border: 1px solid #E2E8F0; border-left: 4.5px solid #4F46E5; border-radius: 12px; padding: 16px 22px; margin-bottom: 22px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);">
     <div style="font-family: 'Outfit', sans-serif; font-size: 15.5px; font-weight: 700; color: #1E1B4B; display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
         <span>📋</span> Quick Guide to Drafting Your Process Note
     </div>
@@ -36,7 +38,8 @@ st.markdown("""
             <div><b>AI Quality Audit:</b> Click <code>✨ Check with AI</code> to catch discrepancies and ensure compliance.</div>
         </div>
     </div>
-</div>
+</div>""", unsafe_allow_html=True)
+st.markdown("""
 """, unsafe_allow_html=True)
 
 def load_sections_config():
@@ -231,72 +234,6 @@ try:
                     st.rerun()
 
     elif curr_step == 2 and current_note:
-        # Active Process Note Banner with Step 1 quick edit link
-        ban_col1, ban_col2 = st.columns([4, 1])
-        with ban_col1:
-            st.markdown(f"""
-            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px 16px;">
-                <span style="font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px;">Active Process: </span>
-                <strong style="color: #1E293B; font-size: 14px;">{current_note.process_name}</strong>
-                <span style="color: #64748B; font-size: 12px;"> &bull; v{current_note.version} &bull; {current_note.team}</span>
-            </div>
-            """, unsafe_allow_html=True)
-        with ban_col2:
-            if st.button("✏️ Edit Step 1 Info", key="btn_back_to_s1", use_container_width=True):
-                st.session_state["process_step"] = 1
-                st.rerun()
-
-        st.markdown("""
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; margin-bottom: 8px;">
-            <div style="font-family: 'Outfit', sans-serif; font-size: 1.35rem; font-weight: 700; color: #0F172A;">
-                📑 Step 2: Process Details (22 Standard Sections)
-            </div>
-            <span style="background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;">Audit Standard Aligned</span>
-        </div>
-        """, unsafe_allow_html=True)
-    
-        team_lower = current_note.team.lower() if current_note.team else ""
-        if "volunteer" in team_lower or "comm" in team_lower:
-            st.info(f"💡 **Pre-Submission Checklist:** Review the governance criteria for the **{current_note.team}** team before submitting.")
-            with st.expander(f"View {current_note.team} Audit & Governance Guidelines", expanded=False):
-                if "volunteer" in team_lower:
-                    st.markdown("""
-    **Ensure your process note adequately covers:**
-    - Types of Volunteering
-    - Volunteer onboarding, registration and eligibility criteria.
-    - Volunteer allocation/deployment process across programmes and activities.
-    - Volunteer engagement, attendance and participation tracking.
-    - Roles, responsibilities and reporting structure of volunteers.
-    - Volunteer training, orientation and capacity-building process.
-    - Volunteer communication, grievance handling and escalation mechanism.
-    - Background verification, code of conduct and safeguarding requirements, wherever applicable.
-    - Volunteer exit process.
-    - Volunteer data management, documentation and records maintained.
-    - Monitoring, feedback and performance evaluation of volunteers.
-    - Volunteer certification process, including eligibility criteria, assessment/completion requirements, approval and issuance of certificates.
-                    """)
-                elif "comm" in team_lower:
-                    st.markdown("""
-    **Ensure your process note adequately covers:**
-    - Branding guidelines, brand identity and usage standards across all KEF programmes, offices and communication channels.
-    - Brand approval process for logos, creatives, collaterals, signage, merchandise and other branded materials.
-    - Communication and marketing strategy, planning and annual activity calendar.
-    - Content development, review and approval process for internal and external communications.
-    - Social media management, content calendar, posting and monitoring process.
-    - Website/content management, including updates and approval controls.
-    - Event, campaign and programme communication process.
-    - Media engagement, PR, press releases and external communication approvals.
-    - Creative/design development process, including agency/vendor coordination.
-    - Photography, videography and consent management for use of images, videos and other content.
-    - Marketing collateral development, printing and distribution process.
-    - Stakeholder communication and coordination with programme/project teams.
-    - Communication budget, vendor management and payment/approval process.
-    - Roles, responsibilities, approval matrix and escalation mechanism.
-    - Records and documentation of campaigns, communications, approvals and performance/MIS.
-                    """)
-                
-        st.markdown("Scroll down to fill out all sections of the process note. **Read the instruction box** in each section before entering data.")
-    
         from core.rule_validator import is_row_meaningfully_filled
 
         def is_table_empty(sec_id, data):
@@ -348,27 +285,39 @@ try:
         total_count = len(sections)
         estimated_readiness = round((ready_count / total_count) * 100, 1)
 
-        st.markdown(
-            f"""
-            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px 16px; margin: 12px 0 16px 0;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                    <span style="font-weight: 700; color: #1E293B; font-size: 13.5px;">📊 Form Completion & Audit Readiness</span>
-                    <span style="font-weight: 700; color: {'#16A34A' if estimated_readiness >= 75 else '#EA580C' if estimated_readiness >= 40 else '#DC2626'}; font-size: 13px;">
-                        Readiness: {estimated_readiness}%
-                    </span>
+        # Sleek 1-row Summary Bar: Note Name, Readiness, and Edit Button
+        bar_col1, bar_col2 = st.columns([3.8, 1.2])
+        with bar_col1:
+            st.markdown(f"""
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 8px 14px; display: flex; justify-content: space-between; align-items: center;">
+                <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    <span style="font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase;">Process: </span>
+                    <strong style="color: #1E293B; font-size: 13.5px;">{current_note.process_name}</strong>
+                    <span style="color: #64748B; font-size: 12px;">(v{current_note.version} &bull; {current_note.team})</span>
                 </div>
-                <div style="font-size: 12px; color: #64748B; margin-bottom: 8px; display: flex; gap: 16px;">
-                    <span><b>✓ Audit Ready:</b> <span style="color: #166534; font-weight: 600;">{ready_count}</span></span>
-                    <span><b>⚠️ Needs Detail:</b> <span style="color: #B45309; font-weight: 600;">{needs_rev_count}</span></span>
-                    <span><b>⏳ Pending:</b> <span style="color: #64748B; font-weight: 600;">{pending_count}</span></span>
-                    <span><b>Total Sections:</b> {total_count}</span>
+                <div style="font-size: 12px; font-weight: 700; color: {'#16A34A' if estimated_readiness >= 75 else '#EA580C' if estimated_readiness >= 40 else '#DC2626'}; white-space: nowrap; margin-left: 12px;">
+                    Readiness: {estimated_readiness}% ({ready_count}/{total_count} Ready)
                 </div>
             </div>
-            """,
-            unsafe_allow_html=True
-        )
-        st.progress(ready_count / total_count if total_count > 0 else 0)
-    
+            """, unsafe_allow_html=True)
+            st.progress(ready_count / total_count if total_count > 0 else 0)
+        with bar_col2:
+            if st.button("✏️ Edit Basic Info", key="btn_back_to_s1", use_container_width=True):
+                st.session_state["process_step"] = 1
+                st.rerun()
+
+        team_lower = current_note.team.lower() if current_note.team else ""
+        if "volunteer" in team_lower or "comm" in team_lower:
+            with st.expander(f"📋 {current_note.team} Governance Criteria", expanded=False):
+                if "volunteer" in team_lower:
+                    st.markdown("""
+- Ensure your process note covers volunteer onboarding, registration, allocation, attendance, grievance handling, conduct, exit, and certification.
+                    """)
+                elif "comm" in team_lower:
+                    st.markdown("""
+- Ensure your process note covers branding guidelines, logo approvals, marketing calendar, PR approvals, creative workflow, and campaign records.
+                    """)
+
         tab_names = [f"{sec['id']} {sec['name']}" for sec in sections]
     
         if "active_section_tab" not in st.session_state:
@@ -389,33 +338,19 @@ try:
                 st.session_state["active_section_tab"] = chosen
                 st.session_state["current_section_edit"] = chosen
 
-        # Section Navigation Control Bar
-        st.markdown(
-            f"""
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; margin-bottom: 6px;">
-                <span style="font-size: 13px; font-weight: 700; color: #334155; text-transform: uppercase; letter-spacing: 0.04em;">
-                    📂 Section Navigation
-                </span>
-                <span style="font-size: 12px; font-weight: 600; background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE; padding: 2px 10px; border-radius: 12px;">
-                    Step {current_idx + 1} of {total_count}
-                </span>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-        nav_col1, nav_col2, nav_col3 = st.columns([1.2, 5.6, 1.2])
+        # Direct Section Switcher Row (No redundant titles or pills)
+        nav_col1, nav_col2, nav_col3 = st.columns([1, 6, 1])
         with nav_col1:
-            if st.button("◀ Prev", disabled=(current_idx == 0), use_container_width=True, key="btn_nav_prev", help="Navigate to previous section"):
+            if st.button("◀ Prev", disabled=(current_idx == 0), use_container_width=True, key="btn_nav_prev"):
                 set_active_section(tab_names[current_idx - 1])
                 st.rerun()
         with nav_col3:
-            if st.button("Next ▶", disabled=(current_idx == total_count - 1), use_container_width=True, key="btn_nav_next", help="Navigate to next section"):
+            if st.button("Next ▶", disabled=(current_idx == total_count - 1), use_container_width=True, key="btn_nav_next"):
                 set_active_section(tab_names[current_idx + 1])
                 st.rerun()
         with nav_col2:
             selected_tab = st.selectbox(
-                "Select a Section to Fill Out:",
+                "Select Section",
                 tab_names,
                 index=current_idx,
                 key="section_nav_dropdown",
@@ -429,14 +364,14 @@ try:
         sec_id = sec_config['id']
         existing_sec = existing_sections.get(sec_id)
 
-        help_text = sec_config.get('help_text', 'No instructions provided.')
+        help_text = sec_config.get('help_text', '')
         example_text = sec_config.get('example', '')
 
         curr_status, curr_issues = status_map.get(sec_id, ("pending", []))
         if curr_status == "ready":
             status_badge = '<span style="background: #DCFCE7; color: #166534; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 12px; border: 1px solid #86EFAC;">✓ Audit-Ready</span>'
         elif curr_status == "needs_revision":
-            status_badge = f'<span style="background: #FEE2E2; color: #991B1B; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 12px; border: 1px solid #FCA5A5;">⚠️ Needs Detail ({len(curr_issues)} issue{"s" if len(curr_issues) > 1 else ""})</span>'
+            status_badge = f'<span style="background: #FEE2E2; color: #991B1B; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 12px; border: 1px solid #FCA5A5;">⚠️ Needs Detail ({len(curr_issues)})</span>'
         else:
             status_badge = '<span style="background: #FEF3C7; color: #92400E; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 12px; border: 1px solid #FDE68A;">⏳ Pending Input</span>'
 
@@ -447,36 +382,30 @@ try:
             example_clean = example_clean[len("example:"):].strip()
         example_clean = example_clean.replace("\n", " ")
 
-        example_html = (
-            f'<div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #CBD5E1; color: #64748B; font-size: 12.5px; font-style: italic;"><b>Example:</b> {example_clean}</div>'
-            if example_clean
-            else ""
-        )
+        # Section Header with Status Badge (Clean & Compact)
+        sec_h1, sec_h2 = st.columns([3.5, 1.5])
+        with sec_h1:
+            st.markdown(f"<div style='font-size: 14.5px; font-weight: 700; color: #1E293B; margin: 4px 0 2px 0;'>{sec_config['id']} {sec_config['name']} <span style='font-size: 12px; font-weight: 500; color: #64748B;'>(Section {current_idx + 1} of {total_count})</span></div>", unsafe_allow_html=True)
+        with sec_h2:
+            st.markdown(f"<div style='text-align: right; margin: 4px 0 2px 0;'>{status_badge}</div>", unsafe_allow_html=True)
 
-        issues_html = ""
+        # Show Audit Gaps only when relevant
         if curr_status == "needs_revision" and curr_issues:
             issues_list_str = "".join([f"<li>{iss}</li>" for iss in curr_issues])
-            issues_html = (
-                f'<div style="margin-top: 10px; background: #FFF1F2; border: 1px solid #FECDD3; border-radius: 6px; padding: 8px 12px; color: #9F1239; font-size: 12px;">'
-                f'<div style="font-weight: 700; margin-bottom: 4px;">⚠️ Current Audit Gaps (Will result in 0 score if left unaddressed):</div>'
+            st.markdown(
+                f'<div style="margin: 6px 0 10px 0; background: #FFF1F2; border: 1px solid #FECDD3; border-radius: 6px; padding: 8px 12px; color: #9F1239; font-size: 12px;">'
+                f'<div style="font-weight: 700; margin-bottom: 2px;">⚠️ Gaps to Address:</div>'
                 f'<ul style="margin: 0; padding-left: 18px;">{issues_list_str}</ul>'
-                f'</div>'
+                f'</div>',
+                unsafe_allow_html=True
             )
 
-        border_color = '#16A34A' if curr_status == 'ready' else '#EF4444' if curr_status == 'needs_revision' else '#3B82F6'
-
-        instructions_html = (
-            f'<div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-left: 4px solid {border_color}; border-radius: 8px; padding: 12px 16px; margin: 8px 0 16px 0;">'
-            f'<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">'
-            f'<span style="font-weight: 700; color: #1E293B; font-size: 13.5px;">📋 Instructions for {sec_config["name"]}</span>'
-            f'{status_badge}'
-            f'</div>'
-            f'<div style="color: #334155; font-size: 13px; line-height: 1.5;">{help_text}</div>'
-            f'{example_html}'
-            f'{issues_html}'
-            f'</div>'
-        )
-        st.markdown(instructions_html, unsafe_allow_html=True)
+        # Optional Collapsible Guidance & Examples (Keeps screen clean)
+        with st.expander("ℹ️ Section Guidance & Examples", expanded=False):
+            if help_text:
+                st.markdown(f"<div style='font-size: 13px; color: #334155; line-height: 1.5;'>{help_text}</div>", unsafe_allow_html=True)
+            if example_clean:
+                st.markdown(f"<div style='margin-top: 6px; font-size: 12.5px; color: #64748B;'><b>Example:</b> <i>{example_clean}</i></div>", unsafe_allow_html=True)
 
         # AI Process Co-pilot: Interactive Guided Assistant for Creator
         import datetime
@@ -492,21 +421,8 @@ try:
         if spec:
             guide_expanded = st.session_state.get(f"show_guide_{sec_id}", not is_completed)
             with st.expander(f"✨ AI Process Co-pilot: Guided Assistant ({spec['title']})", expanded=guide_expanded):
-                copilot_banner = (
-                    f'<div style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(168, 85, 247, 0.08) 100%); '
-                    f'border: 1px solid #C7D2FE; border-left: 4px solid #6366F1; border-radius: 8px; '
-                    f'padding: 12px 16px; margin-bottom: 14px;">'
-                    f'<div style="font-weight: 700; color: #3730A3; font-size: 14px; display: flex; align-items: center; gap: 6px;">'
-                    f'<span>🤖 AI Co-pilot: Guided Assistant</span>'
-                    f'</div>'
-                    f'<div style="color: #4B5563; font-size: 13px; margin-top: 4px; line-height: 1.5;">'
-                    f'{spec["intro"]}<br/>'
-                    f'<span style="color: #4F46E5; font-weight: 600;">💡 Quick Tip:</span> '
-                    f'Feel free to write simple notes, rough bullet points, or informal thoughts. Our AI will automatically fix typos, elevate tone, and structure all standard enterprise details for you.'
-                    f'</div>'
-                    f'</div>'
-                )
-                st.markdown(copilot_banner, unsafe_allow_html=True)
+                if spec.get("intro"):
+                    st.caption(f"💡 {spec['intro']}")
 
                 if sec_config.get("type") == "table":
                     undo_rows_guide = st.session_state.get(f"undo_table_{sec_id}")
