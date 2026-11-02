@@ -34,16 +34,14 @@ def main():
         except Exception:
             pass
 
-    st.sidebar.title("Process Validator")
-
     role = st.session_state.get("current_user_role", "creator")
 
-    dashboard_page = st.Page("pages/1_Dashboard.py", title="Dashboard")
-    create_page = st.Page("pages/2_Create_Process.py", title="Create/Edit Process Note")
-    validation_page = st.Page("pages/3_Validation.py", title="Validation")
-    review_page = st.Page("pages/4_Review.py", title="Review")
-    view_all_page = st.Page("pages/5_View_All_Notes.py", title="View All Notes")
-    version_history_page = st.Page("pages/6_Version_History.py", title="Version History")
+    dashboard_page = st.Page("pages/1_Dashboard.py", title="Dashboard", icon="📊")
+    create_page = st.Page("pages/2_Create_Process.py", title="Create/Edit Process Note", icon="📝")
+    validation_page = st.Page("pages/3_Validation.py", title="Validation & Audit", icon="🛡️")
+    review_page = st.Page("pages/4_Review.py", title="Review & Sign-Off", icon="📋")
+    view_all_page = st.Page("pages/5_View_All_Notes.py", title="View All Notes", icon="📚")
+    version_history_page = st.Page("pages/6_Version_History.py", title="Version History", icon="🕒")
 
     if role == "creator":
         pages = [dashboard_page, create_page, validation_page, view_all_page, version_history_page]
@@ -54,6 +52,9 @@ def main():
 
     from core.notifications import render_notifications_sidebar
     render_notifications_sidebar()
+
+    from core.auth import render_sidebar_user_profile
+    render_sidebar_user_profile()
 
     pg.run()
 

@@ -45,7 +45,6 @@ def render_notifications_sidebar():
     
     # We use a container or expander in the sidebar
     with st.sidebar:
-        st.markdown("---")
         if count > 0:
             with st.expander(f"🔔 Notifications ({count})", expanded=True):
                 for notif in unread_notifications:

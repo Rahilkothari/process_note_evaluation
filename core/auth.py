@@ -1,3 +1,52 @@
+def render_sidebar_user_profile():
+    if "user" not in st.session_state or st.session_state.user is None:
+        return
+        
+    raw_name = st.session_state.get("current_user_name", "") or ""
+    if not raw_name and st.session_state.user:
+        raw_name = getattr(st.session_state.user, "email", "User").split("@")[0]
+        
+    display_name = raw_name.title() if raw_name else "Team Member"
+    role = (st.session_state.get("current_user_role", "creator") or "creator").upper()
+
+    parts = display_name.split()
+    if len(parts) >= 2:
+        initials = (parts[0][0] + parts[1][0]).upper()
+    elif len(display_name) >= 2:
+        initials = display_name[:2].upper()
+    else:
+        initials = "U"
+
+    role_bg = "#EEF2FF" if role == "CREATOR" else "#FEF3C7"
+    role_color = "#4338CA" if role == "CREATOR" else "#92400E"
+    role_border = "#C7D2FE" if role == "CREATOR" else "#FDE68A"
+
+    with st.sidebar:
+        st.markdown(
+            f'''
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 12px 14px; margin-top: 14px; margin-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%); color: #FFFFFF; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 2px 4px rgba(29, 78, 216, 0.2);">
+                        {initials}
+                    </div>
+                    <div style="overflow: hidden; flex: 1;">
+                        <div style="font-weight: 700; font-size: 13.5px; color: #1E293B; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2;">
+                            {display_name}
+                        </div>
+                        <div style="margin-top: 3px;">
+                            <span style="font-size: 10px; font-weight: 700; background: {role_bg}; color: {role_color}; border: 1px solid {role_border}; padding: 1px 7px; border-radius: 8px; letter-spacing: 0.04em;">
+                                {role}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            ''',
+            unsafe_allow_html=True
+        )
+        if st.button("🚪 Sign Out", key="global_logout", use_container_width=True, help="Sign out of your session"):
+            logout()
+
 import os
 import streamlit as st
 from supabase import create_client, Client
@@ -84,15 +133,7 @@ def require_login():
         except Exception:
             st.session_state.user = None
 
-    if st.session_state.user is not None:
-        # Render sidebar status and logout button for active logged in user
-        with st.sidebar:
-            st.markdown("---")
-            display_name = st.session_state.current_user_name.title() if "current_user_name" in st.session_state and st.session_state.current_user_name else ""
-            st.markdown(f"Logged in as: **{display_name}**")
-            if st.button("Log Out", key="global_logout"):
-                logout()
-            st.markdown("---")
+
 
     if st.session_state.user is None:
         login_container = st.empty()

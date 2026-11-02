@@ -44,11 +44,67 @@ def inject_custom_css():
             border-right: 1px solid #E2E8F0;
             box-shadow: 2px 0 12px rgba(0,0,0,0.03);
         }
+        [data-testid="stSidebar"] [data-testid="stSidebarContent"] {
+            padding-top: 12px;
+            padding-bottom: 24px;
+        }
+        [data-testid="stSidebarNav"] {
+            padding-top: 4px !important;
+            margin-bottom: 12px !important;
+        }
+        [data-testid="stSidebarNav"] ul {
+            gap: 3px !important;
+        }
+        [data-testid="stSidebarNav"] a {
+            border-radius: 8px !important;
+            padding: 9px 14px !important;
+            transition: all 0.15s ease !important;
+        }
+        [data-testid="stSidebarNav"] a:hover {
+            background-color: #F8FAFC !important;
+        }
+        [data-testid="stSidebarNav"] a[aria-current="page"] {
+            background-color: #EEF2FF !important;
+            border-left: 3.5px solid #4338CA !important;
+        }
+        [data-testid="stSidebarNav"] a[aria-current="page"] span {
+            color: #4338CA !important;
+            font-weight: 700 !important;
+        }
         [data-testid="stSidebarNav"] span {
             font-weight: 500;
-            font-size: 14px;
-            color: #475569;
-            text-transform: capitalize;
+            font-size: 13.5px;
+            color: #334155;
+        }
+
+        /* Sidebar Expander (Notifications) */
+        [data-testid="stSidebar"] [data-testid="stExpander"] {
+            background: #F8FAFC !important;
+            border: 1px solid #E2E8F0 !important;
+            border-radius: 10px !important;
+            box-shadow: none !important;
+            margin: 8px 0 !important;
+        }
+        [data-testid="stSidebar"] [data-testid="stExpander"] details summary {
+            padding: 8px 12px !important;
+            border-radius: 8px !important;
+        }
+        [data-testid="stSidebar"] [data-testid="stExpander"] details summary:hover {
+            background-color: #F1F5F9 !important;
+        }
+        [data-testid="stSidebar"] [data-testid="stExpander"] details summary p {
+            font-size: 13px !important;
+            font-weight: 600 !important;
+            color: #475569 !important;
+        }
+        [data-testid="stSidebar"] [data-testid="stExpander"] details summary svg {
+            color: #64748B !important;
+            transform: scale(0.9) !important;
+        }
+        [data-testid="stSidebar"] [data-testid="stExpander"] details > div:last-child {
+            padding: 10px 14px !important;
+            background-color: #FFFFFF !important;
+            font-size: 12.5px !important;
         }
         
         /* Headers with Display Font */
