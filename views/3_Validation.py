@@ -20,7 +20,7 @@ try:
     current_role = st.session_state.get("current_user_role", "creator")
     current_user_id = st.session_state.get("current_user_id")
 
-    valid_statuses = ["DRAFT", "NEEDS_REVISION", "WARNING", "PASS"]
+    valid_statuses = ["DRAFT", "NEEDS_REVISION", "WARNING", "PASS", "UNDER_REVIEW"]
     if current_role == "admin":
         base_query = db.query(ProcessNote).filter(ProcessNote.status.in_(valid_statuses))
     else:
@@ -32,23 +32,33 @@ try:
     note_options = {f"[{n.id}] {n.process_name} (v{n.version})": n for n in notes}
 
     if not note_options:
-        st.info("No draft process notes available for validation.")
+        st.info("No process notes available for validation.")
         st.stop()
 
+    # Clean up validation_selectbox if its key is no longer in note_options to prevent Streamlit ValueError
+    if "validation_selectbox" in st.session_state:
+        if st.session_state.validation_selectbox not in note_options:
+            st.session_state.pop("validation_selectbox", None)
+
     # Sync widget state with selected_note_id
+    opts_list = list(note_options.keys())
+    default_index = 0
     if "selected_note_id" in st.session_state:
-        for key, note in note_options.items():
+        for idx, (key, note) in enumerate(note_options.items()):
             if note.id == st.session_state.selected_note_id:
                 st.session_state.validation_selectbox = key
+                default_index = idx
                 break
 
     def on_note_change():
-        selected_str = st.session_state.validation_selectbox
-        st.session_state.selected_note_id = note_options[selected_str].id
+        selected_str = st.session_state.get("validation_selectbox")
+        if selected_str and selected_str in note_options:
+            st.session_state.selected_note_id = note_options[selected_str].id
 
     selected = st.selectbox(
-        "Select Process Note to Validate", 
-        list(note_options.keys()), 
+        "Select Process Note to Validate",
+        opts_list,
+        index=default_index,
         key="validation_selectbox",
         on_change=on_note_change
     )
@@ -59,6 +69,7 @@ try:
     if current_note.status == "PASS": status_class = "badge-pass"
     elif current_note.status == "WARNING": status_class = "badge-warning"
     elif current_note.status == "NEEDS_REVISION": status_class = "badge-fail"
+    elif current_note.status == "UNDER_REVIEW": status_class = "badge-review"
 
     st.markdown(f"**Current Status:** <span class='badge {status_class}'>{current_note.status.replace('_', ' ')}</span>", unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
@@ -78,14 +89,14 @@ try:
                 return yaml.safe_load(f).get("sections", [])
         except Exception:
             return []
-    
+
     sections_config = load_sections_config()
 
     if st.button("Run AI Validation", type="primary"):
         with st.spinner("AI Evaluation in process..."):
             filled_sections = {s.section_id: s for s in current_note.sections}
             sections_payload = []
-        
+
             for sec_def in sections_config:
                 sec_id = sec_def.get("id")
                 if sec_id in filled_sections:
@@ -102,16 +113,16 @@ try:
                         content="",
                         structured_data=[]
                     ))
-        
+
             payload = ProcessNoteSchema(
                 process_name=current_note.process_name,
                 team=current_note.team,
                 version=current_note.version,
                 sections=sections_payload
             )
-        
+
             result = engine.run_validation(payload)
-        
+
             v_run = ValidationRun(
                 process_note_id=current_note.id,
                 process_name=current_note.process_name,
@@ -122,7 +133,7 @@ try:
             db.add(v_run)
             db.commit()
             db.refresh(v_run)
-        
+
             for sec_res in result.section_results:
                 rec_lines = list(sec_res.recommendations)
                 if sec_res.questions:
@@ -141,13 +152,13 @@ try:
                     is_cross_section=0
                 )
                 db.add(vf)
-            
+
             for cr in result.cross_section_issues:
                 cr_rec = []
                 if cr.get("questions"):
                     cr_rec.append("**Clarification Questions for Process Owner:**")
                     cr_rec.extend([f"- {q}" for q in cr.get("questions")])
-                
+
                 rel = cr.get("related_sections", [])
                 label = f"Cross-Section ({' & '.join(rel)})" if rel else "Cross-Section Alignment"
 
@@ -163,7 +174,7 @@ try:
                     is_cross_section=1
                 )
                 db.add(vf)
-            
+
             current_note.status = result.overall_status
             db.commit()
             st.success("Validation Complete!")
@@ -178,10 +189,10 @@ try:
         # Convert UTC to IST (+5:30)
         local_time = latest_run.timestamp + timedelta(hours=5, minutes=30)
         st.markdown(f"### Latest Validation Results (<span style='white-space: nowrap;'>{local_time.strftime('%Y-%m-%d %H:%M')}</span>)", unsafe_allow_html=True)
-    
+
         status_class = "badge-pass" if latest_run.status == "PASS" else ("badge-warning" if latest_run.status == "WARNING" else "badge-fail")
         score_bar_class = "score-pass" if latest_run.status == "PASS" else ("score-warn" if latest_run.status == "WARNING" else "score-fail")
-    
+
         st.markdown(f"""
         <div style="background-color: #FFFFFF; border-radius: 12px; padding: 24px; border: 1px solid #E2E8F0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 24px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
@@ -198,19 +209,19 @@ try:
             </div>
         </div>
         """, unsafe_allow_html=True)
-    
+
         findings = db.query(ValidationFinding).filter(ValidationFinding.validation_id == latest_run.id).all()
-    
+
         st.markdown("### Cross-Section Alignment Audit (BE Standards)")
         cross_findings = [f for f in findings if f.is_cross_section == 1]
         if cross_findings:
             for f in cross_findings:
                 is_resolved = "*(Resolved by Clarification)*" in (f.issue or "")
                 display_cr_issue = (f.issue or "").replace("*(Resolved by Clarification)*\n\n", "").replace("*(Resolved by Clarification)*", "")
-                
+
                 with st.expander(f"⚠️ [{f.severity}] {f.section_id} - {'✅ Resolved' if is_resolved else 'Gap Identified'}", expanded=not is_resolved):
                     st.markdown(f"**Audit Observation:** {display_cr_issue}")
-                    
+
                     if f.recommendation and "**Clarification Questions for Process Owner:**" in f.recommendation:
                         st.markdown("""
                         <div style="background-color: #FEF3C7; border-left: 4px solid #F59E0B; padding: 12px; border-radius: 4px; margin: 12px 0;">
@@ -241,40 +252,40 @@ try:
                                             st.rerun()
         else:
             st.success("✅ No cross-section gaps found. Business rules, KPIs, flowchart, and RACI are fully aligned with Process Description.")
-        
+
         st.markdown("### Section-by-Section Findings")
         sec_findings = [f for f in findings if f.is_cross_section == 0]
-    
+
         for f in sec_findings:
             is_manual = "*(Marked as OK by User)*" in (f.issue or "") or "*(Resolved by Clarification)*" in (f.issue or "")
             display_issue = (f.issue or "").replace("*(Marked as OK by User)*\n\n", "").replace("*(Marked as OK by User)*", "").replace("*(Resolved by Clarification)*\n\n", "")
-        
+
             badge_cls = "badge-pass" if f.status == "PASS" else ("badge-warning" if f.status == "WARNING" else "badge-fail")
             badge_text = "PASS (Resolved)" if is_manual else f.status
             badge_html = f"<span class='badge {badge_cls}'>{badge_text}</span>"
-        
+
             if is_manual:
                 status_emoji = "✅ PASS (Resolved)"
             else:
                 status_emoji = "✅ PASS" if f.status == "PASS" else ("⚠️ WARNING" if f.status == "WARNING" else "❌ NEEDS REVISION")
-        
+
             with st.expander(f"{f.section_id} (Score: {f.score}) - {status_emoji}"):
                 st.markdown(f"**Status:** {badge_html}", unsafe_allow_html=True)
                 if display_issue.strip():
                     st.markdown(f"**Issues ({f.severity}):**")
                     st.write(display_issue.strip())
-                
+
                 # Check for clarification questions
                 if f.recommendation:
                     if "**Clarification Questions for Process Owner:**" in f.recommendation:
                         rec_parts = f.recommendation.split("**Clarification Questions for Process Owner:**")
                         advice = rec_parts[0].strip()
                         questions = rec_parts[1].strip()
-                        
+
                         if advice:
                             st.markdown("**Recommendation:**")
                             st.write(advice)
-                        
+
                         st.markdown("""
                         <div style="background-color: #FEF3C7; border-left: 4px solid #F59E0B; padding: 10px; border-radius: 4px; margin: 10px 0;">
                             <strong style="color: #92400E;">💬 Clarification Questions for Process Owner:</strong>
@@ -291,11 +302,11 @@ try:
                                     with st.spinner("AI is updating this section..."):
                                         from services.llm_service import get_llm_provider
                                         llm = get_llm_provider()
-                                        
+
                                         # Find true section ID
                                         sec_def = next((s for s in sections_config if str(s.get("id")) == str(f.section_id) or str(s.get("name")) == str(f.section_id) or str(f.section_id).startswith(str(s.get("id")))), None)
                                         t_sec_id = sec_def.get("id") if sec_def else f.section_id.split(" ")[0].replace("-", "").strip()
-                                        
+
                                         target_sec = db.query(ProcessSection).filter(ProcessSection.process_note_id == current_note.id, ProcessSection.section_id == t_sec_id).first()
                                         if target_sec:
                                             s_type = sec_def.get("type", "text") if sec_def else "text"
@@ -305,7 +316,7 @@ try:
                                                 target_sec.structured_data = updated_res
                                             else:
                                                 target_sec.content = str(updated_res)
-                                            
+
                                             f.status = "PASS"
                                             f.severity = "LOW"
                                             f.issue = f"*(Resolved by Clarification)*\n\n{f.issue}"
@@ -315,52 +326,52 @@ try:
                     else:
                         st.markdown("**Recommendation:**")
                         st.write(f.recommendation)
-                        
+
                 if not display_issue.strip() and not f.recommendation:
                     st.write("Section looks good.")
-                
+
                 if f.status != "PASS" and not is_manual:
                     if st.button("Mark as OK (Ignore Feedback)", key=f"ignore_{f.id}"):
                         f.status = "PASS"
                         f.severity = "LOW"
                         f.issue = f"*(Marked as OK by User)*\n\n{f.issue}" if f.issue else "*(Marked as OK by User)*"
                         db.commit()
-                    
+
                         # Recalculate overall run score and status
                         all_f = db.query(ValidationFinding).filter(ValidationFinding.validation_id == latest_run.id).all()
                         sec_f = [res for res in all_f if res.is_cross_section == 0]
-                    
+
                         total_score = sum([res.score for res in sec_f])
                         num_sections = len(sec_f)
-                    
+
                         if num_sections > 0:
                             latest_run.overall_score = round(total_score / num_sections, 1)
-                        
+
                         critical_issues = sum([1 for res in all_f if res.severity == "HIGH"])
                         warnings = sum([1 for res in all_f if (res.severity == "MEDIUM" or res.status == "WARNING")])
                         sections_needing_revision = sum([1 for res in all_f if res.status == "NEEDS_REVISION"])
-                    
+
                         pass_threshold = 75.0
                         warning_threshold = 65.0
-                    
+
                         if critical_issues > 0 or sections_needing_revision > 0 or latest_run.overall_score < warning_threshold:
                             latest_run.status = "NEEDS_REVISION"
                         elif latest_run.overall_score < pass_threshold or warnings > 0:
                             latest_run.status = "WARNING"
                         else:
                             latest_run.status = "PASS"
-                        
+
                         current_note.status = latest_run.status
                         db.commit()
                         st.rerun()
-            
+
                 # Show manual reviewer comments if they exist
                 # f.section_id from ValidationFinding might actually be the section name due to validation_engine logic.
                 # Let's find the correct config first by checking both id and name.
                 sec_def = next((s for s in sections_config if str(s.get("id")) == str(f.section_id) or str(s.get("name")) == str(f.section_id)), None)
-            
+
                 true_section_id = sec_def.get("id") if sec_def else f.section_id
-            
+
                 section = next((s for s in current_note.sections if str(s.section_id) == str(true_section_id)), None)
                 if section and section.structured_data:
                     import pandas as pd
@@ -374,7 +385,7 @@ try:
                                     st.markdown("---")
                                     st.markdown('<div style="font-weight: 700; font-size: 14px; color: #1E293B; margin: 6px 0;">👤 Manual Reviewer Feedback</div>', unsafe_allow_html=True)
                                     has_comments = True
-                            
+
                                 row_id = ""
                                 if "Sr. No." in df.columns and pd.notna(row.get("Sr. No.")):
                                     row_id = f"Row {row.get('Sr. No.')}"
@@ -383,9 +394,9 @@ try:
                                     row_id = f"{first_col}: {row.get(first_col, 'Item')}"
                                 else:
                                     row_id = f"Item {idx + 1}"
-                                
+
                                 st.info(f"**{row_id}**: {comment}")
-            
+
                 # Inline Editing UI
                 st.markdown("---")
                 st.markdown('<div style="font-weight: 700; font-size: 14px; color: #1E293B; margin: 6px 0;">✏️ Edit Section Content</div>', unsafe_allow_html=True)
@@ -405,7 +416,7 @@ try:
                                     section.content = cleaned_val
                                 db.commit()
                                 st.success("Section updated! ⚠️ **Note: Re-run AI Validation to get an updated score.**")
-                            
+
                     elif sec_type == "table":
                         fields = sec_def.get("fields", [])
                         import pandas as pd
@@ -422,7 +433,7 @@ try:
                         else:
                             df = pd.DataFrame(columns=fields)
                             df.loc[1] = [None for _ in fields]
-                        
+
                         column_config = {}
                         for field in fields:
                             f_lower = field.lower()
@@ -465,17 +476,29 @@ try:
                                     flag_modified(section, "structured_data")
                                 db.commit()
                                 st.success("Section updated! ⚠️ **Note: Re-run AI Validation to get an updated score.**")
-                            
+
                     elif sec_type == "file":
                         st.info("File upload editing must be done on the Create Process page.")
                 else:
                     st.warning(f"Could not load configuration for section {f.section_id}.")
         st.markdown("<br>", unsafe_allow_html=True)
-        if latest_run.status in ["PASS", "WARNING", "NEEDS_REVISION"]:
-            if st.button("Submit for Manual Review", type="primary"):
+        if current_note.status in ["PASS", "WARNING", "NEEDS_REVISION"]:
+            if current_note.status == "NEEDS_REVISION":
+                st.warning("⚠️ **Note:** This process note is currently flagged as **Needs Revision**. Reviewers will see these critical findings in the Review queue.")
+            if st.button("Submit for Manual Review", type="primary", use_container_width=True):
                 current_note.status = "UNDER_REVIEW"
+
+                # Record submission in ReviewHistory
+                rev_history = ReviewHistory(
+                    process_note_id=current_note.id,
+                    process_name=current_note.process_name,
+                    reviewer=st.session_state.get("current_user_name", "Creator"),
+                    action="SUBMITTED",
+                    comments="Submitted by creator for governance review.",
+                )
+                db.add(rev_history)
                 db.commit()
-            
+
                 # Notify reviewers
                 from models.database import User
                 from core.notifications import create_notification
@@ -484,9 +507,16 @@ try:
                 msg = f"{user_name} has submitted '{current_note.process_name}' for manual review."
                 for r in reviewers:
                     create_notification(db, r.id, msg, current_note.id)
-                
-                st.success("Submitted for manual review!")
+
+                # Safely update selectbox key in session state
+                updated_key = f"[{current_note.id}] {current_note.process_name} (v{current_note.version})"
+                st.session_state.validation_selectbox = updated_key
+                st.session_state.selected_note_id = current_note.id
+
+                st.success("🎉 Successfully submitted for manual review! Reviewers have been notified.")
                 st.rerun()
+        elif current_note.status == "UNDER_REVIEW":
+            st.info("🕒 **Status: Under Review** — This note has been successfully submitted and is currently in the Review Queue. Reviewers can now inspect, comment, or approve it in the **Review & Sign-Off** hub.")
 
 finally:
     db.close()
