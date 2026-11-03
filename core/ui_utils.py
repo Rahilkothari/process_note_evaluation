@@ -12,6 +12,13 @@ def inject_custom_css():
         footer {visibility: hidden;}
         .stDeployButton {display:none;}
         [data-testid="stStatusWidget"] {visibility: hidden;}
+        /* Hide Streamlit intrusive error/warning dialog modals and modal backdrops */
+        div[data-testid="stModal"],
+        div[data-baseweb="modal"],
+        div[role="dialog"] {
+            display: none !important;
+        }
+
 
         /* Brand Logo at Top Left in Sidebar Header */
         [data-testid="stSidebar"] [data-testid="stSidebarHeader"] {

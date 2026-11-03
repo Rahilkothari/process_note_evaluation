@@ -30,12 +30,29 @@ def main():
         except Exception:
             pass
 
-    # 3. Handle unauthenticated state using st.navigation so pages/ is NEVER auto-discovered
-    if "user" not in st.session_state or st.session_state.user is None:
-        login_page = st.Page(render_login_page, title="Sign In", icon="🔒")
-        pg = st.navigation([login_page], position="hidden")
-        pg.run()
-        return
+    # 3. Standardized Pages Definition with explicit icons and url_paths
+    dashboard_page = st.Page("views/1_Dashboard.py", title="Dashboard", icon="📊", url_path="Dashboard", default=True)
+    create_page = st.Page("views/2_Create_Process.py", title="Create/Edit Process Note", icon="📝", url_path="Create_Process")
+    validation_page = st.Page("views/3_Validation.py", title="Validation & Audit", icon="🛡️", url_path="Validation")
+    review_page = st.Page("views/4_Review.py", title="Review & Sign-Off", icon="📋", url_path="Review")
+    view_all_page = st.Page("views/5_View_All_Notes.py", title="View All Notes", icon="📚", url_path="View_All_Notes")
+    version_history_page = st.Page("views/6_Version_History.py", title="Version History", icon="🕒", url_path="Version_History")
+
+    # Define all valid routes so Streamlit router always knows /Dashboard, /Review, /Validation, etc. exist
+    all_pages = {
+        "Process Workspace": [dashboard_page, create_page, validation_page],
+        "Governance & Review": [review_page],
+        "Institutional Repository": [view_all_page, version_history_page],
+    }
+
+    # 4. Handle unauthenticated state cleanly without triggering 'Page not found' modal
+    is_authenticated = "user" in st.session_state and st.session_state.user is not None
+
+    if not is_authenticated:
+        # Register all routes with position='hidden' so Streamlit router recognizes URL paths like /Review
+        pg = st.navigation(all_pages, position="hidden")
+        render_login_page()
+        st.stop()
 
     # Ensure authenticated user metadata is synced
     if "current_user_name" not in st.session_state and st.session_state.user:
@@ -47,15 +64,7 @@ def main():
 
     role = st.session_state.get("current_user_role", "creator")
 
-    # 4. Standardized Pages Definition with explicit icons and url_paths
-    dashboard_page = st.Page("views/1_Dashboard.py", title="Dashboard", icon="📊", url_path="Dashboard", default=True)
-    create_page = st.Page("views/2_Create_Process.py", title="Create/Edit Process Note", icon="📝", url_path="Create_Process")
-    validation_page = st.Page("views/3_Validation.py", title="Validation & Audit", icon="🛡️", url_path="Validation")
-    review_page = st.Page("views/4_Review.py", title="Review & Sign-Off", icon="📋", url_path="Review")
-    view_all_page = st.Page("views/5_View_All_Notes.py", title="View All Notes", icon="📚", url_path="View_All_Notes")
-    version_history_page = st.Page("views/6_Version_History.py", title="Version History", icon="🕒", url_path="Version_History")
-
-    # 5. Executive Enterprise Grouping (Dictionary prevents default "app" label)
+    # 5. Role-based Navigation Grouping
     if role == "creator":
         pages = {
             "Process Workspace": [dashboard_page, create_page, validation_page],
