@@ -870,25 +870,7 @@ try:
 
                             if can_save_table:
                                 raw_rows = build_table_rows_from_answers(sec_id, answers)
-                                if sec_id in ["1.1", "1.2", "1.3"]:
-                                    final_rows = raw_rows
-                                else:
-                                    try:
-                                        with st.spinner("🤖 Refining answers, correcting typos, and saving row..."):
-                                            from services.llm_service import get_llm_provider
-                                            llm = get_llm_provider()
-                                            final_rows = llm.refine_table_rows_with_ai(
-                                                section_id=sec_id,
-                                                section_config=sec_config,
-                                                raw_rows=raw_rows,
-                                                answers_dict=answers,
-                                                process_name=current_note.process_name,
-                                                team_name=current_note.team
-                                            )
-                                    except Exception:
-                                        final_rows = raw_rows
-                                    if not final_rows:
-                                        final_rows = raw_rows
+                                final_rows = raw_rows
 
                                 existing_rows = existing_sec.structured_data if (existing_sec and existing_sec.structured_data) else []
                                 if sec_id in multi_row_sections:
