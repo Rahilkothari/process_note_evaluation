@@ -30,7 +30,7 @@ class CrossSectionValidator:
 
             if missing_in_raci:
                 issues.append({
-                    "issue": f"Activities from Process Description (1.12) are missing from the RACI Matrix (1.13): {', '.join(missing_in_raci[:3])}.",
+                    "issue": f"**Missing RACI Roles**: Activities in Section 1.12 (Process Description) are missing from Section 1.13 (RACI Matrix): {', '.join(missing_in_raci[:3])}. Define who is Responsible and Accountable.",
                     "severity": "HIGH",
                     "questions": [
                         f"Who is Responsible and Accountable for executing: '{missing_in_raci[0]}'?"
@@ -59,7 +59,7 @@ class CrossSectionValidator:
                     matched = any(kw in desc_corpus for kw in active_keywords)
                     if not matched:
                         issues.append({
-                            "issue": f"Business Rule '{rule_text}' specifies a mandatory check/rule, but the process for conducting this check is not documented in Section 1.12 (Process Description).",
+                            "issue": f"**Missing Check in Workflow**: Business Rule '{rule_text}' requires verification, but Section 1.12 (Process Description) omits who conducts it, tool used, or sign-off criteria.",
                             "severity": "HIGH",
                             "questions": [
                                 f"For Business Rule '{rule_text}': Who conducts this check, what tools or checklists do they use, and how is completion verified before proceeding?"

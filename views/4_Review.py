@@ -226,7 +226,7 @@ try:
                         # Send back for revision: create new version draft
                         if not current_note.document_id:
                             current_note.document_id = str(uuid.uuid4())
-                        
+
                         current_note.status = "ARCHIVED"
                         try:
                             v_num = float(current_note.version)
@@ -329,13 +329,13 @@ try:
     # -------------------------------------------------------------
     with tab2:
         latest_run = db.query(ValidationRun).filter(ValidationRun.process_note_id == current_note.id).order_by(ValidationRun.timestamp.desc()).first()
-        
+
         if not latest_run:
             st.info("ℹ️ No automated validation run is recorded yet for this note. Creators can run AI Validation from the Validation & Audit tab.")
         else:
             score = latest_run.overall_score or 0.0
             score_color = "#16A34A" if score >= 75 else ("#EA580C" if score >= 65 else "#DC2626")
-            
+
             st.markdown(f"""
             <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 10px; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
                 <div>
@@ -352,18 +352,47 @@ try:
             """, unsafe_allow_html=True)
 
             findings = db.query(ValidationFinding).filter(ValidationFinding.validation_id == latest_run.id).all()
-            if not findings:
-                st.success("🎉 Excellent! No governance discrepancies were detected. All audited sections meet enterprise Business Excellence standards.")
+
+            # Filter to ONLY actual discrepancies (status != PASS and issue is not blank)
+            real_discrepancies = [
+                f for f in findings
+                if (f.issue and f.issue.strip()) and (f.status in ["NEEDS_REVISION", "WARNING", "FAIL"] or "*(Marked as OK by User)*" in (f.issue or ""))
+            ]
+
+            pass_count = len([f for f in findings if f.status == "PASS" and (not f.issue or not f.issue.strip() or "*(Marked as OK by User)*" in (f.issue or ""))])
+
+            st.markdown(f'''
+            <div style="display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;">
+                <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 7px 14px; font-size: 13px; font-weight: 700; color: #166534;">
+                    ✅ {pass_count} Sections Fully Compliant
+                </div>
+                <div style="background: {'#FEF2F2' if any(f.severity == 'HIGH' or f.status == 'NEEDS_REVISION' for f in real_discrepancies) else '#F8FAFC'}; border: 1px solid {'#FECACA' if any(f.severity == 'HIGH' or f.status == 'NEEDS_REVISION' for f in real_discrepancies) else '#E2E8F0'}; border-radius: 8px; padding: 7px 14px; font-size: 13px; font-weight: 700; color: {'#991B1B' if any(f.severity == 'HIGH' or f.status == 'NEEDS_REVISION' for f in real_discrepancies) else '#64748B'};">
+                    🔴 {len([f for f in real_discrepancies if f.severity == 'HIGH' or f.status == 'NEEDS_REVISION'])} Critical Blockers
+                </div>
+                <div style="background: {'#FFFBEB' if any(f.severity != 'HIGH' and f.status != 'NEEDS_REVISION' for f in real_discrepancies) else '#F8FAFC'}; border: 1px solid {'#FDE68A' if any(f.severity != 'HIGH' and f.status != 'NEEDS_REVISION' for f in real_discrepancies) else '#E2E8F0'}; border-radius: 8px; padding: 7px 14px; font-size: 13px; font-weight: 700; color: {'#92400E' if any(f.severity != 'HIGH' and f.status != 'NEEDS_REVISION' for f in real_discrepancies) else '#64748B'};">
+                    🟡 {len([f for f in real_discrepancies if f.severity != 'HIGH' and f.status != 'NEEDS_REVISION'])} Advisory Notices
+                </div>
+            </div>
+            ''', unsafe_allow_html=True)
+
+            if not real_discrepancies:
+                st.success("🎉 Excellent! All 22 sections meet Business Excellence standards with 0 discrepancies detected.")
             else:
-                for idx, f in enumerate(findings, 1):
+                for idx, f in enumerate(real_discrepancies, 1):
                     is_ok_user = "*(Marked as OK by User)*" in (f.issue or "")
                     clean_issue = (f.issue or "").replace("*(Marked as OK by User)*\n\n", "").replace("*(Marked as OK by User)*", "").strip()
-                    
-                    status_badge = "🟢 Marked OK by User" if is_ok_user else ("🔴 Discrepancy" if f.status == "FAIL" else "🟡 Notice")
-                    
-                    with st.expander(f"Finding {idx}: {f.section_id or 'General Governance'} • {status_badge}", expanded=(f.status == "FAIL")):
-                        st.markdown(f"**Discrepancy Details:**\n\n{clean_issue}")
-                        
+
+                    is_critical = (f.severity == "HIGH" or f.status in ["NEEDS_REVISION", "FAIL"])
+                    status_badge = "🟢 Resolved by Creator" if is_ok_user else ("🔴 Critical Discrepancy" if is_critical else "🟡 Advisory Notice")
+
+                    with st.expander(f"Discrepancy {idx}: {f.section_id or 'General Governance'} • {status_badge}", expanded=is_critical):
+                        formatted_issue = format_direct_discrepancy(clean_issue)
+                        st.markdown(f"**Discrepancy Details:**\n\n{formatted_issue}")
+
+                        if f.recommendation and f.recommendation.strip():
+                            st.markdown("---")
+                            st.markdown(f"**Action Required to Resolve:**\n\n{f.recommendation}")
+
                         # Find corresponding section data
                         matching_sec = next((s for s in current_note.sections if str(s.section_id) == str(f.section_id)), None)
                         if matching_sec:
@@ -380,7 +409,7 @@ try:
     # -------------------------------------------------------------
     with tab3:
         filled_sections = {s.section_id: s for s in current_note.sections}
-        
+
         # Navigation bar for section review
         col_nav_l, col_nav_r = st.columns([7, 3])
         with col_nav_r:
@@ -457,7 +486,7 @@ try:
                         df_rev["Reviewer Comment"] = ""
 
                     disabled_cols = [c for c in df_rev.columns if c != "Reviewer Comment"]
-                    
+
                     st.caption("💡 Reviewer Tip: You can type specific feedback directly into the **'Reviewer Comment'** column below:")
                     edited_rev_df = st.data_editor(
                         df_rev,

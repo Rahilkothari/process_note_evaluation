@@ -738,13 +738,20 @@ You MUST rigorously audit the 4 core inter-relationships defined by the Business
    - The flowchart steps, decision diamonds, and hand-offs must visually and logically match the operational steps described in 1.12.
 
 OUTPUT FORMAT:
+CRITICAL EXPLANATION RULES:
+- Explain discrepancies in direct, plain, simple English that anyone can instantly understand.
+- Never write dense, convoluted academic paragraphs or long run-on sentences.
+- First state the core problem in 1 simple sentence.
+- If there are multiple specific points, present them clearly as numbered or bulleted items.
+- Provide a direct, actionable clarification question.
+
 If there are gaps or inconsistencies, return a JSON array of objects with this schema:
 [
   {{
-    "issue": "Clear, professional explanation of the inconsistency or gap across sections",
+    "issue": "Direct, plain-English explanation (1 simple problem sentence followed by short, clear bullet points for specific mismatches)",
     "severity": "HIGH" | "MEDIUM",
     "questions": [
-      "Specific clarification question for the Process Owner to explain and resolve the gap"
+      "Short, clear clarification question for the Process Owner asking who performs the step, tool used, or SLA required"
     ],
     "related_sections": ["1.12", "1.14"]
   }}

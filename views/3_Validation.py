@@ -1,3 +1,24 @@
+def format_direct_discrepancy(text: str) -> str:
+    """Format complex discrepancy text into direct, simple, easy-to-read bullet points."""
+    if not text or not text.strip():
+        return ""
+    import re
+    if "Specifically:" in text or "Specifically :" in text:
+        parts = re.split(r'Specifically\s*:\s*', text, maxsplit=1)
+        summary = parts[0].strip()
+        details = parts[1].strip()
+        raw_points = re.split(r'\s*(?:;\s*)?(?:\d+\))\s*', details)
+        clean_points = [p.strip().rstrip(';.') for p in raw_points if p.strip()]
+        if clean_points:
+            bullet_md = "\n".join([f"- **Gap {i+1}**: {p}" for i, p in enumerate(clean_points)])
+            return f"**Direct Summary:** {summary}\n\n**Key Mismatches:**\n{bullet_md}"
+    elif ";" in text and len(text) > 80:
+        clauses = [c.strip().rstrip(';.') for c in text.split(";") if c.strip()]
+        if len(clauses) >= 2:
+            bullet_md = "\n".join([f"- {c}" for c in clauses])
+            return f"**Direct Summary:**\n{bullet_md}"
+    return text
+
 import streamlit as st
 from models.database import SessionLocal, get_db, ProcessNote, ValidationRun, ValidationFinding, ProcessSection, ReviewHistory
 from models.schemas import ProcessNoteSchema, ProcessSectionSchema
@@ -220,7 +241,7 @@ try:
                 display_cr_issue = (f.issue or "").replace("*(Resolved by Clarification)*\n\n", "").replace("*(Resolved by Clarification)*", "")
 
                 with st.expander(f"⚠️ [{f.severity}] {f.section_id} - {'✅ Resolved' if is_resolved else 'Gap Identified'}", expanded=not is_resolved):
-                    st.markdown(f"**Audit Observation:** {display_cr_issue}")
+                    st.markdown(f"**Audit Observation:**\n\n{format_direct_discrepancy(display_cr_issue)}")
 
                     if f.recommendation and "**Clarification Questions for Process Owner:**" in f.recommendation:
                         st.markdown("""
