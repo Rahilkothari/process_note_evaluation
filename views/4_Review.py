@@ -10,6 +10,28 @@ import yaml
 import copy
 import uuid
 
+import re
+
+def format_direct_discrepancy(text: str) -> str:
+    """Format complex discrepancy text into direct, simple, easy-to-read bullet points."""
+    if not text or not text.strip():
+        return ""
+    if "Specifically:" in text or "Specifically :" in text:
+        parts = re.split(r'Specifically\s*:\s*', text, maxsplit=1)
+        summary = parts[0].strip()
+        details = parts[1].strip()
+        raw_points = re.split(r'\s*(?:;\s*)?(?:\d+\))\s*', details)
+        clean_points = [p.strip().rstrip(';.') for p in raw_points if p.strip()]
+        if clean_points:
+            bullet_md = "\n".join([f"- **Gap {i+1}**: {p}" for i, p in enumerate(clean_points)])
+            return f"**Direct Summary:** {summary}\n\n**Key Mismatches:**\n{bullet_md}"
+    elif ";" in text and len(text) > 80:
+        clauses = [c.strip().rstrip(';.') for c in text.split(";") if c.strip()]
+        if len(clauses) >= 2:
+            bullet_md = "\n".join([f"- {c}" for c in clauses])
+            return f"**Direct Summary:**\n{bullet_md}"
+    return text
+
 inject_custom_css()
 
 user_email = (st.session_state.user.email if st.session_state.get("user") else "").lower()
