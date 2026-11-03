@@ -86,7 +86,7 @@ def is_authorized_email(email: str) -> bool:
 def get_role_for_email(email: str) -> str:
     email = email.lower()
     
-    admin_emails = ["rahilkk07@gmail.com", "rahilkko+07@gmail.com"]
+    admin_emails = ["rahilkk07@gmail.com", "rahilkko+07@gmail.com", "rahilkothari99@gmail.com"]
     reviewer_emails = [
         "jayati.kapadia@kotakeducationfoundation.org", 
         "tanvi.parulekar@kotakeducationfoundation.org",

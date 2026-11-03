@@ -16,22 +16,42 @@ current_user_id = st.session_state.get("current_user_id")
 
 if current_role == "creator":
     st.markdown("""
-    <div style="background-color: #F0F9FF; border: 1px solid #BAE6FD; padding: 16px; border-radius: 8px; margin-bottom: 24px;">
-        <h4 style="color: #0369A1; margin-top: 0;">👋 Welcome to the Process Note Validator!</h4>
-        <p style="color: #0C4A6E; margin-bottom: 8px;">Here is how you can use this platform to create and validate your process notes:</p>
-        <ol style="color: #0C4A6E; margin-bottom: 0;">
-            <li><b>Create Process:</b> Go to the 'Create Process' tab on the left to draft a new note. Fill out the sections one by one.</li>
-            <li><b>AI Validation:</b> Once drafted, submit it to our AI validator. It will score your note against strict governance rules and suggest improvements.</li>
-            <li><b>Review & Fix:</b> Address any warnings or missing information the AI points out.</li>
-            <li><b>Final Approval:</b> When your score is passing, submit it for human review!</li>
-        </ol>
+    <div style="background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%); border: 1px solid #CBD5E1; border-left: 4px solid #4F46E5; padding: 16px 20px; border-radius: 10px; margin-bottom: 24px;">
+        <h4 style="color: #1E293B; margin-top: 0; margin-bottom: 6px; font-weight: 700;">👋 Quick Guide to Process Notes</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 10px;">
+            <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px 14px;">
+                <div style="font-weight: 700; color: #4338CA; font-size: 13.5px; margin-bottom: 3px;">1. Interactive Co-pilot Drafting</div>
+                <div style="color: #475569; font-size: 12.5px; line-height: 1.4;">Fill the 22 standardized sections using guided drawers with smart cross-section auto-fills.</div>
+            </div>
+            <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px 14px;">
+                <div style="font-weight: 700; color: #0284C7; font-size: 13.5px; margin-bottom: 3px;">2. AI Quality & Governance Audit</div>
+                <div style="color: #475569; font-size: 12.5px; line-height: 1.4;">Audit your draft with AI to catch gaps against Business Excellence rules before submission.</div>
+            </div>
+            <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px 14px;">
+                <div style="font-weight: 700; color: #16A34A; font-size: 13.5px; margin-bottom: 3px;">3. Multi-Stakeholder Sign-Off</div>
+                <div style="color: #475569; font-size: 12.5px; line-height: 1.4;">Submit for reviewer review, address feedback, and export finalized institutional Word notes.</div>
+            </div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 elif current_role in ["reviewer", "admin"]:
     st.markdown("""
-    <div style="background-color: #FDF4FF; border: 1px solid #F0ABFC; padding: 16px; border-radius: 8px; margin-bottom: 24px;">
-        <h4 style="color: #86198F; margin-top: 0;">👋 Welcome Reviewer!</h4>
-        <p style="color: #701A75; margin-bottom: 0;">Use this dashboard to monitor process notes that have been submitted for human review. Click on any note with the status <b>UNDER REVIEW</b> to read the content, check the AI's grading, and provide your final approval.</p>
+    <div style="background: linear-gradient(135deg, #F8FAFC 0%, #FAF5FF 100%); border: 1px solid #E9D5FF; border-left: 4px solid #9333EA; padding: 16px 20px; border-radius: 10px; margin-bottom: 24px;">
+        <h4 style="color: #581C87; margin-top: 0; margin-bottom: 6px; font-weight: 700;">👋 Reviewer & Governance Dashboard</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 10px;">
+            <div style="background: #FFFFFF; border: 1px solid #F3E8FF; border-radius: 8px; padding: 12px 14px;">
+                <div style="font-weight: 700; color: #7E22CE; font-size: 13.5px; margin-bottom: 3px;">1. Quality & BE Verification</div>
+                <div style="color: #475569; font-size: 12.5px; line-height: 1.4;">Inspect automated AI governance scores and critical findings across all 22 sections.</div>
+            </div>
+            <div style="background: #FFFFFF; border: 1px solid #F3E8FF; border-radius: 8px; padding: 12px 14px;">
+                <div style="font-weight: 700; color: #0284C7; font-size: 13.5px; margin-bottom: 3px;">2. Section-by-Section Audit</div>
+                <div style="color: #475569; font-size: 12.5px; line-height: 1.4;">Examine structured tables, RACI ownership, and BPMN flowcharts with in-line reviewer remarks.</div>
+            </div>
+            <div style="background: #FFFFFF; border: 1px solid #F3E8FF; border-radius: 8px; padding: 12px 14px;">
+                <div style="font-weight: 700; color: #16A34A; font-size: 13.5px; margin-bottom: 3px;">3. Managerial Sign-Off</div>
+                <div style="color: #475569; font-size: 12.5px; line-height: 1.4;">Grant formal approval to ingest into institutional knowledge base or request structured revisions.</div>
+            </div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 

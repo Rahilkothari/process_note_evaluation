@@ -45,8 +45,10 @@ def main():
 
     if role == "creator":
         pages = [dashboard_page, create_page, validation_page, view_all_page, version_history_page]
-    else:
+    elif role == "reviewer":
         pages = [dashboard_page, review_page, view_all_page, version_history_page]
+    else:  # admin has access to both Creator and Reviewer suites
+        pages = [dashboard_page, create_page, validation_page, review_page, view_all_page, version_history_page]
         
     pg = st.navigation(pages)
 
