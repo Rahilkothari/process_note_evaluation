@@ -180,15 +180,15 @@ try:
                     if current_role == "creator" and note['status'] in ["DRAFT", "NEEDS_REVISION", "WARNING", "PASS"]:
                         st.session_state.action_radio = "Edit Existing Process Note"
                         st.session_state.selected_note_key = f"[{note['id']}] {note['process_name']} (v{note['version']}) - {note['status']}"
-                        st.switch_page("pages/2_Create_Process.py")
+                        st.switch_page("views/2_Create_Process.py")
                     elif current_role in ["reviewer", "admin"] and note['status'] == "UNDER_REVIEW":
-                        st.switch_page("pages/4_Review.py")
+                        st.switch_page("views/4_Review.py")
                     else:
                         if note['status'] == 'ARCHIVED':
                             st.session_state.view_type_radio = "Archived Notes"
                         else:
                             st.session_state.view_type_radio = "Active Notes"
-                        st.switch_page("pages/5_View_All_Notes.py")
+                        st.switch_page("views/5_View_All_Notes.py")
             with col2: 
                 st.markdown(f"<div style='padding-top: 8px;'>{note['team']}</div>", unsafe_allow_html=True)
             with col3: 

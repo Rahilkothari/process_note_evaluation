@@ -38,33 +38,77 @@ def inject_custom_css():
             background-color: #FAFAFA;
         }
         
-        /* Sidebar Styling */
+        /* Brand Logo & Sidebar Header */
+        [data-testid="stSidebar"] [data-testid="stSidebarHeader"] {
+            display: flex !important;
+            align-items: center !important;
+            padding: 16px 16px 10px 16px !important;
+            border-bottom: 1px solid #F1F5F9 !important;
+            margin-bottom: 8px !important;
+        }
+        [data-testid="stSidebar"] [data-testid="stSidebarHeader"] img,
+        [data-testid="stLogo"] {
+            max-height: 44px !important;
+            height: auto !important;
+            width: auto !important;
+            object-fit: contain !important;
+        }
+
+        /* Sidebar Container Styling */
         [data-testid="stSidebar"] {
-            background-color: #FFFFFF;
-            border-right: 1px solid #E2E8F0;
-            box-shadow: 2px 0 12px rgba(0,0,0,0.03);
+            background-color: #FFFFFF !important;
+            border-right: 1px solid #E2E8F0 !important;
+            box-shadow: 2px 0 16px rgba(0,0,0,0.03) !important;
         }
         [data-testid="stSidebar"] [data-testid="stSidebarContent"] {
-            padding-top: 12px;
-            padding-bottom: 24px;
+            padding-top: 8px !important;
+            padding-bottom: 24px !important;
         }
+
+        /* Sidebar Navigation Wrapper */
         [data-testid="stSidebarNav"] {
-            padding-top: 4px !important;
-            margin-bottom: 12px !important;
+            padding-top: 2px !important;
+            margin-bottom: 10px !important;
         }
         [data-testid="stSidebarNav"] ul {
-            gap: 3px !important;
+            gap: 2px !important;
+            padding-left: 0 !important;
         }
+
+        /* Section Category Headers */
+        [data-testid="stSidebarNavSeparator"],
+        [data-testid="stSidebarNavItems"] > div > span:not(:empty),
+        [data-testid="stSidebarNav"] span[data-testid="stSidebarNavSeparator"],
+        [data-testid="stSidebarNavItems"] > div > div > span {
+            font-size: 11px !important;
+            font-weight: 700 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.08em !important;
+            color: #64748B !important;
+            padding: 12px 14px 4px 14px !important;
+            display: block !important;
+        }
+
+        /* Suppress any legacy blank or "app" header */
+        [data-testid="stSidebarNavItems"] > div:first-child:has(> span:empty) {
+            display: none !important;
+        }
+
+        /* Navigation Links */
         [data-testid="stSidebarNav"] a {
             border-radius: 8px !important;
             padding: 9px 14px !important;
-            transition: all 0.15s ease !important;
+            margin: 1px 8px !important;
+            transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            border: 1px solid transparent !important;
         }
         [data-testid="stSidebarNav"] a:hover {
             background-color: #F8FAFC !important;
+            border-color: #E2E8F0 !important;
         }
         [data-testid="stSidebarNav"] a[aria-current="page"] {
             background-color: #EEF2FF !important;
+            border-color: #C7D2FE !important;
             border-left: 3.5px solid #4338CA !important;
         }
         [data-testid="stSidebarNav"] a[aria-current="page"] span {
@@ -72,9 +116,9 @@ def inject_custom_css():
             font-weight: 700 !important;
         }
         [data-testid="stSidebarNav"] span {
-            font-weight: 500;
-            font-size: 13.5px;
-            color: #334155;
+            font-weight: 500 !important;
+            font-size: 13.5px !important;
+            color: #334155 !important;
         }
 
         /* Sidebar Expander (Notifications) */

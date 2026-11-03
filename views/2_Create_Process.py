@@ -1930,7 +1930,7 @@ try:
             if st.button("👀 Preview Full Draft", use_container_width=True, help="Read through your entire process note so far."):
                 if current_note:
                     st.session_state.selected_note_id = current_note.id
-                st.switch_page("pages/5_View_All_Notes.py")
+                st.switch_page("views/5_View_All_Notes.py")
     
         current_idx = tab_names.index(selected_tab)
         with col2:
@@ -1946,7 +1946,7 @@ try:
                 if st.button("Proceed to Validation ➔", type="primary", use_container_width=True):
                     if current_note:
                         st.session_state.selected_note_id = current_note.id
-                    st.switch_page("pages/3_Validation.py")
+                    st.switch_page("views/3_Validation.py")
 
 finally:
     db.close()
