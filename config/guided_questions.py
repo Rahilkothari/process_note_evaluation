@@ -89,7 +89,7 @@ SECTION_GUIDED_SPECS: Dict[str, Dict[str, Any]] = {
     },
     "1.2": {
         "title": "Document Change History",
-        "intro": "Track the version number and reason for this release. For a new document, Version 1.0 is already selected:",
+        "intro": "Track the version release and purpose. Dates and author details are auto-filled by the system:",
         "type": "table",
         "fields": [
             {
@@ -100,49 +100,21 @@ SECTION_GUIDED_SPECS: Dict[str, Dict[str, Any]] = {
                 "default": "1.0 (Initial Draft)"
             },
             {
-                "id": "eff_date",
-                "label": "Effective Date (When this version goes live):",
-                "type": "date"
-            },
-            {
-                "id": "change_date",
-                "label": "Date of Change / Release:",
-                "type": "date"
-            },
-            {
                 "id": "amendment",
                 "label": "Summary of Purpose / Changes:",
                 "type": "textarea",
-                "placeholder": "e.g., Initial baseline version created to standardize partner school onboarding workflows."
-            },
-            {
-                "id": "req_by",
-                "label": "Change Requested By (Optional):",
-                "type": "text",
-                "placeholder": "e.g., Operations Director / Business Excellence"
-            },
-            {
-                "id": "made_by",
-                "label": "Created / Authored By:",
-                "type": "text",
-                "placeholder": "e.g., Program Head (Creator)"
+                "placeholder": "e.g., Initial baseline version created to standardize operational workflows."
             }
         ]
     },
     "1.3": {
         "title": "Document Review Cycle",
-        "intro": "Set how often this process note should be revisited to ensure it stays current and accurate:",
+        "intro": "Set how often this process note should be revisited. Effective date and review owner are inherited automatically from Step 1:",
         "type": "table",
         "fields": [
             {
-                "id": "eff_date",
-                "label": "1. Effective Date (When this document becomes active):",
-                "type": "date",
-                "help": "💡 The date from which this version becomes binding."
-            },
-            {
                 "id": "review_frequency",
-                "label": "2. How often should this document be reviewed?",
+                "label": "1. How often should this document be reviewed?",
                 "type": "select",
                 "options": [
                     "Annual (Every 12 months)",
@@ -157,30 +129,9 @@ SECTION_GUIDED_SPECS: Dict[str, Dict[str, Any]] = {
             },
             {
                 "id": "next_review_date",
-                "label": "3. Scheduled Next Review Date (Auto-calculated):",
+                "label": "2. Scheduled Next Review Date (Auto-calculated):",
                 "type": "calculated_date",
                 "help": "💡 Auto-calculated based on effective date and cycle. You can adjust if needed."
-            },
-            {
-                "id": "process_owner",
-                "label": "4. Designated Review Owner Role:",
-                "type": "text",
-                "placeholder": "e.g., Program Head (or Operations Manager)",
-                "help": "💡 Designation responsible for periodic review."
-            },
-            {
-                "id": "owner_name",
-                "label": "5. Review Owner Full Name:",
-                "type": "text",
-                "placeholder": "e.g., John Doe",
-                "help": "💡 Full name of the designated review owner."
-            },
-            {
-                "id": "owner_sign",
-                "label": "6. Signature Code / Initials:",
-                "type": "text",
-                "placeholder": "e.g., JD or PH",
-                "help": "💡 Short signature initials."
             }
         ]
     },
@@ -205,7 +156,7 @@ SECTION_GUIDED_SPECS: Dict[str, Dict[str, Any]] = {
     },
     "1.5": {
         "title": "Key Performance Indicators (KPIs)",
-        "intro": "Define how success and efficiency are measured for this process. AI will standardize the target and Maker-Checker governance structure:",
+        "intro": "Define how success and efficiency are measured for this process. AI will auto-structure Maker-Checker roles and data source:",
         "type": "table",
         "fields": [
             {
@@ -239,58 +190,11 @@ SECTION_GUIDED_SPECS: Dict[str, Dict[str, Any]] = {
                 "help": "💡 Role accountable for meeting this KPI target."
             },
             {
-                "id": "maker",
-                "label": "4. Maker (Who records / inputs performance data):",
-                "type": "select",
-                "options": [
-                    "Field Officer",
-                    "Field Executive",
-                    "Operations Executive",
-                    "Program Associate",
-                    "Project Executive",
-                    "Trainer / Facilitator",
-                    "Program Head (PH)",
-                    "Other (Specify custom role...)"
-                ],
-                "default": "Field Officer",
-                "help": "💡 Role responsible for entering raw performance data."
-            },
-            {
-                "id": "checker",
-                "label": "5. Checker (Who verifies / audits data accuracy):",
-                "type": "select",
-                "options": [
-                    "Operations Manager",
-                    "Program Head (PH)",
-                    "Vertical Lead",
-                    "Quality & Business Excellence Lead",
-                    "Project Manager",
-                    "Program Director",
-                    "Other (Specify custom role...)"
-                ],
-                "default": "Operations Manager",
-                "help": "💡 Role verifying and auditing accuracy before reporting."
-            },
-            {
                 "id": "report_freq",
-                "label": "6. How often is performance reported?",
+                "label": "4. Reporting Frequency:",
                 "type": "select",
                 "options": ["Monthly", "Weekly", "Daily", "Quarterly"],
                 "default": "Monthly"
-            },
-            {
-                "id": "review_freq",
-                "label": "7. How often does leadership review it?",
-                "type": "select",
-                "options": ["Monthly", "Quarterly", "Semi-Annually", "Annually"],
-                "default": "Monthly"
-            },
-            {
-                "id": "data_source",
-                "label": "8. Data Source & Dashboard Name:",
-                "type": "text",
-                "placeholder": "e.g., Operations MIS Onboarding Dashboard",
-                "help": "💡 System, portal, or spreadsheet where data originates."
             }
         ]
     },
@@ -585,7 +489,7 @@ SECTION_GUIDED_SPECS: Dict[str, Dict[str, Any]] = {
     },
     "1.15": {
         "title": "Exception & Deviation Management",
-        "intro": "What deviations or special cases might occur, and who has the authority to approve them?",
+        "intro": "What deviations or special cases might occur, and who has the authority to approve them? Proposer and informed stakeholders are auto-managed:",
         "type": "table",
         "fields": [
             {
@@ -610,33 +514,8 @@ SECTION_GUIDED_SPECS: Dict[str, Dict[str, Any]] = {
                 "help": "💡 Compensatory action or conditions required to approve."
             },
             {
-                "id": "prop_by",
-                "label": "4. Proposed By:",
-                "type": "select",
-                "options": [
-                    "Field Officer",
-                    "Operations Executive",
-                    "Program Head (PH)",
-                    "Operations Manager",
-                    "Other (Specify custom role...)"
-                ],
-                "default": "Field Officer"
-            },
-            {
-                "id": "recom_by",
-                "label": "5. Recommended By:",
-                "type": "select",
-                "options": [
-                    "Program Head (PH)",
-                    "Operations Manager",
-                    "Vertical Lead",
-                    "Other (Specify custom role...)"
-                ],
-                "default": "Program Head (PH)"
-            },
-            {
                 "id": "approved_by",
-                "label": "6. Approved By (Sign-off Authority):",
+                "label": "4. Approved By (Sign-off Authority):",
                 "type": "select",
                 "options": [
                     "Program Director",
@@ -645,25 +524,12 @@ SECTION_GUIDED_SPECS: Dict[str, Dict[str, Any]] = {
                     "Other (Specify custom role...)"
                 ],
                 "default": "Program Director"
-            },
-            {
-                "id": "informed_to",
-                "label": "7. Informed To:",
-                "type": "select",
-                "options": [
-                    "Vertical Lead, Finance Team",
-                    "CEO Project teams",
-                    "Operations Team",
-                    "Program Director",
-                    "Other (Specify custom role...)"
-                ],
-                "default": "Vertical Lead, Finance Team"
             }
         ]
     },
     "1.16": {
         "title": "Risk Management & Preventive Controls",
-        "intro": "What could go wrong in this process (errors, delays, compliance issues) and how do you prevent or catch it?",
+        "intro": "What could go wrong in this process and what preventive control stops it? Root causes and impacts are auto-analyzed by AI:",
         "type": "table",
         "fields": [
             {
@@ -680,44 +546,18 @@ SECTION_GUIDED_SPECS: Dict[str, Dict[str, Any]] = {
                 "help": "💡 The potential failure or error."
             },
             {
-                "id": "root_cause",
-                "label": "3. Root Cause (Why might this happen?):",
-                "type": "text",
-                "placeholder": "e.g., Manual record keeping by partner school without secondary verification"
-            },
-            {
-                "id": "risk_type",
-                "label": "4. Type of Risk:",
-                "type": "select",
-                "options": ["Operational", "Compliance", "Financial", "Reputational"],
-                "default": "Operational"
-            },
-            {
-                "id": "level_of_risk",
-                "label": "5. Risk Severity Level:",
-                "type": "select",
-                "options": ["High", "Medium", "Low"],
-                "default": "Medium"
-            },
-            {
-                "id": "impact",
-                "label": "6. Potential Impact:",
-                "type": "text",
-                "placeholder": "e.g., Misallocation of learning materials and budget"
-            },
-            {
                 "id": "control",
-                "label": "7. Preventive Action / Control:",
+                "label": "3. Preventive Action / Control:",
                 "type": "textarea",
                 "placeholder": "e.g., Mandatory physical cross-verification against government attendance registers",
                 "help": "💡 The specific check, audit, or rule that stops or catches the risk."
             },
             {
-                "id": "freq",
-                "label": "8. How often is this check done?",
+                "id": "level_of_risk",
+                "label": "4. Risk Severity Level:",
                 "type": "select",
-                "options": ["Every Transaction", "Daily", "Weekly", "Monthly", "Quarterly", "Annual"],
-                "default": "Every Transaction"
+                "options": ["High", "Medium", "Low"],
+                "default": "Medium"
             }
         ]
     },
@@ -749,7 +589,7 @@ SECTION_GUIDED_SPECS: Dict[str, Dict[str, Any]] = {
     },
     "1.18": {
         "title": "Data Archival & Document Retention",
-        "intro": "Specify where records are stored (cloud repository or physical cabinet) and how long they must be retained:",
+        "intro": "Specify record titles, storage format, and retention period. Financial year and criticality are auto-filled:",
         "type": "table",
         "fields": [
             {
@@ -759,43 +599,24 @@ SECTION_GUIDED_SPECS: Dict[str, Dict[str, Any]] = {
                 "placeholder": "e.g., Signed Partner School MOUs & Due Diligence Dossiers"
             },
             {
-                "id": "fy",
-                "label": "2. Financial Year:",
-                "type": "text",
-                "placeholder": "e.g., FY 2025-26"
-            },
-            {
-                "id": "criticality",
-                "label": "3. Document Criticality:",
-                "type": "select",
-                "options": ["High", "Medium", "Low"],
-                "default": "High"
-            },
-            {
                 "id": "storage_type",
-                "label": "4. Storage Format:",
+                "label": "2. Storage Format:",
                 "type": "select",
                 "options": ["Both Soft & Hard copy", "Soft copy", "Hard copy"],
                 "default": "Both Soft & Hard copy"
             },
             {
                 "id": "retention",
-                "label": "5. Mandatory Retention Period:",
+                "label": "3. Mandatory Retention Period:",
                 "type": "select",
                 "options": ["7 Years", "5 Years", "3 Years", "10 Years", "Permanent"],
                 "default": "7 Years"
             },
             {
                 "id": "soft_link",
-                "label": "6. Cloud Folder / System Link (Soft Copy):",
+                "label": "4. Cloud Folder / Archive Link (Soft Copy):",
                 "type": "text",
                 "placeholder": "e.g., SharePoint/KEF_MOU_Archive"
-            },
-            {
-                "id": "hard_loc",
-                "label": "7. Physical Storage Location (Hard Copy):",
-                "type": "text",
-                "placeholder": "e.g., Central Operations Cabinet #3"
             }
         ]
     },
