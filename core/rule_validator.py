@@ -25,17 +25,12 @@ PRIMARY_MANDATORY_FIELDS = {
 def is_row_meaningfully_filled(sec_id: str, row: Dict[str, Any]) -> bool:
     if not isinstance(row, dict):
         return False
-    mandatory = PRIMARY_MANDATORY_FIELDS.get(sec_id)
-    if mandatory:
-        for field in mandatory:
-            val = row.get(field)
-            if val is not None and str(val).strip() != "" and str(val).strip().lower() not in ["none", "nan", "null", "n/a", "na"]:
-                return True
-        return False
-    return any(
-        v is not None and str(v).strip() != "" and str(v).strip().lower() not in ["none", "nan", "null"]
-        for v in row.values()
-    )
+    for k, val in row.items():
+        if k in ["Reviewer Comment", "Sr. No."]:
+            continue
+        if val is not None and str(val).strip() != "" and str(val).strip().lower() not in ["none", "nan", "null"]:
+            return True
+    return False
 
 class RuleValidator:
     def validate(self, section: ProcessSectionSchema, config: Dict[str, Any]) -> List[str]:

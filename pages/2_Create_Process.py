@@ -424,6 +424,10 @@ try:
                 if spec.get("intro"):
                     st.caption(f"💡 {spec['intro']}")
 
+                flash_m = st.session_state.pop(f"flash_msg_{sec_id}", None)
+                if flash_m:
+                    st.success(flash_m)
+
                 if sec_config.get("type") == "table":
                     undo_rows_guide = st.session_state.get(f"undo_table_{sec_id}")
                     if undo_rows_guide is not None:
@@ -824,6 +828,11 @@ try:
 
                         if submit_table_btn:
                             can_save_table = True
+                            if sec_id in multi_row_sections:
+                                has_any_input = any(str(v).strip() for v in answers.values() if v is not None)
+                                if not has_any_input:
+                                    st.warning("⚠️ Please fill in at least one field above before clicking Add Row.")
+                                    can_save_table = False
                             if sec_id == "1.1":
                                 role_val = str(answers.get("role", "Process Owner")).strip()
                                 name_val = str(answers.get("name", "")).strip()
@@ -894,15 +903,20 @@ try:
                                 if existing_sec and existing_sec.structured_data:
                                     st.session_state[f"undo_table_{sec_id}"] = copy.deepcopy(existing_sec.structured_data)
 
+                                from sqlalchemy.orm.attributes import flag_modified
                                 if not existing_sec:
-                                    existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=combined_rows)
+                                    existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=list(combined_rows))
                                     db.add(existing_sec)
                                     existing_sections[sec_id] = existing_sec
                                 else:
-                                    existing_sec.structured_data = combined_rows
+                                    existing_sec.structured_data = list(combined_rows)
+                                    flag_modified(existing_sec, "structured_data")
+                                    db.add(existing_sec)
                                 db.commit()
+                                db.refresh(existing_sec)
                                 is_completed = True
-                                st.session_state[f"show_guide_{sec_id}"] = False
+                                # Keep guided form open for multi-row tables so user can add next row seamlessly
+                                st.session_state[f"show_guide_{sec_id}"] = True if sec_id in multi_row_sections else False
                                 st.session_state[f"is_editing_{sec_id}"] = False
                                 st.session_state.pop(f"audit_result_{sec_id}", None)
                                 for f in spec.get("fields", []):
@@ -910,14 +924,7 @@ try:
                                     if k in st.session_state:
                                         del st.session_state[k]
                                 
-                                from core.rule_validator import RuleValidator
-                                from models.schemas import ProcessSectionSchema
-                                sec_schema = ProcessSectionSchema(section_id=sec_id, content="", structured_data=combined_rows)
-                                issues = RuleValidator().validate(sec_schema, config)
-                                if issues:
-                                    st.success(f"✅ Row successfully added to {sec_config['name']} table!")
-                                else:
-                                    st.success(f"✅ Row successfully added and verified for {sec_config['name']} table!")
+                                st.session_state[f"flash_msg_{sec_id}"] = f"✅ Row {len(combined_rows)} successfully saved to {sec_config['name']} table!"
                                 st.rerun()
 
                     elif sec_config["type"] == "flowchart":

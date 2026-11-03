@@ -836,9 +836,14 @@ def _build_table_rows_raw(sec_id: str, answers: Dict[str, Any]) -> List[Dict[str
         }]
 
     elif sec_id == "1.4":
+        p_id = str(answers.get("policy_id") or "").strip()
+        d_name = str(answers.get("doc_name") or "").strip()
+        if not p_id and not d_name:
+            p_id = "SOP-OPS-012"
+            d_name = "Partner School Onboarding Policy"
         rows = [{
-            "Process / Policy ID": str(answers.get("policy_id", "SOP-OPS-012")),
-            "Document Name": str(answers.get("doc_name", "Partner School Onboarding Policy"))
+            "Process / Policy ID": p_id or "SOP-GEN-001",
+            "Document Name": d_name or p_id or "Standard Operational Procedure"
         }]
         template = str(answers.get("template_name", "")).strip()
         if template:
