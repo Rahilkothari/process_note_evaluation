@@ -11,7 +11,7 @@ showErrorDetails = true
 
 [server]
 headless = true
-runOnSave = false
+runOnSave = true
 enableCORS = false
 enableXsrfProtection = false
 maxMessageSize = 200

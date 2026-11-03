@@ -1546,7 +1546,7 @@ try:
                     tbl_event_view = st.dataframe(
                         df,
                         use_container_width=True,
-                        key=f"df_view_{sec_id}",
+                        key=f"df_view_{sec_id}_{len(real_saved_rows)}",
                         on_select="rerun",
                         selection_mode="multi-row"
                     )
