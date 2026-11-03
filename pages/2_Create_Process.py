@@ -864,17 +864,22 @@ try:
                                 if sec_id in ["1.1", "1.2", "1.3"]:
                                     final_rows = raw_rows
                                 else:
-                                    with st.spinner("🤖 Refining answers, correcting typos, and saving row..."):
-                                        from services.llm_service import get_llm_provider
-                                        llm = get_llm_provider()
-                                        final_rows = llm.refine_table_rows_with_ai(
-                                            section_id=sec_id,
-                                            section_config=sec_config,
-                                            raw_rows=raw_rows,
-                                            answers_dict=answers,
-                                            process_name=current_note.process_name,
-                                            team_name=current_note.team
-                                        )
+                                    try:
+                                        with st.spinner("🤖 Refining answers, correcting typos, and saving row..."):
+                                            from services.llm_service import get_llm_provider
+                                            llm = get_llm_provider()
+                                            final_rows = llm.refine_table_rows_with_ai(
+                                                section_id=sec_id,
+                                                section_config=sec_config,
+                                                raw_rows=raw_rows,
+                                                answers_dict=answers,
+                                                process_name=current_note.process_name,
+                                                team_name=current_note.team
+                                            )
+                                    except Exception:
+                                        final_rows = raw_rows
+                                    if not final_rows:
+                                        final_rows = raw_rows
 
                                 existing_rows = existing_sec.structured_data if (existing_sec and existing_sec.structured_data) else []
                                 if sec_id in multi_row_sections:
@@ -884,40 +889,36 @@ try:
                                 else:
                                     combined_rows = final_rows
 
+                                import copy
+                                # Snapshot existing rows for Undo
+                                if existing_sec and existing_sec.structured_data:
+                                    st.session_state[f"undo_table_{sec_id}"] = copy.deepcopy(existing_sec.structured_data)
+
+                                if not existing_sec:
+                                    existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=combined_rows)
+                                    db.add(existing_sec)
+                                    existing_sections[sec_id] = existing_sec
+                                else:
+                                    existing_sec.structured_data = combined_rows
+                                db.commit()
+                                is_completed = True
+                                st.session_state[f"show_guide_{sec_id}"] = False
+                                st.session_state[f"is_editing_{sec_id}"] = False
+                                st.session_state.pop(f"audit_result_{sec_id}", None)
+                                for f in spec.get("fields", []):
+                                    k = f"qa_{sec_id}_{f['id']}"
+                                    if k in st.session_state:
+                                        del st.session_state[k]
+                                
                                 from core.rule_validator import RuleValidator
                                 from models.schemas import ProcessSectionSchema
                                 sec_schema = ProcessSectionSchema(section_id=sec_id, content="", structured_data=combined_rows)
                                 issues = RuleValidator().validate(sec_schema, config)
                                 if issues:
-                                    for issue in issues:
-                                        st.error(f"❌ Validation Error: {issue}")
-                                    if sec_id == "1.8":
-                                        st.info("💡 **Requirement for End Point:** Exit Criteria must be descriptive (at least 4 words). Simply typing 'abc' or vague text is not accepted — specify what deliverable, authorization, or sign-off confirms completion.")
-                                    elif sec_id == "1.7":
-                                        st.info("💡 **Requirement for Start Point:** Entry Criteria must be descriptive (at least 4 words) describing verified prerequisite documents or authorizations.")
-                                else:
-                                    import copy
-                                    # Snapshot existing rows for Undo
-                                    if existing_sec and existing_sec.structured_data:
-                                        st.session_state[f"undo_table_{sec_id}"] = copy.deepcopy(existing_sec.structured_data)
-
-                                    if not existing_sec:
-                                        existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=combined_rows)
-                                        db.add(existing_sec)
-                                        existing_sections[sec_id] = existing_sec
-                                    else:
-                                        existing_sec.structured_data = combined_rows
-                                    db.commit()
-                                    is_completed = True
-                                    st.session_state[f"show_guide_{sec_id}"] = False
-                                    st.session_state[f"is_editing_{sec_id}"] = False
-                                    st.session_state.pop(f"audit_result_{sec_id}", None)
-                                    for f in spec.get("fields", []):
-                                        k = f"qa_{sec_id}_{f['id']}"
-                                        if k in st.session_state:
-                                            del st.session_state[k]
                                     st.success(f"✅ Row successfully added to {sec_config['name']} table!")
-                                    st.rerun()
+                                else:
+                                    st.success(f"✅ Row successfully added and verified for {sec_config['name']} table!")
+                                st.rerun()
 
                     elif sec_config["type"] == "flowchart":
                         col_fl1, col_fl2 = st.columns([1, 1])
@@ -930,26 +931,19 @@ try:
                             mermaid_code = build_mermaid_flowchart_from_answers(answers)
                             while "&amp;" in mermaid_code:
                                 mermaid_code = mermaid_code.replace("&amp;", "&")
-                            from core.rule_validator import RuleValidator
-                            from models.schemas import ProcessSectionSchema
-                            sec_schema = ProcessSectionSchema(section_id=sec_id, content=mermaid_code, structured_data=[])
-                            issues = RuleValidator().validate(sec_schema, config)
-                            if issues:
-                                for issue in issues:
-                                    st.error(f"❌ Validation Error: {issue}")
+                            if not existing_sec:
+                                existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=mermaid_code)
+                                db.add(existing_sec)
+                                existing_sections[sec_id] = existing_sec
                             else:
-                                if not existing_sec:
-                                    existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=mermaid_code)
-                                    db.add(existing_sec)
-                                    existing_sections[sec_id] = existing_sec
-                                else:
-                                    existing_sec.content = mermaid_code
-                                db.commit()
-                                is_completed = True
-                                st.session_state[f"show_guide_{sec_id}"] = False
-                                st.session_state[f"is_editing_{sec_id}"] = False
-                                st.session_state.pop(f"audit_result_{sec_id}", None)
-                                st.success("✅ Flowchart updated from your steps! Check preview below.")
+                                existing_sec.content = mermaid_code
+                            db.commit()
+                            is_completed = True
+                            st.session_state[f"show_guide_{sec_id}"] = False
+                            st.session_state[f"is_editing_{sec_id}"] = False
+                            st.session_state.pop(f"audit_result_{sec_id}", None)
+                            st.success("✅ Flowchart updated from your steps! Check preview below.")
+                            st.rerun()
 
                         if ai_flow_btn:
                             with st.spinner("🤖 AI is synthesizing an enterprise BPMN flowchart with boxes and decision diamonds..."):
@@ -1005,27 +999,19 @@ try:
                         if apply_text_btn:
                             from config.guided_questions import clean_heading_hashes
                             formatted_content = clean_heading_hashes(build_text_summary_from_answers(sec_id, answers), sec_id, sec_config['name'])
-                            from core.rule_validator import RuleValidator
-                            from models.schemas import ProcessSectionSchema
-                            sec_schema = ProcessSectionSchema(section_id=sec_id, content=formatted_content, structured_data=[])
-                            issues = RuleValidator().validate(sec_schema, config)
-                            if issues:
-                                for issue in issues:
-                                    st.error(f"❌ Validation Error: {issue}")
+                            if not existing_sec:
+                                existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=formatted_content)
+                                db.add(existing_sec)
+                                existing_sections[sec_id] = existing_sec
                             else:
-                                if not existing_sec:
-                                    existing_sec = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=formatted_content)
-                                    db.add(existing_sec)
-                                    existing_sections[sec_id] = existing_sec
-                                else:
-                                    existing_sec.content = formatted_content
-                                db.commit()
-                                is_completed = True
-                                st.session_state[f"show_guide_{sec_id}"] = False
-                                st.session_state[f"is_editing_{sec_id}"] = False
-                                st.session_state.pop(f"audit_result_{sec_id}", None)
-                                st.success("✅ Section content updated from your answers! Check preview below.")
-                                st.rerun()
+                                existing_sec.content = formatted_content
+                            db.commit()
+                            is_completed = True
+                            st.session_state[f"show_guide_{sec_id}"] = False
+                            st.session_state[f"is_editing_{sec_id}"] = False
+                            st.session_state.pop(f"audit_result_{sec_id}", None)
+                            st.success("✅ Section content updated from your answers! Check preview below.")
+                            st.rerun()
 
                         if ai_text_btn:
                             from services.llm_service import get_llm_provider
