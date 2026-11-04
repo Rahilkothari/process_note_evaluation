@@ -332,7 +332,7 @@ try:
         st.markdown(f"### Latest Validation Results (<span style='white-space: nowrap;'>{local_time.strftime('%Y-%m-%d %H:%M')}</span>)", unsafe_allow_html=True)
 
         status_class = "badge-pass" if latest_run.status == "PASS" else ("badge-warning" if latest_run.status == "WARNING" else "badge-fail")
-        score_bar_class = "score-pass" if latest_run.status == "PASS" else ("score-warn" if latest_run.status == "WARNING" else "score-fail")
+        score_bar_class = "score-pass" if latest_run.overall_score >= 85.0 else ("score-warn" if latest_run.overall_score >= 65.0 else "score-fail")
 
         st.markdown(f"""
         <div style="background-color: #FFFFFF; border-radius: 12px; padding: 24px; border: 1px solid #E2E8F0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 24px;">
@@ -376,7 +376,8 @@ try:
                         st.markdown(q_part)
 
                         if not is_resolved:
-                            with st.expander("✨ Have AI update Section 1.12 with your answer (Optional)", expanded=False):
+                            use_ai_cr = st.toggle("✨ Have AI update Section 1.12 with your answer (Optional)", key=f"toggle_ai_{f.id}", value=False)
+                            if use_ai_cr:
                                 st.caption("If you would like AI to incorporate your clarification directly into Section 1.12, type your operational details below:")
                                 cr_ans = st.text_area("Your response / clarification notes:", key=f"cr_ans_{f.id}", height=75, placeholder="e.g. Turnaround time is 14 days total; update Section 1.12 steps to reflect 14 days.")
                                 if st.button("✨ Apply Update to Section 1.12", key=f"btn_apply_cr_{f.id}", type="primary"):
@@ -440,7 +441,8 @@ try:
                         st.markdown(questions)
 
                         if f.status != "PASS" and not is_manual:
-                            with st.expander("✨ Have AI update this section with your answer (Optional)", expanded=False):
+                            use_sec_ai = st.toggle("✨ Have AI update this section with your answer (Optional)", key=f"toggle_sec_ai_{f.id}", value=False)
+                            if use_sec_ai:
                                 sec_ans = st.text_area("Your response / missing details for this section:", key=f"ans_sec_{f.id}", height=75)
                                 if st.button("✨ Apply Clarification to This Section", key=f"btn_sec_apply_{f.id}", type="primary"):
                                     if not sec_ans.strip():
@@ -487,23 +489,28 @@ try:
                         # Recalculate overall run score and status
                         all_f = db.query(ValidationFinding).filter(ValidationFinding.validation_id == latest_run.id).all()
                         sec_f = [res for res in all_f if res.is_cross_section == 0]
+                        cross_f = [res for res in all_f if res.is_cross_section == 1]
 
                         total_score = sum([res.score for res in sec_f])
                         num_sections = len(sec_f)
+                        raw_score = (total_score / num_sections) if num_sections > 0 else 0.0
 
-                        if num_sections > 0:
-                            latest_run.overall_score = round(total_score / num_sections, 1)
+                        active_cr_high = sum([1 for res in cross_f if res.severity == "HIGH" and res.status != "PASS"])
+                        active_cr_med = sum([1 for res in cross_f if res.severity == "MEDIUM" and res.status != "PASS"])
+                        cr_deduction = (active_cr_high * 5.0) + (active_cr_med * 2.5)
 
-                        critical_issues = sum([1 for res in all_f if res.severity == "HIGH"])
-                        warnings = sum([1 for res in all_f if (res.severity == "MEDIUM" or res.status == "WARNING")])
-                        sections_needing_revision = sum([1 for res in all_f if res.status == "NEEDS_REVISION"])
+                        latest_run.overall_score = max(0.0, round(raw_score - cr_deduction, 1))
 
-                        pass_threshold = 75.0
+                        critical_section_issues = sum([1 for res in sec_f if res.severity == "HIGH" and res.status != "PASS"])
+                        sections_needing_revision = sum([1 for res in sec_f if res.status == "NEEDS_REVISION"])
+                        warnings = sum([1 for res in sec_f if res.status == "WARNING"]) + sum([1 for res in cross_f if res.status != "PASS"])
+
+                        pass_threshold = 85.0
                         warning_threshold = 65.0
 
-                        if critical_issues > 0 or sections_needing_revision > 0 or latest_run.overall_score < warning_threshold:
+                        if sections_needing_revision > 0 or critical_section_issues > 0 or latest_run.overall_score < warning_threshold:
                             latest_run.status = "NEEDS_REVISION"
-                        elif latest_run.overall_score < pass_threshold or warnings > 0:
+                        elif warnings > 0 or active_cr_high > 0 or latest_run.overall_score < pass_threshold:
                             latest_run.status = "WARNING"
                         else:
                             latest_run.status = "PASS"

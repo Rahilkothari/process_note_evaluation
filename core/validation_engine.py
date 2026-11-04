@@ -33,15 +33,15 @@ class ValidationEngine:
     def run_validation(self, note: ProcessNoteSchema) -> ValidationResponse:
         pass_threshold = float(os.getenv("PASS_THRESHOLD", 75))
         warning_threshold = float(os.getenv("WARNING_THRESHOLD", 65))
-        
+
         section_results: List[SectionValidationResult] = []
-        
+
         import concurrent.futures
 
         def validate_single_section(section):
             section_config = next((s for s in self.sections_config.get("sections", []) if s["id"] == section.section_id), {})
             section_name = section_config.get("name", section.section_id)
-            
+
             # Check for completely empty section
             stype = section_config.get("type", "text")
             is_empty = False
@@ -110,22 +110,30 @@ class ValidationEngine:
                 "content": s.content,
                 "structured_data": s.structured_data
             })
-            
+
         cross_section_issues = self.cross_validator.validate(all_sections_dict)
 
         # 3. Aggregate scores
         total_score = sum([res.score for res in section_results]) if section_results else 0
-        overall_score = total_score / len(section_results) if section_results else 0
-        
-        critical_issues = sum([1 for res in section_results if res.severity == "HIGH"]) + sum([1 for cr in cross_section_issues if cr.get("severity") == "HIGH"])
-        warnings = sum([1 for res in section_results if res.severity == "MEDIUM" or res.status == "WARNING"]) + sum([1 for cr in cross_section_issues if cr.get("severity") != "HIGH"])
-        
+        raw_score = total_score / len(section_results) if section_results else 0
+
+        # Factor cross-section consistency gaps into score: 5.0 pts for HIGH, 2.5 pts for MEDIUM
+        cr_deduction = sum([5.0 for cr in cross_section_issues if cr.get("severity") == "HIGH"]) +                        sum([2.5 for cr in cross_section_issues if cr.get("severity") != "HIGH"])
+        overall_score = max(0.0, round(raw_score - cr_deduction, 1))
+
+        critical_section_issues = sum([1 for res in section_results if res.severity == "HIGH"])
+        critical_cross_issues = sum([1 for cr in cross_section_issues if cr.get("severity") == "HIGH"])
+        critical_issues = critical_section_issues + critical_cross_issues
+        warnings = sum([1 for res in section_results if res.severity == "MEDIUM" or res.status == "WARNING"]) +                    sum([1 for cr in cross_section_issues if cr.get("severity") != "HIGH"])
+
         sections_passed = sum([1 for res in section_results if res.status == "PASS"])
         sections_needing_revision = sum([1 for res in section_results if res.status == "NEEDS_REVISION"])
-        
-        if critical_issues > 0 or sections_needing_revision > 0 or overall_score < warning_threshold:
+
+        # A document only NEEDS_REVISION if an individual section failed, if score < warning threshold, or critical section issues exist.
+        # If all sections passed, cross-section gaps are advisory WARNINGs.
+        if sections_needing_revision > 0 or critical_section_issues > 0 or overall_score < warning_threshold:
             overall_status = "NEEDS_REVISION"
-        elif warnings > 0 or overall_score < pass_threshold:
+        elif warnings > 0 or critical_cross_issues > 0 or overall_score < pass_threshold:
             overall_status = "WARNING"
         else:
             overall_status = "PASS"
