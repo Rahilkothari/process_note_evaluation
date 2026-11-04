@@ -104,13 +104,10 @@ try:
     current_user_id = st.session_state.get("current_user_id")
 
     valid_statuses = ["DRAFT", "NEEDS_REVISION", "WARNING", "PASS", "UNDER_REVIEW"]
-    if current_role == "admin":
-        base_query = db.query(ProcessNote).filter(ProcessNote.status.in_(valid_statuses))
-    else:
-        base_query = db.query(ProcessNote).filter(
-            ProcessNote.created_by == current_user_id,
-            ProcessNote.status.in_(valid_statuses)
-        )
+    base_query = db.query(ProcessNote).filter(
+        ProcessNote.created_by == current_user_id,
+        ProcessNote.status.in_(valid_statuses)
+    )
     notes = base_query.all()
     note_options = {f"[{n.id}] {n.process_name} (v{n.version})": n for n in notes}
 

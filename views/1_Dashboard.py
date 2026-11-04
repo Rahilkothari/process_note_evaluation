@@ -60,9 +60,7 @@ try:
 
     @st.cache_data(ttl=60)
     def get_dashboard_stats(_db: Session, current_role: str, current_user_id: int):
-        if current_role == "admin":
-            base_query = _db.query(ProcessNote)
-        elif current_role == "reviewer":
+        if current_role == "reviewer":
             base_query = _db.query(ProcessNote).filter(ProcessNote.status.in_(["UNDER_REVIEW", "APPROVED"]))
         else:
             base_query = _db.query(ProcessNote).filter(ProcessNote.created_by == current_user_id)
@@ -78,25 +76,21 @@ try:
         total_notes = sum(status_data.values())
 
         avg_query = _db.query(func.avg(ValidationRun.overall_score)).join(ProcessNote, ValidationRun.process_note_id == ProcessNote.id)
-        if current_role == "admin":
-            pass
-        elif current_role == "reviewer":
+        if current_role == "reviewer":
             avg_query = avg_query.filter(ProcessNote.status.in_(["UNDER_REVIEW", "APPROVED"]))
         else:
             avg_query = avg_query.filter(ProcessNote.created_by == current_user_id)
         avg_score = avg_query.scalar() or 0.0
-    
+
         return total_notes, drafts, needs_revision, warning, pass_notes, under_review, approved, avg_score
 
     @st.cache_data(ttl=60)
     def get_dashboard_notes(_db: Session, current_role: str, current_user_id: int, status_filter: str):
-        if current_role == "admin":
-            base_query = _db.query(ProcessNote.id, ProcessNote.process_name, ProcessNote.version, ProcessNote.team, ProcessNote.status, ProcessNote.updated_at)
-        elif current_role == "reviewer":
+        if current_role == "reviewer":
             base_query = _db.query(ProcessNote.id, ProcessNote.process_name, ProcessNote.version, ProcessNote.team, ProcessNote.status, ProcessNote.updated_at).filter(ProcessNote.status.in_(["UNDER_REVIEW", "APPROVED"]))
         else:
             base_query = _db.query(ProcessNote.id, ProcessNote.process_name, ProcessNote.version, ProcessNote.team, ProcessNote.status, ProcessNote.updated_at).filter(ProcessNote.created_by == current_user_id)
-        
+
         if status_filter != "All":
             if status_filter == "ACTIVE_DRAFTS":
                 base_query = base_query.filter(ProcessNote.status.in_(["DRAFT", "NEEDS_REVISION", "WARNING", "PASS"]))
@@ -104,7 +98,7 @@ try:
                 base_query = base_query.filter(ProcessNote.status == status_filter)
         else:
             base_query = base_query.filter(ProcessNote.status != "ARCHIVED")
-        
+
         notes = base_query.order_by(ProcessNote.updated_at.desc()).all()
         return [{"id": n.id, "process_name": n.process_name, "version": n.version, "team": n.team, "status": n.status, "updated_at": n.updated_at} for n in notes]
 
@@ -191,11 +185,11 @@ try:
                         else:
                             st.session_state.view_type_radio = "Active Notes"
                         st.switch_page("views/5_View_All_Notes.py")
-            with col2: 
+            with col2:
                 st.markdown(f"<div style='padding-top: 8px;'>{note['team']}</div>", unsafe_allow_html=True)
-            with col3: 
+            with col3:
                 st.markdown(f"<div style='padding-top: 8px;'>{note['status'].replace('_', ' ')}</div>", unsafe_allow_html=True)
-            with col4: 
+            with col4:
                 st.markdown(f"<div style='padding-top: 8px;'>{note['updated_at'].strftime('%Y-%m-%d %H:%M')}</div>", unsafe_allow_html=True)
             st.markdown("<hr style='margin: 0.5em 0; border-color: #F1F5F9;'>", unsafe_allow_html=True)
     else:

@@ -20,13 +20,11 @@ try:
     @st.cache_data(ttl=60)
     def get_all_notes_metadata(_db: Session, role: str, user_id: int):
         query = _db.query(ProcessNote.id, ProcessNote.process_name, ProcessNote.version, ProcessNote.status)
-        if role == "admin":
-            notes = query.all()
-        elif role == "reviewer":
-            notes = query.filter(ProcessNote.status.in_(["UNDER_REVIEW", "APPROVED", "ARCHIVED"])).all()
+        if role == "reviewer":
+            notes = query.filter(ProcessNote.status.in_(["UNDER_REVIEW", "APPROVED"])).all()
         else:
             notes = query.filter(ProcessNote.created_by == user_id).all()
-        
+
         return [{"id": n.id, "process_name": n.process_name, "version": n.version, "status": n.status} for n in notes]
 
     notes_meta = get_all_notes_metadata(db, current_role, current_user_id)
@@ -66,8 +64,8 @@ try:
         st.session_state.selected_note_id = note_options[selected_str]
 
     selected = st.selectbox(
-        "Select Process Note to View", 
-        list(note_options.keys()), 
+        "Select Process Note to View",
+        list(note_options.keys()),
         key="view_selectbox",
         on_change=on_view_note_change
     )
@@ -91,11 +89,11 @@ try:
 
     st.markdown("### Export")
     from services.export_service import generate_docx
-    
+
     @st.cache_data(show_spinner=False)
     def get_cached_docx(note_id, updated_at_str, _note):
         return generate_docx(_note).getvalue()
-        
+
     docx_data = get_cached_docx(current_note.id, str(current_note.updated_at), current_note)
     st.download_button("Export as Word (.docx)", data=docx_data, file_name=f"{current_note.process_name}.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
@@ -127,7 +125,7 @@ try:
                 return yaml.safe_load(f).get("sections", [])
         except Exception:
             return []
-    
+
     sections_config = load_sections_config()
 
     filled_sections = {s.section_id: s for s in current_note.sections}
@@ -136,7 +134,7 @@ try:
         sec_id = sec_def.get("id")
         sec_name = sec_def.get("name")
         st.markdown(f"#### Section {sec_id}: {sec_name}")
-    
+
         if sec_id in filled_sections:
             s = filled_sections[sec_id]
             if s.content:

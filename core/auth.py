@@ -1,12 +1,12 @@
 def render_sidebar_user_profile():
     if "user" not in st.session_state or st.session_state.user is None:
         return
-        
+
     raw_name = st.session_state.get("current_user_name", "") or ""
     user_email = getattr(st.session_state.user, "email", "") if st.session_state.user else ""
     if not raw_name and user_email:
         raw_name = user_email.split("@")[0]
-        
+
     display_name = raw_name.title() if raw_name else "Team Member"
     role = (st.session_state.get("current_user_role", "creator") or "creator").upper()
 
@@ -18,13 +18,7 @@ def render_sidebar_user_profile():
     else:
         initials = "U"
 
-    if role == "ADMIN":
-        role_bg = "#ECFDF5"
-        role_color = "#065F46"
-        role_border = "#A7F3D0"
-        avatar_bg = "linear-gradient(135deg, #059669 0%, #047857 100%)"
-        avatar_shadow = "rgba(4, 120, 87, 0.25)"
-    elif role == "REVIEWER":
+    if role == "REVIEWER":
         role_bg = "#FAF5FF"
         role_color = "#7E22CE"
         role_border = "#E9D5FF"
@@ -105,19 +99,18 @@ def is_authorized_email(email: str) -> bool:
 
 def get_role_for_email(email: str) -> str:
     email = (email or "").lower().strip()
-    
-    admin_emails = ["rahilkk07@gmail.com", "rahilkko+07@gmail.com", "rahilkothari99@gmail.com"]
+
     reviewer_emails = [
-        "jayati.kapadia@kotakeducationfoundation.org", 
+        "rahilkk07@gmail.com",
+        "rahilkko+07@gmail.com",
+        "jayati.kapadia@kotakeducationfoundation.org",
         "tanvi.parulekar@kotakeducationfoundation.org",
         "karishma.agrawal@kotakeducationfoundation.org"
     ]
-    
-    if email in admin_emails:
-        return "admin"
-    elif email in reviewer_emails:
+
+    if email in reviewer_emails:
         return "reviewer"
-        
+
     return "creator"
 
 def sync_user_to_db(email: str, name: str = None):
@@ -126,7 +119,7 @@ def sync_user_to_db(email: str, name: str = None):
         email_clean = (email or "").lower().strip()
         user = db.query(User).filter(User.email == email_clean).first()
         expected_role = get_role_for_email(email_clean)
-        
+
         if not user:
             user = User(name=name or email_clean.split("@")[0], email=email_clean, role=expected_role)
             db.add(user)
@@ -136,7 +129,7 @@ def sync_user_to_db(email: str, name: str = None):
             if user.role != expected_role:
                 user.role = expected_role
                 db.commit()
-        
+
         st.session_state.current_user_id = user.id
         st.session_state.current_user_role = user.role
         st.session_state.current_user_name = user.name
@@ -154,7 +147,7 @@ def render_login_page():
         }
     </style>
     """, unsafe_allow_html=True)
-    
+
     logo_b64 = get_kef_logo_base64()
     if logo_b64:
         st.markdown(f"""
@@ -162,14 +155,14 @@ def render_login_page():
             <img src="data:image/png;base64,{logo_b64}" alt="Kotak Education Foundation" style="max-width: 270px; width: 68%; height: auto;" />
         </div>
         """, unsafe_allow_html=True)
-    
+
     st.markdown("""
     <div style='text-align: center; margin-bottom: 22px;'>
         <h2 style='margin: 0; color: #0F172A; font-weight: 800; font-size: 24px; letter-spacing: -0.02em;'>Process Note Review Hub</h2>
         <p style='color: #64748B; font-size: 14px; margin-top: 5px; margin-bottom: 0;'>Institutional SOP Governance, Quality Validation & Managerial Sign-Off</p>
     </div>
     """, unsafe_allow_html=True)
-    
+
     if "auth_mode" not in st.session_state:
         st.session_state.auth_mode = "Sign In"
 
@@ -209,9 +202,9 @@ def render_login_page():
                 prefill = st.session_state.get("just_signed_up_email", "")
                 email = st.text_input("Work Email Address", value=prefill, placeholder="e.g. name@kotakeducationfoundation.org")
                 password = st.text_input("Password", type="password", placeholder="Enter your password")
-                
+
                 submit = st.form_submit_button("🚀 Sign In", type="primary", use_container_width=True)
-                
+
                 if submit:
                     clean_login_email = (email or "").strip().lower()
                     if not clean_login_email or not password:
@@ -254,14 +247,14 @@ def render_login_page():
                     📝 Register New Team Member Account:
                 </div>
                 """, unsafe_allow_html=True)
-                
+
                 full_name = st.text_input("Full Name", placeholder="e.g. Priya Sharma")
                 new_email = st.text_input("Work Email Address", placeholder="e.g. priya.sharma@kotakeducationfoundation.org")
                 new_password = st.text_input("Create Password", type="password", placeholder="At least 6 characters")
                 confirm_password = st.text_input("Confirm Password", type="password", placeholder="Re-enter your password")
-                
+
                 signup_submit = st.form_submit_button("✨ Register & Create Account", type="primary", use_container_width=True)
-                
+
                 if signup_submit:
                     clean_name = (full_name or "").strip()
                     clean_email = (new_email or "").strip().lower()
@@ -342,7 +335,7 @@ def logout():
         sb.auth.sign_out()
     except Exception:
         pass
-    
+
     # Reset app state safely without destroying Streamlit SessionInfo
     for k in list(st.session_state.keys()):
         if not k.startswith("_"):

@@ -66,21 +66,15 @@ def main():
 
     role = st.session_state.get("current_user_role", "creator")
 
-    # 5. Role-based Navigation Grouping
-    if role == "creator":
-        pages = {
-            "Process Workspace": [dashboard_page, create_page, validation_page],
-            "Institutional Repository": [view_all_page, version_history_page],
-        }
-    elif role == "reviewer":
+    # 5. Role-based Navigation Grouping (Strict 2-Role System: Reviewer vs Creator)
+    if role == "reviewer":
         pages = {
             "Governance Hub": [dashboard_page, review_page],
             "Institutional Repository": [view_all_page, version_history_page],
         }
-    else:  # admin has full access to both Creator and Reviewer suites
+    else:  # Creator / Normal User
         pages = {
             "Process Workspace": [dashboard_page, create_page, validation_page],
-            "Governance & Review": [review_page],
             "Institutional Repository": [view_all_page, version_history_page],
         }
 

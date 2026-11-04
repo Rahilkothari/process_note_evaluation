@@ -63,9 +63,9 @@ def simplify_discrepancy(text: str) -> str:
         details = parts[1].strip()
         raw_points = re.split(r'\s*(?:;\s*)?(?:\d+\))\s*', details)
         clean_points = [p.strip().rstrip(';.') for p in raw_points if p.strip()]
-        
+
         condensed_gaps = [extract_concise_gap(p) for p in clean_points]
-        
+
         sec_m = re.findall(r'1\.\d+', clean_text)
         sec_str = " vs ".join(sorted(list(set(sec_m)))) if sec_m else ""
         header = f"📍 <b>Location:</b> Section {sec_str}\n" if sec_str else ""
@@ -100,7 +100,7 @@ def resolve_sections_for_finding(finding, note_sections, sec_cfgs):
     """Finds matching ProcessSection model objects for any finding (ID, Name, or Cross-Section)."""
     results = []
     sid_str = str(finding.section_id or "")
-    
+
     # Check if cross-section like "Cross-Section (1.5 & 1.12 & 1.14)"
     found_ids = re.findall(r'1\.\d+', sid_str)
     if found_ids:
@@ -127,7 +127,7 @@ def render_inline_section_comment_ui(cfg, sec_obj, current_note, db, key_prefix=
     sid = cfg.get("id")
     sname = cfg.get("name")
     stype = cfg.get("type", "text")
-    
+
     if stype == "table":
         t_rows = sec_obj.structured_data or []
         if not t_rows:
@@ -138,16 +138,16 @@ def render_inline_section_comment_ui(cfg, sec_obj, current_note, db, key_prefix=
                 df_rev["Reviewer Comment"] = ""
 
             disabled_cols = [c for c in df_rev.columns if c != "Reviewer Comment"]
-            
+
             st.caption(f"✏️ **In-Line Row Feedback:** Type specific remarks directly into the **'Reviewer Comment'** column below:")
-            
+
             edited_df = st.data_editor(
                 df_rev,
                 use_container_width=True,
                 disabled=disabled_cols,
                 key=f"{key_prefix}_editor_{sid}_{current_note.id}_{len(t_rows)}"
             )
-            
+
             edited_df = edited_df.fillna("")
             raw_data = edited_df.to_dict("records")
             new_data = []
@@ -203,7 +203,7 @@ def render_inline_section_comment_ui(cfg, sec_obj, current_note, db, key_prefix=
                 st.info(f"Uploaded diagram: {mermaid_src}")
         else:
             st.info("No flowchart diagram data available.")
-            
+
         rem_col1, rem_col2 = st.columns([8, 2])
         with rem_col1:
             rem_val = st.text_input(
@@ -234,7 +234,7 @@ def render_inline_section_comment_ui(cfg, sec_obj, current_note, db, key_prefix=
             {clean_txt}
         </div>
         """, unsafe_allow_html=True)
-        
+
         rem_col1, rem_col2 = st.columns([8, 2])
         with rem_col1:
             rem_val = st.text_input(
@@ -299,25 +299,23 @@ st.markdown("""
 
 db: Session = SessionLocal()
 try:
-    # Top Status Filter
+    # Top Status Filter: Reviewers only see notes given for review or approved
     col_f1, col_f2 = st.columns([2.5, 7.5])
     with col_f1:
         filter_status = st.selectbox(
             "Filter Queue",
-            ["Pending Review (Under Review)", "Active Notes (Drafts & Revisions)", "Approved Notes", "All Notes"],
+            ["Pending Review (Under Review)", "Approved Notes", "All Reviewed Notes"],
             index=0,
             label_visibility="collapsed"
         )
 
-    # Query notes based on filter
+    # Query notes based on filter - Reviewers NEVER see unsubmitted drafts
     if filter_status == "Pending Review (Under Review)":
         query_statuses = ["UNDER_REVIEW"]
-    elif filter_status == "Active Notes (Drafts & Revisions)":
-        query_statuses = ["DRAFT", "NEEDS_REVISION", "WARNING", "PASS", "UNDER_REVIEW"]
     elif filter_status == "Approved Notes":
         query_statuses = ["APPROVED"]
     else:
-        query_statuses = ["UNDER_REVIEW", "APPROVED", "DRAFT", "NEEDS_REVISION", "WARNING", "PASS", "ARCHIVED"]
+        query_statuses = ["UNDER_REVIEW", "APPROVED"]
 
     notes = db.query(ProcessNote).filter(ProcessNote.status.in_(query_statuses)).order_by(ProcessNote.updated_at.desc()).all()
 
@@ -678,7 +676,7 @@ try:
                         crisp_info = simplify_discrepancy(clean_issue)
                         clean_html_info = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', crisp_info)
                         clean_html_info = clean_html_info.replace('*', '').replace(chr(10), '<br>')
-                        
+
                         st.markdown(f"""
                         <div style="background: {'#FEF2F2' if is_critical else '#FFFBEB'}; border-left: 4px solid {'#EF4444' if is_critical else '#F59E0B'}; padding: 12px 16px; border-radius: 6px; margin-bottom: 12px;">
                             <div style="font-weight: 700; font-size: 12px; color: {'#991B1B' if is_critical else '#92400E'}; margin-bottom: 6px; letter-spacing: 0.04em; text-transform: uppercase;">
@@ -701,7 +699,7 @@ try:
 
                         # 2. Section Details & In-Line Reviewer Comments
                         matched_sections = resolve_sections_for_finding(f, current_note.sections, sections_config)
-                        
+
                         if matched_sections:
                             st.markdown("<div style='font-weight: 700; font-size: 13px; color: #1E293B; margin: 12px 0 6px 0;'>📋 Section Details & In-Line Feedback:</div>", unsafe_allow_html=True)
                             if len(matched_sections) > 1:

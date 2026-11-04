@@ -10,12 +10,19 @@ st.markdown("Compare different versions of process notes.")
 db: Session = SessionLocal()
 try:
 
+    current_role = st.session_state.get("current_user_role", "creator")
+    current_user_id = st.session_state.get("current_user_id")
+
     @st.cache_data(ttl=60)
-    def get_all_notes_history_metadata(_db: Session):
-        notes = _db.query(ProcessNote.id, ProcessNote.process_name, ProcessNote.version, ProcessNote.status, ProcessNote.created_at).all()
+    def get_all_notes_history_metadata(_db: Session, role: str, user_id: int):
+        query = _db.query(ProcessNote.id, ProcessNote.process_name, ProcessNote.version, ProcessNote.status, ProcessNote.created_at)
+        if role == "reviewer":
+            notes = query.filter(ProcessNote.status.in_(["UNDER_REVIEW", "APPROVED"])).all()
+        else:
+            notes = query.filter(ProcessNote.created_by == user_id).all()
         return [{"id": n.id, "process_name": n.process_name, "version": n.version, "status": n.status, "created_at": n.created_at} for n in notes]
 
-    notes_meta = get_all_notes_history_metadata(db)
+    notes_meta = get_all_notes_history_metadata(db, current_role, current_user_id)
 
     if not notes_meta:
         st.info("No process notes found.")
@@ -72,12 +79,12 @@ try:
     for sec_id in all_section_ids:
         s1 = base_sections.get(sec_id)
         s2 = compare_sections.get(sec_id)
-    
+
         st.markdown(f"#### Section {sec_id}")
-    
+
         c1 = s1.content if s1 and s1.content else ""
         c2 = s2.content if s2 and s2.content else ""
-    
+
         if c1 != c2:
             st.markdown("**Content Changes:**")
             html_diff = differ.make_file(c1.splitlines(), c2.splitlines(), fromdesc=f"v{base_note.version}", todesc=f"v{compare_note.version}", context=True)
@@ -85,10 +92,10 @@ try:
             st.components.v1.html(html_diff, height=200, scrolling=True)
         else:
             st.write("*(No text changes)*")
-        
+
         d1 = s1.structured_data if s1 and s1.structured_data else []
         d2 = s2.structured_data if s2 and s2.structured_data else []
-    
+
         if d1 != d2:
             st.markdown("**Data Changes:**")
             col_a, col_b = st.columns(2)

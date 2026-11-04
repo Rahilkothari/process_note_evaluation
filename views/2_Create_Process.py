@@ -102,19 +102,23 @@ try:
 
     action = st.radio("What would you like to do?", action_options, index=default_action_idx, horizontal=True)
     st.session_state["action_radio"] = action
-    
+
     if action == "Create New Process Note":
         current_note = None
     else:
-        existing_notes = db.query(ProcessNote).filter(ProcessNote.status.in_(["DRAFT", "NEEDS_REVISION", "WARNING", "PASS"])).order_by(ProcessNote.id.desc()).all()
+        current_user_id = st.session_state.get("current_user_id")
+        existing_notes = db.query(ProcessNote).filter(
+            ProcessNote.created_by == current_user_id,
+            ProcessNote.status.in_(["DRAFT", "NEEDS_REVISION", "WARNING", "PASS", "UNDER_REVIEW"])
+        ).order_by(ProcessNote.id.desc()).all()
         if not existing_notes:
             st.info("You don't have any existing drafts to edit.")
             st.stop()
-            
+
         note_options = {}
         for n in existing_notes:
             note_options[f"[{n.id}] {n.process_name} (v{n.version}) - {n.status}"] = n
-            
+
         note_keys = list(note_options.keys())
         default_idx = 0
         if "selected_note_key" in st.session_state:
@@ -122,13 +126,13 @@ try:
                 default_idx = note_keys.index(st.session_state.selected_note_key)
             except ValueError:
                 pass
-                
+
         selected_option = st.selectbox("Select a Note to Edit", note_keys, index=default_idx)
         current_note = note_options[selected_option]
         st.session_state.selected_note_key = selected_option
 
     st.markdown("<br>", unsafe_allow_html=True)
-    
+
     latest_sent_back, section_remarks_map = get_document_review_feedback(current_note, db) if current_note else (None, {})
 
     if latest_sent_back and current_note and (current_note.status == "NEEDS_REVISION" or "revision" in current_note.status.lower()):
@@ -136,7 +140,7 @@ try:
         if section_remarks_map:
             sorted_sids = sorted(section_remarks_map.keys(), key=lambda x: [int(p) if p.isdigit() else p for p in x.split('.')])
             badge_pills = " ".join([f'<span style="background: #FFFFFF; border: 1px solid #FECDD3; color: #9F1239; padding: 2px 8px; border-radius: 6px; font-weight: 600; font-size: 11.5px; margin-right: 6px;">💬 Section {sid}</span>' for sid in sorted_sids])
-        
+
         remarks_summary_html = f'<div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #FECDD3; font-size: 12px; color: #9F1239;"><b>Sections with Specific Reviewer Remarks:</b> {badge_pills}</div>' if badge_pills else ""
 
         st.markdown(f"""
@@ -213,7 +217,7 @@ try:
                     process_champion = st.text_input("Process Champion", value=current_note.process_champion if current_note else "", help="The person driving the adoption and improvement of this process.")
                     process_reviewer = st.text_input("Process Reviewer", value=current_note.process_reviewer if current_note else "", help="The person responsible for reviewing this document for accuracy.")
                     process_approver = st.text_input("Process Approver", value=current_note.process_approver if current_note else "", help="The person who provides final sign-off on this document.")
-                
+
                     import datetime
                     def parse_date(date_str):
                         if date_str:
@@ -222,17 +226,17 @@ try:
                             except ValueError:
                                 return None
                         return None
-                    
+
                     eff_date_val = parse_date(current_note.effective_date if current_note else None)
                     rev_date_val = parse_date(current_note.next_review_date if current_note else None)
-                
+
                     effective_date = st.date_input("Effective Date", value=eff_date_val, help="The date this version of the process goes live.")
                     next_review_date = st.date_input("Next Review Date", value=rev_date_val, help="When this document should be reviewed again.")
-                
+
                     # Convert date objects back to strings for DB storage
                     effective_date = str(effective_date) if effective_date else ""
                     next_review_date = str(next_review_date) if next_review_date else ""
-            
+
                 st.markdown("<p style='font-size: 13px; color: #64748B; margin-top: 8px;'>* Required fields. <strong>You MUST click the button below to save and proceed to Step 2!</strong></p>", unsafe_allow_html=True)
                 save_basic = st.form_submit_button("💾 Save & Proceed to Step 2 (22 Sections) ➔", type="primary")
 
@@ -243,7 +247,7 @@ try:
             if not team or not team.strip():
                 st.error("Team is a required field. Please provide it before proceeding.")
                 st.stop()
-            
+
             # Validation passed
             if current_note is None:
                 import uuid
@@ -318,7 +322,7 @@ try:
             else:
                 if not sec.content or not str(sec.content).strip() or str(sec.content).strip().lower() in ["none", "nan", "null"]:
                     return "pending", ["Section content is empty."]
-            
+
             from core.rule_validator import RuleValidator
             from models.schemas import ProcessSectionSchema
             sec_schema = ProcessSectionSchema(
@@ -337,7 +341,7 @@ try:
 
         db_sections = db.query(ProcessSection).filter(ProcessSection.process_note_id == current_note.id).all()
         existing_sections = {s.section_id: s for s in db_sections}
-        
+
         status_map = {s["id"]: get_section_audit_status(existing_sections.get(s["id"]), s) for s in sections}
         ready_count = sum(1 for sid, (st_code, _) in status_map.items() if st_code == "ready")
         needs_rev_count = sum(1 for sid, (st_code, _) in status_map.items() if st_code == "needs_revision")
@@ -418,12 +422,12 @@ try:
                     """)
 
         tab_names = [f"{sec['id']} {sec['name']}" + (" 💬" if sec['id'] in section_remarks_map else "") for sec in sections]
-    
+
         if "active_section_tab" not in st.session_state:
             st.session_state["active_section_tab"] = st.session_state.get("current_section_edit", tab_names[0])
         if st.session_state["active_section_tab"] not in tab_names:
             st.session_state["active_section_tab"] = tab_names[0]
-        
+
         current_idx = tab_names.index(st.session_state["active_section_tab"])
 
         def set_active_section(new_tab):
@@ -458,7 +462,7 @@ try:
             )
             st.session_state["active_section_tab"] = selected_tab
             st.session_state["current_section_edit"] = selected_tab
-    
+
         sec_config = sections[tab_names.index(selected_tab)]
         sec_id = sec_config['id']
         existing_sec = existing_sections.get(sec_id)
@@ -570,11 +574,11 @@ try:
                 with st.container():
                     answers = {}
                     fields = spec.get("fields", [])
-                    
+
                     # Special high-polish interactive wizard for Section 1.3: Document Review Cycle
                     if sec_id == "1.3":
                         ex_data = existing_sec.structured_data[0] if (existing_sec and existing_sec.structured_data) else {}
-                        
+
                         c1, c2 = st.columns(2)
                         with c1:
                             eff_val = st.date_input(
@@ -601,7 +605,7 @@ try:
                                 key=f"qa_{sec_id}_freq",
                                 help="Corporate governance standard review cycle frequency."
                             )
-                        
+
                         calculated_next = compute_next_review_date(eff_val, freq_val)
                         combo_key = f"_combo_{sec_id}"
                         next_date_key = f"qa_{sec_id}_next_date"
@@ -645,7 +649,7 @@ try:
                                 owner_role = custom_owner.strip() or owner_sel
                             else:
                                 owner_role = owner_sel
-                        
+
                         c5, c6 = st.columns(2)
                         with c5:
                             user_name = st.session_state.get("current_user_name", "")
@@ -664,7 +668,7 @@ try:
                                 placeholder="e.g. JD or PH",
                                 key=f"qa_{sec_id}_sign"
                             )
-                        
+
                         answers = {
                             "eff_date": eff_val,
                             "review_frequency": freq_val,
@@ -681,7 +685,7 @@ try:
                             flabel = field_dict["label"]
                             fhelp = field_dict.get("help")
                             k = f"qa_{sec_id}_{fid}"
-                            
+
                             # Prepopulate from existing section data or cross-section smart autofills if not already modified in session
                             existing_field_val = ""
                             if existing_sec:
@@ -759,7 +763,7 @@ try:
                                         existing_field_val = s8_sec.structured_data[0].get("Exit Criteria", "")
                                     elif fid == "process" and s12_sec and s12_sec.structured_data:
                                         existing_field_val = " -> ".join([r.get("Activity", "") for r in s12_sec.structured_data if r.get("Activity")][:4])
-                            
+
                             if ftype == "date":
                                 def_date = datetime.date.today()
                                 if existing_field_val:
@@ -783,7 +787,7 @@ try:
                                     other_opt = next((o for o in opts if "other" in str(o).lower()), None)
                                     if other_opt:
                                         d_idx = opts.index(other_opt)
-                                
+
                                 # Protect against Streamlit ValueError if session_state has a value not in opts
                                 if k in st.session_state and st.session_state[k] not in opts:
                                     del st.session_state[k]
@@ -826,12 +830,12 @@ try:
                         while i < len(fields):
                             f = fields[i]
                             f_type = f.get("type", "text")
-                            
+
                             next_f = fields[i+1] if i + 1 < len(fields) else None
                             next_f_type = next_f.get("type", "text") if next_f else None
-                            
+
                             can_pair = (f_type in ["text", "date", "select"]) and (next_f_type in ["text", "date", "select"] if next_f else False)
-                            
+
                             if can_pair and next_f:
                                 col1, col2 = st.columns(2)
                                 with col1:
@@ -855,7 +859,7 @@ try:
                             key=f"btn_audit_guided_{sec_id}",
                             help="Audit with AI to verify if whatever you have added is sufficient, complete, and compliant with enterprise standards."
                         )
-                    
+
                     if run_audit_btn:
                         with st.spinner("✨ AI Auditor is analyzing your entries against Business Excellence rules..."):
                             from services.llm_service import get_llm_provider
@@ -917,7 +921,7 @@ try:
                             st.caption("✨ AI has prepared auto-corrections to resolve these items. Re-click '✨ Check with AI' or proceed to apply.")
 
                     st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
-                    
+
                     # Action buttons depending on section type inside the form
                     apply_btn = False
                     append_btn = False
@@ -1026,7 +1030,7 @@ try:
                                     k = f"qa_{sec_id}_{f['id']}"
                                     if k in st.session_state:
                                         del st.session_state[k]
-                                
+
                                 st.session_state[f"flash_msg_{sec_id}"] = f"✅ Row {len(combined_rows)} successfully saved to {sec_config['name']} table!"
                                 st.rerun()
 
@@ -1062,7 +1066,7 @@ try:
                                 raw_steps = answers.get("steps", "")
                                 decisions = answers.get("decisions", "")
                                 roles = answers.get("roles", "")
-                                
+
                                 # If raw_steps is brief, enrich with Section 1.12 Process Description if present
                                 desc_sec = existing_sections.get("1.12")
                                 if (not raw_steps or len(raw_steps.split()) < 5) and desc_sec and desc_sec.structured_data:
@@ -1316,7 +1320,7 @@ try:
                         from config.guided_questions import clean_heading_hashes
                         val = clean_heading_hashes(existing_sec.content, sec_id, sec_config['name']) if existing_sec else ""
                         content = st.text_area("Provide your detailed response below:", value=val, height=250)
-                        
+
                         col1, col2 = st.columns([1, 1])
                         with col1:
                             save_btn = st.form_submit_button("Save Section", type="primary")
@@ -1326,7 +1330,7 @@ try:
                         if ai_btn:
                             from services.rag_service import rag_service
                             from services.llm_service import get_llm_provider
-                
+
                             with st.spinner("Generating suggestion based on your notes and team history..."):
                                 context_list = rag_service.get_team_context(current_note.team, sec_id)
                                 if isinstance(context_list, str):
@@ -1347,7 +1351,7 @@ try:
                             cleaned_content = clean_heading_hashes(content, sec_id, sec_config['name'])
                             sec_schema = ProcessSectionSchema(section_id=sec_id, content=cleaned_content, structured_data=[])
                             issues = RuleValidator().validate(sec_schema, config)
-                
+
                             if issues:
                                 for issue in issues:
                                     st.error(f"Validation Error: {issue}")
@@ -1494,7 +1498,7 @@ try:
                         </p>
                     </div>
                     """, unsafe_allow_html=True)
-                    
+
                     desc_sec = existing_sections.get("1.12")
                     if desc_sec and desc_sec.structured_data:
                         if st.button("🔄 Auto-Populate Activities from Process Description (1.12)", key="btn_sync_raci"):
@@ -1523,7 +1527,7 @@ try:
                             st.rerun()
 
                 fields = sec_config.get("fields", [])
-    
+
                 real_saved_rows = []
                 if existing_sec and existing_sec.structured_data:
                     real_saved_rows = [
@@ -1534,11 +1538,11 @@ try:
                 if real_saved_rows:
                     df = pd.DataFrame(real_saved_rows)
                     df.index = df.index + 1
-        
+
                     render_fields = list(fields)
                     if "Reviewer Comment" in df.columns:
                         render_fields.append("Reviewer Comment")
-            
+
                     for f in render_fields:
                         if f not in df.columns:
                             df[f] = None
@@ -1579,7 +1583,7 @@ try:
                             df.at[1, "Exception Description"] = "No known exceptions identified"
                     else:
                         df.loc[1] = [None for _ in fields]
-    
+
                 column_config = {}
                 for f in fields:
                     f_lower = f.lower()
@@ -1756,7 +1760,7 @@ try:
                         st.markdown("<div style='font-size: 13px; color: #475569; margin-bottom: 6px;'>💡 You can also edit text directly in the cells below, or add rows using the bottom row:</div>", unsafe_allow_html=True)
                         disabled_cols = ["Reviewer Comment"] if "Reviewer Comment" in df.columns else False
                         edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, key=f"editor_{sec_id}", column_config=column_config, disabled=disabled_cols)
-            
+
                         if st.form_submit_button("Save Section", type="primary"):
                             raw_data = edited_df.to_dict(orient="records")
                             json_data = []
@@ -1771,12 +1775,12 @@ try:
                                         clean_row[k] = v
                                 if any(v is not None and str(v).strip() != "" and str(v).strip().lower() not in ["none", "nan", "null"] for v in clean_row.values()):
                                     json_data.append(clean_row)
-                
+
                             from core.rule_validator import RuleValidator
                             from models.schemas import ProcessSectionSchema
                             sec_schema = ProcessSectionSchema(section_id=sec_id, content="", structured_data=json_data)
                             issues = RuleValidator().validate(sec_schema, config)
-                
+
                             if issues:
                                 for issue in issues:
                                     st.error(f"Validation Error: {issue}")
@@ -1796,7 +1800,7 @@ try:
 
             elif sec_config["type"] in ["file", "flowchart"]:
                 current_chart = existing_sec.content if existing_sec else ""
-                
+
                 if not is_completed and not is_editing:
                     st.markdown(
                         """
@@ -1846,16 +1850,16 @@ try:
                                         clean_s_t = str(s_t).replace("&amp;", "&")
                                         new_t = st.text_input(f"Step {s_i + 1} Text:", value=clean_s_t, key=f"qe_step_txt_{sec_id}_{s_i}", help="Edit the wording inside this process step box.")
                                         updated_steps.append(new_t.replace("&amp;", "&"))
-                                    
+
                                     curr_dec = p_decs[0].replace("&amp;", "&") if p_decs else "Verification Criteria Met?"
                                     updated_dec = st.text_input("Decision Diamond Criteria:", value=curr_dec, key=f"qe_dec_txt_{sec_id}", help="Edit the question inside the decision diamond.").replace("&amp;", "&")
-                                    
+
                                     qe_c1, qe_c2 = st.columns([1, 1])
                                     with qe_c1:
                                         qe_save = st.form_submit_button("💾 Save Updated Step Text", type="primary", use_container_width=True)
                                     with qe_c2:
                                         qe_ai = st.form_submit_button("🤖 AI Shorten & Split Big Sentences", use_container_width=True)
-                                    
+
                                     if qe_save:
                                         valid_steps = [st.strip().replace("&amp;", "&") for st in updated_steps if st.strip()]
                                         new_flow_code = build_mermaid_flowchart_from_answers({
@@ -1934,7 +1938,7 @@ try:
                             st.rerun()
 
                     flow_tab1, flow_tab2 = st.tabs(["📊 Visual Flowchart (AI Generated / Mermaid)", "📁 Upload Diagram File"])
-                    
+
                     with flow_tab1:
                         st.markdown("""
                         <div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; padding: 12px; border-radius: 6px; margin-bottom: 12px;">
@@ -1970,8 +1974,8 @@ try:
 
                         with st.form(f"form_flow_{sec_id}"):
                             chart_content = st.text_area(
-                                "Flowchart Definition (Mermaid Syntax):", 
-                                value=current_chart if current_chart and not current_chart.endswith(('.png', '.jpg', '.pdf', '.docx', '.vsdx')) else "graph TD\n    A[Start Process] --> B[Execute Key Steps] --> C[End Process]", 
+                                "Flowchart Definition (Mermaid Syntax):",
+                                value=current_chart if current_chart and not current_chart.endswith(('.png', '.jpg', '.pdf', '.docx', '.vsdx')) else "graph TD\n    A[Start Process] --> B[Execute Key Steps] --> C[End Process]",
                                 height=200,
                                 key=f"txt_manual_mermaid_{sec_id}",
                                 help="Edit the diagram nodes, decision branches, and handoffs."
@@ -2039,7 +2043,7 @@ try:
                                 content_val = uploaded_file.name
                             else:
                                 content_val = existing_sec.content if existing_sec else ""
-                            
+
                             if not content_val:
                                 st.error("Please upload a file before saving.")
                             else:
@@ -2052,7 +2056,7 @@ try:
                                 st.session_state[f"is_editing_{sec_id}"] = False
                                 st.success(f"Flowchart diagram file saved: {content_val}")
                                 st.rerun()
-    
+
         st.markdown("<br><hr>", unsafe_allow_html=True)
         col1, col2 = st.columns(2)
         with col1:
@@ -2060,7 +2064,7 @@ try:
                 if current_note:
                     st.session_state.selected_note_id = current_note.id
                 st.switch_page("views/5_View_All_Notes.py")
-    
+
         current_idx = tab_names.index(selected_tab)
         with col2:
             if current_idx < len(tab_names) - 1:
