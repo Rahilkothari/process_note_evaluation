@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 import pandas as pd
 from services.export_service import generate_docx
-from core.ui_utils import inject_custom_css
+from core.ui_utils import inject_custom_css, render_mermaid_flowchart
 from config.guided_questions import clean_heading_hashes
 import yaml
 import copy
@@ -186,11 +186,17 @@ def render_inline_section_comment_ui(cfg, sec_obj, current_note, db, key_prefix=
 
     elif stype in ["flowchart", "file"]:
         mermaid_src = sec_obj.content or ""
-        st.caption(f"📊 Section {sid} Flowchart Diagram:")
         if "graph " in mermaid_src or "flowchart " in mermaid_src:
-            st.markdown(f"```mermaid\n{mermaid_src}\n```")
+            render_mermaid_flowchart(mermaid_src, show_code_toggle=False)
+        elif mermaid_src.endswith(('.png', '.jpg', '.jpeg')):
+            import os
+            img_path = os.path.join("uploads", mermaid_src)
+            if os.path.exists(img_path):
+                st.image(img_path, caption=mermaid_src, use_container_width=True)
+            else:
+                st.info(f"Uploaded diagram: {mermaid_src}")
         else:
-            st.code(mermaid_src, language="mermaid")
+            st.info("No flowchart diagram data available.")
             
         rem_col1, rem_col2 = st.columns([8, 2])
         with rem_col1:
@@ -791,13 +797,17 @@ try:
 
                 elif stype in ["flowchart", "file"]:
                     mermaid_src = sec_obj.content or ""
-                    st.caption("📊 Flowchart Diagram Visualization:")
                     if "graph " in mermaid_src or "flowchart " in mermaid_src:
-                        st.markdown(f"```mermaid\n{mermaid_src}\n```")
+                        render_mermaid_flowchart(mermaid_src, show_code_toggle=True)
+                    elif mermaid_src.endswith(('.png', '.jpg', '.jpeg')):
+                        import os
+                        img_path = os.path.join("uploads", mermaid_src)
+                        if os.path.exists(img_path):
+                            st.image(img_path, caption=mermaid_src, use_container_width=True)
+                        else:
+                            st.info(f"Uploaded diagram: {mermaid_src}")
                     else:
-                        st.code(mermaid_src, language="mermaid")
-                    with st.expander("🔍 View Raw Diagram Code", expanded=False):
-                        st.code(mermaid_src)
+                        st.info("No flowchart diagram data available.")
 
                 else:  # text
                     clean_txt = clean_heading_hashes(sec_obj.content or "", sid, sname)
