@@ -4,7 +4,7 @@ import streamlit as st
 def inject_custom_css():
     st.markdown("""
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@500;600;700&display=swap');
+        /* Fast native font stack to eliminate external render-blocking network delay */
 
         /* Hide Streamlit Branding completely */
         #MainMenu {visibility: hidden;}

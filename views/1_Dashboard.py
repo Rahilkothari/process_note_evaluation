@@ -67,13 +67,15 @@ try:
         else:
             base_query = _db.query(ProcessNote).filter(ProcessNote.created_by == current_user_id)
 
-        total_notes = base_query.with_entities(func.count(func.distinct(ProcessNote.process_name))).scalar()
-        drafts = base_query.filter(ProcessNote.status == "DRAFT").count()
-        needs_revision = base_query.filter(ProcessNote.status == "NEEDS_REVISION").count()
-        warning = base_query.filter(ProcessNote.status == "WARNING").count()
-        pass_notes = base_query.filter(ProcessNote.status == "PASS").count()
-        under_review = base_query.filter(ProcessNote.status == "UNDER_REVIEW").count()
-        approved = base_query.filter(ProcessNote.status == "APPROVED").count()
+        # Single aggregate query grouped by status to minimize Supabase round-trips
+        status_data = dict(base_query.with_entities(ProcessNote.status, func.count(ProcessNote.id)).group_by(ProcessNote.status).all())
+        drafts = status_data.get("DRAFT", 0)
+        needs_revision = status_data.get("NEEDS_REVISION", 0)
+        warning = status_data.get("WARNING", 0)
+        pass_notes = status_data.get("PASS", 0)
+        under_review = status_data.get("UNDER_REVIEW", 0)
+        approved = status_data.get("APPROVED", 0)
+        total_notes = sum(status_data.values())
 
         avg_query = _db.query(func.avg(ValidationRun.overall_score)).join(ProcessNote, ValidationRun.process_note_id == ProcessNote.id)
         if current_role == "admin":

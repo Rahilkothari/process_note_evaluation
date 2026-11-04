@@ -278,15 +278,10 @@ inject_custom_css()
 user_email = (st.session_state.user.email if st.session_state.get("user") else "").lower()
 current_role = st.session_state.get("current_user_role", "creator")
 
-# Check permissions: Admin, Reviewer, or authorized emails
-admin_or_reviewer = current_role in ["admin", "reviewer"] or user_email in [
-    "rahilkk07@gmail.com", "rahilkko+07@gmail.com", "rahilkothari99@gmail.com",
-    "jayati.kapadia@kotakeducationfoundation.org", "tanvi.parulekar@kotakeducationfoundation.org",
-    "karishma.agrawal@kotakeducationfoundation.org", "gopi.naik@kotakeducationfoundation.org"
-]
-
-if not admin_or_reviewer:
-    st.error("🔒 **Access Denied**: You do not have permissions to access the Reviewer Hub. This page is reserved for Designated Reviewers and Governance Admins.")
+# Strict Segregation of Duties: ONLY designated reviewers and admins can access Reviewer Hub
+if current_role not in ["admin", "reviewer"]:
+    st.error("🔒 **Access Denied**: You do not have permissions to access the Reviewer Hub. This page is strictly reserved for Designated Reviewers and Governance Admins.")
+    st.info("💡 As a Process Creator, you can view your notes and audit results from the **Dashboard** and **Validation & Audit** tabs.")
     st.stop()
 
 # Header

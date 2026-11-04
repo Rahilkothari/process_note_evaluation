@@ -125,15 +125,26 @@ class Notification(Base):
     user = relationship("User", backref="notifications")
     process_note = relationship("ProcessNote")
 
+_tables_initialized = False
+
 def init_db():
-    import time
-    for attempt in range(3):
+    global _tables_initialized
+    if _tables_initialized:
+        return
+    try:
+        from sqlalchemy import inspect
+        inspector = inspect(engine)
+        if inspector.has_table("users"):
+            _tables_initialized = True
+            return
+        Base.metadata.create_all(bind=engine)
+        _tables_initialized = True
+    except Exception as e:
         try:
             Base.metadata.create_all(bind=engine)
-            break
-        except Exception as e:
-            print(f"Database initialization failed on attempt {attempt+1}: {e}")
-            time.sleep(2)
+            _tables_initialized = True
+        except Exception:
+            pass
 
 def get_db():
     db = SessionLocal()

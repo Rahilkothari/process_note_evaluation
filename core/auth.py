@@ -104,14 +104,13 @@ def is_authorized_email(email: str) -> bool:
     return True
 
 def get_role_for_email(email: str) -> str:
-    email = email.lower()
+    email = (email or "").lower().strip()
     
     admin_emails = ["rahilkk07@gmail.com", "rahilkko+07@gmail.com", "rahilkothari99@gmail.com"]
     reviewer_emails = [
         "jayati.kapadia@kotakeducationfoundation.org", 
         "tanvi.parulekar@kotakeducationfoundation.org",
-        "karishma.agrawal@kotakeducationfoundation.org",
-        "gopi.naik@kotakeducationfoundation.org"
+        "karishma.agrawal@kotakeducationfoundation.org"
     ]
     
     if email in admin_emails:
@@ -124,17 +123,18 @@ def get_role_for_email(email: str) -> str:
 def sync_user_to_db(email: str, name: str = None):
     db = SessionLocal()
     try:
-        user = db.query(User).filter(User.email == email).first()
+        email_clean = (email or "").lower().strip()
+        user = db.query(User).filter(User.email == email_clean).first()
+        expected_role = get_role_for_email(email_clean)
         
         if not user:
-            role = get_role_for_email(email)
-            user = User(name=name or email.split("@")[0], email=email, role=role)
+            user = User(name=name or email_clean.split("@")[0], email=email_clean, role=expected_role)
             db.add(user)
             db.commit()
         else:
-            expected_role = get_role_for_email(email)
-            if expected_role == "admin" and user.role != "admin":
-                user.role = "admin"
+            # Strictly synchronize role with role policy (ensures creators are never mistakenly reviewers)
+            if user.role != expected_role:
+                user.role = expected_role
                 db.commit()
         
         st.session_state.current_user_id = user.id

@@ -54,10 +54,12 @@ def main():
         render_login_page()
         st.stop()
 
-    # Ensure authenticated user metadata is synced
-    if "current_user_name" not in st.session_state and st.session_state.user:
+    # Ensure authenticated user metadata is strictly synced for current account
+    user_email = (getattr(st.session_state.user, "email", None) or "").lower().strip()
+    if st.session_state.get("synced_user_email") != user_email or "current_user_role" not in st.session_state:
         try:
-            sync_user_to_db(st.session_state.user.email)
+            sync_user_to_db(user_email)
+            st.session_state.synced_user_email = user_email
         except Exception:
             st.session_state.user = None
             st.rerun()
