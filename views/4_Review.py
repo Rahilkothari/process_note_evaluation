@@ -13,10 +13,10 @@ import uuid
 import re
 
 def extract_concise_gap(gap_str: str) -> str:
-    """Distill verbose cross-section gap text into 1 punchy line."""
+    """Distill verbose cross-section gap text into 1 punchy line with clean HTML bold tags (no stars)."""
     step_m = re.search(r'(Step\s*\d+)', gap_str, re.IGNORECASE)
-    step_prefix = f"**{step_m.group(1)}**: " if step_m else ""
-    clean_p = gap_str.strip()
+    step_prefix = f"<b>{step_m.group(1)}:</b> " if step_m else ""
+    clean_p = gap_str.replace("*", "").strip()
 
     if "omits" in clean_p.lower():
         after = re.split(r'omits\s+', clean_p, flags=re.IGNORECASE)[1].strip()
@@ -33,7 +33,7 @@ def extract_concise_gap(gap_str: str) -> str:
         return f"• {step_prefix}{clean_p[:80]}"
 
 def simplify_discrepancy(text: str) -> str:
-    """Condense repetitive, mechanical, or complex error text into crisp, readable bullet points."""
+    """Condense repetitive, mechanical, or complex error text into crisp, clean HTML bullets (zero stars)."""
     if not text:
         return ""
     clean_text = text.replace("*(Marked as OK by User)*", "").replace("*(Resolved by Clarification)*", "").strip()
@@ -45,7 +45,7 @@ def simplify_discrepancy(text: str) -> str:
         from collections import defaultdict
         field_to_rows = defaultdict(list)
         for r_num, field in matches:
-            clean_f = field.strip().rstrip(".").strip()
+            clean_f = field.strip().rstrip(".").strip().replace("*", "")
             if clean_f.lower().startswith("document title"):
                 clean_f = "Document Title"
             if r_num not in field_to_rows[clean_f]:
@@ -54,7 +54,7 @@ def simplify_discrepancy(text: str) -> str:
         for field, rows in field_to_rows.items():
             sorted_rows = sorted(rows, key=lambda x: int(x))
             r_phrase = f"Row {sorted_rows[0]}" if len(sorted_rows) == 1 else f"Rows {', '.join(sorted_rows[:-1])} & {sorted_rows[-1]}"
-            items.append(f"• **{field}** is incomplete in **{r_phrase}**")
+            items.append(f"• <b>{field}</b> is incomplete in <b>{r_phrase}</b>")
         return "\n".join(items)
 
     # 2. Format cross-section run-ons with "Specifically: 1) ... ; 2) ..."
@@ -68,26 +68,27 @@ def simplify_discrepancy(text: str) -> str:
         
         sec_m = re.findall(r'1\.\d+', clean_text)
         sec_str = " vs ".join(sorted(list(set(sec_m)))) if sec_m else ""
-        header = f"📍 **Location:** Section {sec_str}\n" if sec_str else ""
-        return f"{header}\n".strip() + "\n" + "\n".join(condensed_gaps)
+        header = f"📍 <b>Location:</b> Section {sec_str}\n" if sec_str else ""
+        res = f"{header}\n".strip() + "\n" + "\n".join(condensed_gaps)
+        return res
 
     # 3. Flowchart vs Process Description Inconsistency
     if "Inconsistency between the Process Flowchart" in clean_text or ("Flowchart" in clean_text and "Process Description" in clean_text):
         m_loop = re.search(r"contains\s+(?:a\s+)?(.*?)(?:,\s*but|\s+but)", clean_text, re.IGNORECASE)
-        loop_str = m_loop.group(1) if m_loop else "decision / rejection loop"
-        return f"📍 **Location:** Section 1.11 (Flowchart) vs Section 1.12 (Process Description)\n• Flowchart has **{loop_str[:60]}**, but Section 1.12 omits how this is executed."
+        loop_str = (m_loop.group(1) if m_loop else "decision / rejection loop").replace("*", "")
+        return f"📍 <b>Location:</b> Section 1.11 (Flowchart) vs Section 1.12 (Process Description)\n• Flowchart has <b>{loop_str[:60]}</b>, but Section 1.12 omits how this is executed."
 
     # 4. RACI Matrix vs Process Description
     if "RACI" in clean_text and ("missing" in clean_text.lower() or "activities" in clean_text.lower()):
         m_acts = re.search(r':\s*([^.]+)', clean_text)
-        act_list = m_acts.group(1).strip() if m_acts else "workflow activities"
-        return f"📍 **Location:** Section 1.12 (Process Description) vs Section 1.13 (RACI Matrix)\n• **Missing Roles:** Assign Responsible & Accountable for: **{act_list}**"
+        act_list = (m_acts.group(1).strip() if m_acts else "workflow activities").replace("*", "")
+        return f"📍 <b>Location:</b> Section 1.12 (Process Description) vs Section 1.13 (RACI Matrix)\n• <b>Missing Roles:</b> Assign Responsible & Accountable for: <b>{act_list}</b>"
 
     # 5. General text section issue: Keep first 1-2 concise sentences
-    sentences = [s.strip() for s in re.split(r'\.\s+', clean_text) if s.strip()]
+    sentences = [s.strip().replace("*", "") for s in re.split(r'\.\s+', clean_text) if s.strip()]
     if len(sentences) > 1:
         return f"• {sentences[0]}.\n• {sentences[1]}."
-    return f"• {clean_text}"
+    return f"• {clean_text.replace('*', '')}"
 
 def resolve_sections_for_finding(finding, note_sections, sec_cfgs):
     """Finds matching ProcessSection model objects for any finding (ID, Name, or Cross-Section)."""
@@ -638,8 +639,10 @@ try:
                     status_badge = "🟢 Resolved by Creator" if is_ok_user else ("🔴 Critical Discrepancy" if is_critical else "🟡 Advisory Notice")
 
                     with st.expander(f"Discrepancy {idx}: {f.section_id or 'General Governance'} • {status_badge}", expanded=is_critical):
-                        # 1. Crisp 'What to Check' box
+                        # 1. Crisp 'What to Check' box (strictly clean, zero raw stars)
                         crisp_info = simplify_discrepancy(clean_issue)
+                        clean_html_info = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', crisp_info)
+                        clean_html_info = clean_html_info.replace('*', '').replace(chr(10), '<br>')
                         
                         st.markdown(f"""
                         <div style="background: {'#FEF2F2' if is_critical else '#FFFBEB'}; border-left: 4px solid {'#EF4444' if is_critical else '#F59E0B'}; padding: 12px 16px; border-radius: 6px; margin-bottom: 12px;">
@@ -647,7 +650,7 @@ try:
                                 🔍 What to Check & Verify:
                             </div>
                             <div style="color: #1E293B; font-size: 13.5px; line-height: 1.55;">
-                                {crisp_info.replace(chr(10), '<br>')}
+                                {clean_html_info}
                             </div>
                         </div>
                         """, unsafe_allow_html=True)
