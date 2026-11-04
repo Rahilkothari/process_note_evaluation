@@ -519,18 +519,46 @@ try:
                             new_sections.append(ns)
                         new_note.sections = new_sections
                         db.add(new_note)
+                        db.flush()
 
-                        # Record History
-                        rev_rec = ReviewHistory(
+                        final_sent_back_comments = (reviewer_comments if (reviewer_comments and reviewer_comments.strip()) else (
+                            "\n".join([f"• {h.comments}" for h in db.query(ReviewHistory).filter(ReviewHistory.process_note_id == current_note.id, ReviewHistory.action == "COMMENTED").all() if h.comments]) or "Revisions requested by reviewer."
+                        ))
+
+                        # Record History on both current note and new note
+                        rev_rec_old = ReviewHistory(
                             process_note_id=current_note.id,
                             process_name=current_note.process_name,
                             reviewer=reviewer_name,
                             action="SENT_BACK",
-                            comments=(reviewer_comments if (reviewer_comments and reviewer_comments.strip()) else (
-                            "\n".join([f"• {h.comments}" for h in db.query(ReviewHistory).filter(ReviewHistory.process_note_id == current_note.id, ReviewHistory.action == "COMMENTED").all() if h.comments]) or "Revisions requested by reviewer."
-                        ))
+                            comments=final_sent_back_comments
                         )
-                        db.add(rev_rec)
+                        db.add(rev_rec_old)
+
+                        rev_rec_new = ReviewHistory(
+                            process_note_id=new_note.id,
+                            process_name=new_note.process_name,
+                            reviewer=reviewer_name,
+                            action="SENT_BACK",
+                            comments=final_sent_back_comments
+                        )
+                        db.add(rev_rec_new)
+
+                        # Forward previous section remarks to the new note
+                        commented_records = db.query(ReviewHistory).filter(
+                            ReviewHistory.process_note_id == current_note.id,
+                            ReviewHistory.action == "COMMENTED"
+                        ).all()
+                        for cr in commented_records:
+                            db.add(ReviewHistory(
+                                process_note_id=new_note.id,
+                                process_name=new_note.process_name,
+                                reviewer=cr.reviewer,
+                                action=cr.action,
+                                comments=cr.comments,
+                                timestamp=cr.timestamp
+                            ))
+
                         db.commit()
 
                         from core.notifications import create_notification

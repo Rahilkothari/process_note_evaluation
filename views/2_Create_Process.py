@@ -49,6 +49,49 @@ def load_sections_config():
 config = load_sections_config()
 sections = config.get("sections", [])
 
+def get_document_review_feedback(note, db_session):
+    if not note:
+        return None, {}
+    from models.database import ReviewHistory, ProcessNote
+    try:
+        doc_note_ids = [note.id]
+        if note.document_id or note.process_name:
+            doc_query = db_session.query(ProcessNote.id).filter(
+                (ProcessNote.document_id == note.document_id) | (ProcessNote.process_name == note.process_name)
+            ).all()
+            if doc_query:
+                doc_note_ids = list(set([n[0] for n in doc_query] + [note.id]))
+
+        all_reviews = db_session.query(ReviewHistory).filter(
+            (ReviewHistory.process_note_id.in_(doc_note_ids)) | (ReviewHistory.process_name == note.process_name)
+        ).order_by(ReviewHistory.timestamp.desc()).all()
+
+        latest_sent_back = next((r for r in all_reviews if r.action == "SENT_BACK"), None)
+
+        section_remarks_map = {}
+        for r in all_reviews:
+            if r.action == "COMMENTED" and r.comments:
+                comm = r.comments.strip()
+                if comm.startswith("[Section "):
+                    try:
+                        header_part = comm[len("[Section "):].split("]")[0]
+                        sec_id_cand = header_part.split("-")[0].strip()
+                        clean_text = comm.split("]:", 1)[-1].strip() if "]:" in comm else comm
+                        existing_comments = [x["comment"] for x in section_remarks_map.get(sec_id_cand, [])]
+                        if clean_text not in existing_comments:
+                            section_remarks_map.setdefault(sec_id_cand, []).append({
+                                "reviewer": r.reviewer,
+                                "comment": clean_text,
+                                "timestamp": r.timestamp.strftime('%b %d, %H:%M') if r.timestamp else "",
+                                "raw": comm
+                            })
+                    except Exception:
+                        pass
+
+        return latest_sent_back, section_remarks_map
+    except Exception:
+        return None, {}
+
 db: Session = SessionLocal()
 try:
 
@@ -86,12 +129,30 @@ try:
 
     st.markdown("<br>", unsafe_allow_html=True)
     
-    if current_note and current_note.status == "NEEDS_REVISION":
-        from models.database import ReviewHistory
-        latest_review = db.query(ReviewHistory).join(ProcessNote, ReviewHistory.process_note_id == ProcessNote.id).filter(ProcessNote.document_id == current_note.document_id).order_by(ReviewHistory.timestamp.desc()).first()
-        if latest_review and latest_review.comments:
-            st.error(f"**Reviewer Feedback ({latest_review.reviewer}):**\n\n{latest_review.comments}")
-            st.markdown("<br>", unsafe_allow_html=True)
+    latest_sent_back, section_remarks_map = get_document_review_feedback(current_note, db) if current_note else (None, {})
+
+    if latest_sent_back and current_note and (current_note.status == "NEEDS_REVISION" or "revision" in current_note.status.lower()):
+        badge_pills = ""
+        if section_remarks_map:
+            sorted_sids = sorted(section_remarks_map.keys(), key=lambda x: [int(p) if p.isdigit() else p for p in x.split('.')])
+            badge_pills = " ".join([f'<span style="background: #FFFFFF; border: 1px solid #FECDD3; color: #9F1239; padding: 2px 8px; border-radius: 6px; font-weight: 600; font-size: 11.5px; margin-right: 6px;">💬 Section {sid}</span>' for sid in sorted_sids])
+        
+        remarks_summary_html = f'<div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #FECDD3; font-size: 12px; color: #9F1239;"><b>Sections with Specific Reviewer Remarks:</b> {badge_pills}</div>' if badge_pills else ""
+
+        st.markdown(f"""
+        <div style="background: #FFF1F2; border: 1.5px solid #FDA4AF; border-left: 5px solid #E11D48; border-radius: 8px; padding: 14px 18px; margin: 10px 0 16px 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 8px;">
+                <div style="font-weight: 700; color: #9F1239; font-size: 13.5px; display: flex; align-items: center; gap: 6px;">
+                    <span>📢</span> <b>Reviewer Feedback from {latest_sent_back.reviewer or 'Reviewer'} (v{current_note.version} Revisions Required):</b>
+                </div>
+                <span style="font-size: 11px; color: #E11D48; background: #FFE4E6; border: 1px solid #FECDD3; padding: 2px 8px; border-radius: 12px; font-weight: 700;">Action Required</span>
+            </div>
+            <div style="color: #4C0519; font-size: 13.5px; line-height: 1.5; font-weight: 500; background: #FFFFFF; border: 1px solid #FECDD3; border-radius: 6px; padding: 10px 14px; margin-top: 4px;">
+                {latest_sent_back.comments}
+            </div>
+            {remarks_summary_html}
+        </div>
+        """, unsafe_allow_html=True)
 
     # Manage Wizard Step: 1 for Process Identity, 2 for Process Details (22 Sections)
     if "process_step" not in st.session_state:
@@ -301,6 +362,28 @@ try:
             </div>
             """, unsafe_allow_html=True)
             st.progress(ready_count / total_count if total_count > 0 else 0)
+
+        # Prominent Step 2 Reviewer Feedback Banner
+        if latest_sent_back and (current_note.status == "NEEDS_REVISION" or "revision" in current_note.status.lower()):
+            badge_pills_s2 = ""
+            if section_remarks_map:
+                sorted_sids_s2 = sorted(section_remarks_map.keys(), key=lambda x: [int(p) if p.isdigit() else p for p in x.split('.')])
+                badge_pills_s2 = " ".join([f'<span style="background: #FFFFFF; border: 1px solid #FECDD3; color: #9F1239; padding: 2px 8px; border-radius: 6px; font-weight: 600; font-size: 11.5px; margin-right: 6px;">💬 Section {sid}</span>' for sid in sorted_sids_s2])
+            remarks_summary_s2 = f'<div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #FECDD3; font-size: 12px; color: #9F1239;"><b>Sections with Specific Reviewer Remarks:</b> {badge_pills_s2}</div>' if badge_pills_s2 else ""
+            st.markdown(f"""
+            <div style="background: #FFF1F2; border: 1.5px solid #FDA4AF; border-left: 5px solid #E11D48; border-radius: 8px; padding: 14px 18px; margin: 12px 0 16px 0;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 8px;">
+                    <div style="font-weight: 700; color: #9F1239; font-size: 13.5px; display: flex; align-items: center; gap: 6px;">
+                        <span>📢</span> <b>Reviewer Feedback from {latest_sent_back.reviewer or 'Reviewer'} (Action Required on v{current_note.version}):</b>
+                    </div>
+                    <span style="font-size: 11px; color: #E11D48; background: #FFE4E6; border: 1px solid #FECDD3; padding: 2px 8px; border-radius: 12px; font-weight: 700;">Revision Requested</span>
+                </div>
+                <div style="color: #4C0519; font-size: 13.5px; line-height: 1.5; font-weight: 500; background: #FFFFFF; border: 1px solid #FECDD3; border-radius: 6px; padding: 10px 14px; margin-top: 4px;">
+                    {latest_sent_back.comments}
+                </div>
+                {remarks_summary_s2}
+            </div>
+            """, unsafe_allow_html=True)
         with bar_col2:
             if st.button("✏️ Edit Basic Info", key="btn_back_to_s1", use_container_width=True):
                 st.session_state["process_step"] = 1
@@ -318,7 +401,7 @@ try:
 - Ensure your process note covers branding guidelines, logo approvals, marketing calendar, PR approvals, creative workflow, and campaign records.
                     """)
 
-        tab_names = [f"{sec['id']} {sec['name']}" for sec in sections]
+        tab_names = [f"{sec['id']} {sec['name']}" + (" 💬" if sec['id'] in section_remarks_map else "") for sec in sections]
     
         if "active_section_tab" not in st.session_state:
             st.session_state["active_section_tab"] = st.session_state.get("current_section_edit", tab_names[0])
@@ -375,6 +458,9 @@ try:
         else:
             status_badge = '<span style="background: #FEF3C7; color: #92400E; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 12px; border: 1px solid #FDE68A;">⏳ Pending Input</span>'
 
+        if sec_id in section_remarks_map:
+            status_badge += ' <span style="background: #EEF2FF; color: #4338CA; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 12px; border: 1px solid #C7D2FE;">💬 Reviewer Feedback</span>'
+
         is_completed = (curr_status == "ready")
 
         example_clean = example_text.strip()
@@ -388,6 +474,23 @@ try:
             st.markdown(f"<div style='font-size: 14.5px; font-weight: 700; color: #1E293B; margin: 4px 0 2px 0;'>{sec_config['id']} {sec_config['name']} <span style='font-size: 12px; font-weight: 500; color: #64748B;'>(Section {current_idx + 1} of {total_count})</span></div>", unsafe_allow_html=True)
         with sec_h2:
             st.markdown(f"<div style='text-align: right; margin: 4px 0 2px 0;'>{status_badge}</div>", unsafe_allow_html=True)
+
+        # -------------------------------------------------------------
+        # Prominent In-Line Reviewer Feedback for this Section
+        # -------------------------------------------------------------
+        if sec_id in section_remarks_map:
+            for rmk in section_remarks_map[sec_id]:
+                ts_str = f" <span style='font-size: 11px; color: #4F46E5; font-weight: 500;'>({rmk['timestamp']})</span>" if rmk.get('timestamp') else ""
+                st.markdown(f"""
+                <div style="background: #EEF2FF; border: 1.5px solid #C7D2FE; border-left: 5px solid #4F46E5; border-radius: 8px; padding: 12px 16px; margin: 8px 0 14px 0;">
+                    <div style="font-weight: 700; color: #3730A3; font-size: 13px; display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+                        <span>💬</span> <b>Reviewer Feedback on Section {sec_id} from {rmk['reviewer'] or 'Reviewer'}:{ts_str}</b>
+                    </div>
+                    <div style="color: #1E1B4B; font-size: 13.5px; line-height: 1.5; font-weight: 600; background: #FFFFFF; border: 1px solid #E0E7FF; border-radius: 6px; padding: 10px 14px; margin-top: 4px;">
+                        {rmk['comment']}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
 
         # Show Audit Gaps only when relevant
         if curr_status == "needs_revision" and curr_issues:
@@ -1152,6 +1255,14 @@ try:
                     from config.guided_questions import clean_heading_hashes, render_section_preview_html
                     clean_display = clean_heading_hashes(existing_sec.content, sec_id, sec_config['name'])
                     preview_html = render_section_preview_html(clean_display)
+
+                    if sec_id in section_remarks_map:
+                        st.markdown(f"""
+                        <div style="background: #FFFBEB; border: 1px solid #FDE68A; border-left: 4px solid #D97706; border-radius: 6px; padding: 8px 14px; margin: 10px 0 8px 0; font-size: 12.5px; color: #92400E;">
+                            ⚠️ <b>Reviewer Action Required:</b> The reviewer requested changes on this section above. Click <b>'✏️ Edit Section'</b> below or use the Guided Assistant above to make the updates.
+                        </div>
+                        """, unsafe_allow_html=True)
+
                     st.markdown(
                         f"""
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; margin-bottom: 8px;">
