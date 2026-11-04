@@ -363,27 +363,7 @@ try:
             """, unsafe_allow_html=True)
             st.progress(ready_count / total_count if total_count > 0 else 0)
 
-        # Prominent Step 2 Reviewer Feedback Banner
-        if latest_sent_back and (current_note.status == "NEEDS_REVISION" or "revision" in current_note.status.lower()):
-            badge_pills_s2 = ""
-            if section_remarks_map:
-                sorted_sids_s2 = sorted(section_remarks_map.keys(), key=lambda x: [int(p) if p.isdigit() else p for p in x.split('.')])
-                badge_pills_s2 = " ".join([f'<span style="background: #FFFFFF; border: 1px solid #FECDD3; color: #9F1239; padding: 2px 8px; border-radius: 6px; font-weight: 600; font-size: 11.5px; margin-right: 6px;">💬 Section {sid}</span>' for sid in sorted_sids_s2])
-            remarks_summary_s2 = f'<div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #FECDD3; font-size: 12px; color: #9F1239;"><b>Sections with Specific Reviewer Remarks:</b> {badge_pills_s2}</div>' if badge_pills_s2 else ""
-            st.markdown(f"""
-            <div style="background: #FFF1F2; border: 1.5px solid #FDA4AF; border-left: 5px solid #E11D48; border-radius: 8px; padding: 14px 18px; margin: 12px 0 16px 0;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 8px;">
-                    <div style="font-weight: 700; color: #9F1239; font-size: 13.5px; display: flex; align-items: center; gap: 6px;">
-                        <span>📢</span> <b>Reviewer Feedback from {latest_sent_back.reviewer or 'Reviewer'} (Action Required on v{current_note.version}):</b>
-                    </div>
-                    <span style="font-size: 11px; color: #E11D48; background: #FFE4E6; border: 1px solid #FECDD3; padding: 2px 8px; border-radius: 12px; font-weight: 700;">Revision Requested</span>
-                </div>
-                <div style="color: #4C0519; font-size: 13.5px; line-height: 1.5; font-weight: 500; background: #FFFFFF; border: 1px solid #FECDD3; border-radius: 6px; padding: 10px 14px; margin-top: 4px;">
-                    {latest_sent_back.comments}
-                </div>
-                {remarks_summary_s2}
-            </div>
-            """, unsafe_allow_html=True)
+
         with bar_col2:
             if st.button("✏️ Edit Basic Info", key="btn_back_to_s1", use_container_width=True):
                 st.session_state["process_step"] = 1
