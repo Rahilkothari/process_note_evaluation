@@ -739,19 +739,18 @@ You MUST rigorously audit the 4 core inter-relationships defined by the Business
 
 OUTPUT FORMAT:
 CRITICAL EXPLANATION RULES:
-- Explain discrepancies in direct, plain, simple English that anyone can instantly understand.
-- Never write dense, convoluted academic paragraphs or long run-on sentences.
-- First state the core problem in 1 simple sentence.
-- If there are multiple specific points, present them clearly as numbered or bulleted items.
-- Provide a direct, actionable clarification question.
+- BE EXTREMELY CRISP, BRIEF, AND DIRECT. Max 25-35 words per finding.
+- State exactly WHERE the gap is and WHAT is missing in 1-2 punchy lines (e.g. "• Step 2: Missing 95% safety audit score & Mobile Verification Audit App").
+- NEVER write long paragraphs, generic boilerplate, or academic lectures.
+- Keep questions short (1 sentence max).
 
 If there are gaps or inconsistencies, return a JSON array of objects with this schema:
 [
   {{
-    "issue": "Direct, plain-English explanation (1 simple problem sentence followed by short, clear bullet points for specific mismatches)",
+    "issue": "Crisp, direct explanation: Location followed by short bullet points (e.g. '• Step 2: Missing 95% safety audit score\n• Step 3: Missing Legal Counsel review')",
     "severity": "HIGH" | "MEDIUM",
     "questions": [
-      "Short, clear clarification question for the Process Owner asking who performs the step, tool used, or SLA required"
+      "Short 1-sentence clarification question for the Process Owner"
     ],
     "related_sections": ["1.12", "1.14"]
   }}

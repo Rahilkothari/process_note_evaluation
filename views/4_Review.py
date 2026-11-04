@@ -12,11 +12,31 @@ import uuid
 
 import re
 
+def extract_concise_gap(gap_str: str) -> str:
+    """Distill verbose cross-section gap text into 1 punchy line."""
+    step_m = re.search(r'(Step\s*\d+)', gap_str, re.IGNORECASE)
+    step_prefix = f"**{step_m.group(1)}**: " if step_m else ""
+    clean_p = gap_str.strip()
+
+    if "omits" in clean_p.lower():
+        after = re.split(r'omits\s+', clean_p, flags=re.IGNORECASE)[1].strip()
+        core = re.split(r'\s+specified in\s+', after, flags=re.IGNORECASE)[0].strip().rstrip(';.')
+        return f"• {step_prefix}Missing {core}"
+    elif "does not detail" in clean_p.lower():
+        req_m = re.search(r'requires\s+(.*?)(?:\s+prior|\s+before|,|\.)', clean_p, re.IGNORECASE)
+        req_str = f"that {req_m.group(1)}" if req_m else "verification step"
+        return f"• {step_prefix}Missing verification {req_str}"
+    elif "requires" in clean_p.lower() and "but" in clean_p.lower():
+        req_part = re.split(r'requires\s+', clean_p, flags=re.IGNORECASE)[1].split(", but")[0].strip()
+        return f"• {step_prefix}Rule requires {req_part}"
+    else:
+        return f"• {step_prefix}{clean_p[:80]}"
+
 def simplify_discrepancy(text: str) -> str:
     """Condense repetitive, mechanical, or complex error text into crisp, readable bullet points."""
     if not text:
         return ""
-    clean_text = text.strip()
+    clean_text = text.replace("*(Marked as OK by User)*", "").replace("*(Resolved by Clarification)*", "").strip()
 
     # 1. Match repeated "Row X: <Field> (is missing|cannot be blank|is empty|required)"
     pattern = r'Row\s+(\d+)\s*:\s*(.*?)(?:\s+in\s+[^.]+?)?\s+(?:is missing|cannot be blank|is empty|required)\.?'
@@ -40,21 +60,34 @@ def simplify_discrepancy(text: str) -> str:
     # 2. Format cross-section run-ons with "Specifically: 1) ... ; 2) ..."
     if "Specifically:" in clean_text or "Specifically :" in clean_text:
         parts = re.split(r'Specifically\s*:\s*', clean_text, maxsplit=1)
-        summary = parts[0].strip()
         details = parts[1].strip()
         raw_points = re.split(r'\s*(?:;\s*)?(?:\d+\))\s*', details)
         clean_points = [p.strip().rstrip(';.') for p in raw_points if p.strip()]
-        if clean_points:
-            bullet_md = "\n".join([f"• **Check {i+1}**: {p}" for i, p in enumerate(clean_points)])
-            return f"**Summary:** {summary}\n\n**What to Verify:**\n{bullet_md}"
+        
+        condensed_gaps = [extract_concise_gap(p) for p in clean_points]
+        
+        sec_m = re.findall(r'1\.\d+', clean_text)
+        sec_str = " vs ".join(sorted(list(set(sec_m)))) if sec_m else ""
+        header = f"📍 **Location:** Section {sec_str}\n" if sec_str else ""
+        return f"{header}\n".strip() + "\n" + "\n".join(condensed_gaps)
 
-    # 3. Format semicolon-separated items
-    if ";" in clean_text and len(clean_text) > 60:
-        clauses = [c.strip().rstrip(';.') for c in clean_text.split(";") if c.strip()]
-        if len(clauses) >= 2:
-            return "\n".join([f"• {c}" for c in clauses])
+    # 3. Flowchart vs Process Description Inconsistency
+    if "Inconsistency between the Process Flowchart" in clean_text or ("Flowchart" in clean_text and "Process Description" in clean_text):
+        m_loop = re.search(r"contains\s+(?:a\s+)?(.*?)(?:,\s*but|\s+but)", clean_text, re.IGNORECASE)
+        loop_str = m_loop.group(1) if m_loop else "decision / rejection loop"
+        return f"📍 **Location:** Section 1.11 (Flowchart) vs Section 1.12 (Process Description)\n• Flowchart has **{loop_str[:60]}**, but Section 1.12 omits how this is executed."
 
-    return clean_text
+    # 4. RACI Matrix vs Process Description
+    if "RACI" in clean_text and ("missing" in clean_text.lower() or "activities" in clean_text.lower()):
+        m_acts = re.search(r':\s*([^.]+)', clean_text)
+        act_list = m_acts.group(1).strip() if m_acts else "workflow activities"
+        return f"📍 **Location:** Section 1.12 (Process Description) vs Section 1.13 (RACI Matrix)\n• **Missing Roles:** Assign Responsible & Accountable for: **{act_list}**"
+
+    # 5. General text section issue: Keep first 1-2 concise sentences
+    sentences = [s.strip() for s in re.split(r'\.\s+', clean_text) if s.strip()]
+    if len(sentences) > 1:
+        return f"• {sentences[0]}.\n• {sentences[1]}."
+    return f"• {clean_text}"
 
 def resolve_sections_for_finding(finding, note_sections, sec_cfgs):
     """Finds matching ProcessSection model objects for any finding (ID, Name, or Cross-Section)."""
@@ -619,9 +652,14 @@ try:
                         </div>
                         """, unsafe_allow_html=True)
 
-                        if f.recommendation and f.recommendation.strip():
-                            with st.expander("💡 Recommended Action & Clarification Questions", expanded=False):
-                                st.markdown(f.recommendation)
+                        # Only show clean action guidance if any (never dump author essay questions on reviewer)
+                        clean_advice = (f.recommendation or "").split("**Clarification Questions")[0].strip()
+                        if clean_advice:
+                            st.markdown(f"""
+                            <div style="font-size: 12px; color: #475569; margin: -6px 0 10px 0; background: #F8FAFC; border-left: 3px solid #94A3B8; padding: 6px 12px; border-radius: 4px;">
+                                💡 <b>Guidance:</b> {clean_advice.replace(chr(10), ' ')}
+                            </div>
+                            """, unsafe_allow_html=True)
 
                         # 2. Section Details & In-Line Reviewer Comments
                         matched_sections = resolve_sections_for_finding(f, current_note.sections, sections_config)
