@@ -96,7 +96,22 @@ class MockProvider(LLMProvider):
 
         content_words = len(section_content.split())
 
-        if len(section_content.strip()) < 15 and not section_rules.get("allow_short", False):
+        # Specific check for 1.3 Document Review Cycle: Must verify dates & owner
+        if sec_id == "1.3":
+            if not any(k in content_lower for k in ["date", "202", "owner", "year"]):
+                issues.append("Document Review Cycle must specify valid Effective and Next Review dates and a Process Owner.")
+                recommendations.append("Provide Effective Date, Next Review Date, and Process Owner.")
+                status = "WARNING"
+                score = 50.0
+                severity = "MEDIUM"
+            else:
+                status = "PASS"
+                score = 100.0
+                issues = []
+                recommendations = []
+                questions = []
+
+        elif len(section_content.strip()) < 15 and not section_rules.get("allow_short", False):
             issues.append("Response is too brief to adequately document enterprise operational procedures.")
             recommendations.append("Expand the section with complete operational details.")
             questions.append("Can you provide the step-by-step breakdown and tools used for this section?")
@@ -633,6 +648,38 @@ MANDATORY AUDIT FOR SECTION 1.14 (BUSINESS RULES):
 - Entries must be actual operational rules and boundaries, not generic process descriptions or suggestions.
 - Rules must be concrete and enforceable.
 """
+        elif sec_id == "1.3":
+            section_specific_prompt = """
+MANDATORY AUDIT FOR SECTION 1.3 (DOCUMENT REVIEW CYCLE):
+- Strictly evaluate ONLY the fields provided in the form/table: [Effective Date, Next Review Date, Review Frequency (if present), Process Owner, Name, Sign].
+- If Effective Date and Next Review Date are specified and Next Review Date is logically after Effective Date:
+  The review frequency is fully established and valid (the difference between dates directly establishes the review interval, e.g. 1 year difference = Annual Review).
+- If Process Owner is specified, this section fulfills 100% of corporate governance requirements.
+- ABSOLUTE PROHIBITION ON HALLUCINATED OR UNREQUESTED REQUIREMENTS:
+  * NEVER penalize the user, do NOT downgrade the score, and do NOT flag any issue/warning for review frequency wording or policy standards (dates define frequency).
+  * NEVER penalize the user or flag any issue/warning for missing out-of-cycle, ad-hoc, or regulatory review triggers (these are NOT fields in the form).
+- If valid dates and a Process Owner are present, you MUST return:
+  "status": "PASS",
+  "score": 100,
+  "severity": "LOW",
+  "issues": [],
+  "recommendations": [],
+  "questions": []
+"""
+        elif sec_id == "1.7":
+            section_specific_prompt = """
+MANDATORY AUDIT FOR SECTION 1.7 (START POINT):
+- Strictly evaluate ONLY the fields provided: [Activity, Entry Criteria].
+- If a plausible trigger activity and entry condition are provided, assign PASS (Score: 100).
+- DO NOT penalize the user for missing intake channels (e.g. portal vs email), formats, or templates, as those are not fields in this table.
+"""
+        elif sec_id == "1.8":
+            section_specific_prompt = """
+MANDATORY AUDIT FOR SECTION 1.8 (END POINT):
+- Strictly evaluate ONLY the fields provided: [Activity, Exit Criteria].
+- If a plausible conclusion activity and exit condition are provided, assign PASS (Score: 100).
+- DO NOT penalize the user for missing fields or parameters not asked in this table.
+"""
 
         prompt = f"""
 You are an expert Senior Process Auditor and Business Excellence Lead reviewing an Enterprise Process Note.
@@ -649,6 +696,13 @@ Content to validate:
 
 CRITICAL INSTRUCTIONS FOR SCORING AND OUTPUT:
 Assess whether the content is complete, logical, and clearly documented from an organizational audit perspective.
+
+CORE GOVERNANCE PRINCIPLE - STRICT FIELD-ALIGNED AUDITING:
+- Users fill data strictly into the fields provided in each section's form or table.
+- You must NEVER penalize a user or flag a discrepancy/advisory notice for missing fields, policy declarations, ad-hoc triggers, or criteria that were never requested in the form!
+- If the required fields of the section are populated with legitimate operational content, the section MUST PASS (Score: 100).
+- Only flag a section if the provided fields themselves are empty, nonsensical/gibberish, or violate fundamental operational logic.
+
 STRICT AUDIT RULE ON SUBSTANCE & DEPTH:
 - NEVER assign PASS (Score: 100) to brief, superficial, or shallow descriptions.
 - Sections requiring narrative explanation (e.g., Objective 1.10, Introduction 1.9, Scope 1.6, Process Description 1.12) must have comprehensive operational depth, clarity, and specific details.
@@ -1218,6 +1272,8 @@ WHAT CONSTITUTES A HIGH-PRIORITY ISSUE:
    - Flag only gibberish or literal placeholder text like 'asdf', '123', 'none'.
 
 WHAT YOU MUST NEVER FLAG:
+- DO NOT complain about review frequency wording or ad-hoc review triggers in Section 1.3 (dates define the frequency).
+- DO NOT demand fields, intake channels, or template standards that do not exist in the section definition.
 - DO NOT complain about date alignments between different sections (e.g. effective date vs change date).
 - DO NOT complain about version string formatting (e.g. '1.0 (Initial Draft)' is completely valid).
 - DO NOT complain about short names, initials, or missing department pipes in names.

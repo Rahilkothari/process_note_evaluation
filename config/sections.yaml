@@ -33,13 +33,15 @@ sections:
   fields:
   - Effective Date
   - Next Review Date
+  - Review Frequency
   - Process Owner
   - Name
   - Sign
-  help_text: Specify how often this process needs to be reviewed (e.g., annually).
+  help_text: Specify how often this process needs to be reviewed (e.g., annually) along with effective dates and process ownership.
   default_rows:
   - Effective Date: ""
     Next Review Date: "1 Year from Effective Date"
+    Review Frequency: "Annual (Every 12 months)"
 
 - id: '1.4'
   name: Related Documents

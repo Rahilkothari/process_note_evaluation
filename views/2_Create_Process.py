@@ -473,10 +473,12 @@ try:
                                 "Biennial (Every 2 years)",
                                 "Event-triggered / As needed"
                             ]
+                            def_freq = ex_data.get("Review Frequency") or "Annual (Every 12 months)"
+                            freq_idx = freq_options.index(def_freq) if def_freq in freq_options else 0
                             freq_val = st.selectbox(
                                 "2. How often must this document be reviewed?",
                                 options=freq_options,
-                                index=0,
+                                index=freq_idx,
                                 key=f"qa_{sec_id}_freq",
                                 help="Corporate governance standard review cycle frequency."
                             )

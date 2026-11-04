@@ -830,6 +830,7 @@ def _build_table_rows_raw(sec_id: str, answers: Dict[str, Any]) -> List[Dict[str
         return [{
             "Effective Date": str(eff_date),
             "Next Review Date": str(next_date),
+            "Review Frequency": freq,
             "Process Owner": owner_role,
             "Name": owner_name,
             "Sign": sign
