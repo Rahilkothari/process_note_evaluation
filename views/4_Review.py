@@ -12,25 +12,220 @@ import uuid
 
 import re
 
-def format_direct_discrepancy(text: str) -> str:
-    """Format complex discrepancy text into direct, simple, easy-to-read bullet points."""
-    if not text or not text.strip():
+def simplify_discrepancy(text: str) -> str:
+    """Condense repetitive, mechanical, or complex error text into crisp, readable bullet points."""
+    if not text:
         return ""
-    if "Specifically:" in text or "Specifically :" in text:
-        parts = re.split(r'Specifically\s*:\s*', text, maxsplit=1)
+    clean_text = text.strip()
+
+    # 1. Match repeated "Row X: <Field> (is missing|cannot be blank|is empty|required)"
+    pattern = r'Row\s+(\d+)\s*:\s*(.*?)(?:\s+in\s+[^.]+?)?\s+(?:is missing|cannot be blank|is empty|required)\.?'
+    matches = re.findall(pattern, clean_text, re.IGNORECASE)
+    if matches:
+        from collections import defaultdict
+        field_to_rows = defaultdict(list)
+        for r_num, field in matches:
+            clean_f = field.strip().rstrip(".").strip()
+            if clean_f.lower().startswith("document title"):
+                clean_f = "Document Title"
+            if r_num not in field_to_rows[clean_f]:
+                field_to_rows[clean_f].append(r_num)
+        items = []
+        for field, rows in field_to_rows.items():
+            sorted_rows = sorted(rows, key=lambda x: int(x))
+            r_phrase = f"Row {sorted_rows[0]}" if len(sorted_rows) == 1 else f"Rows {', '.join(sorted_rows[:-1])} & {sorted_rows[-1]}"
+            items.append(f"• **{field}** is incomplete in **{r_phrase}**")
+        return "\n".join(items)
+
+    # 2. Format cross-section run-ons with "Specifically: 1) ... ; 2) ..."
+    if "Specifically:" in clean_text or "Specifically :" in clean_text:
+        parts = re.split(r'Specifically\s*:\s*', clean_text, maxsplit=1)
         summary = parts[0].strip()
         details = parts[1].strip()
         raw_points = re.split(r'\s*(?:;\s*)?(?:\d+\))\s*', details)
         clean_points = [p.strip().rstrip(';.') for p in raw_points if p.strip()]
         if clean_points:
-            bullet_md = "\n".join([f"- **Gap {i+1}**: {p}" for i, p in enumerate(clean_points)])
-            return f"**Direct Summary:** {summary}\n\n**Key Mismatches:**\n{bullet_md}"
-    elif ";" in text and len(text) > 80:
-        clauses = [c.strip().rstrip(';.') for c in text.split(";") if c.strip()]
+            bullet_md = "\n".join([f"• **Check {i+1}**: {p}" for i, p in enumerate(clean_points)])
+            return f"**Summary:** {summary}\n\n**What to Verify:**\n{bullet_md}"
+
+    # 3. Format semicolon-separated items
+    if ";" in clean_text and len(clean_text) > 60:
+        clauses = [c.strip().rstrip(';.') for c in clean_text.split(";") if c.strip()]
         if len(clauses) >= 2:
-            bullet_md = "\n".join([f"- {c}" for c in clauses])
-            return f"**Direct Summary:**\n{bullet_md}"
-    return text
+            return "\n".join([f"• {c}" for c in clauses])
+
+    return clean_text
+
+def resolve_sections_for_finding(finding, note_sections, sec_cfgs):
+    """Finds matching ProcessSection model objects for any finding (ID, Name, or Cross-Section)."""
+    results = []
+    sid_str = str(finding.section_id or "")
+    
+    # Check if cross-section like "Cross-Section (1.5 & 1.12 & 1.14)"
+    found_ids = re.findall(r'1\.\d+', sid_str)
+    if found_ids:
+        for fid in found_ids:
+            cfg = next((s for s in sec_cfgs if s.get("id") == fid), None)
+            obj = next((s for s in note_sections if s.section_id == fid), None)
+            if cfg and obj:
+                results.append((cfg, obj))
+        if results:
+            return results
+
+    # Single section match by ID or Name
+    cfg = next((s for s in sec_cfgs if s.get("id") == sid_str or s.get("name", "").lower() == sid_str.lower()), None)
+    if cfg:
+        obj = next((s for s in note_sections if s.section_id == cfg["id"]), None)
+        if obj:
+            results.append((cfg, obj))
+            return results
+
+    return results
+
+def render_inline_section_comment_ui(cfg, sec_obj, current_note, db, key_prefix="disc"):
+    """Renders live section table/text and an inline Reviewer Comment box directly inside the card."""
+    sid = cfg.get("id")
+    sname = cfg.get("name")
+    stype = cfg.get("type", "text")
+    
+    if stype == "table":
+        t_rows = sec_obj.structured_data or []
+        if not t_rows:
+            st.info(f"ℹ️ Section {sid} ({sname}) table has no rows.")
+        else:
+            df_rev = pd.DataFrame(t_rows)
+            if "Reviewer Comment" not in df_rev.columns:
+                df_rev["Reviewer Comment"] = ""
+
+            disabled_cols = [c for c in df_rev.columns if c != "Reviewer Comment"]
+            
+            st.caption(f"✏️ **In-Line Row Feedback:** Type specific remarks directly into the **'Reviewer Comment'** column below:")
+            
+            edited_df = st.data_editor(
+                df_rev,
+                use_container_width=True,
+                disabled=disabled_cols,
+                key=f"{key_prefix}_editor_{sid}_{current_note.id}_{len(t_rows)}"
+            )
+            
+            edited_df = edited_df.fillna("")
+            raw_data = edited_df.to_dict("records")
+            new_data = []
+            for row in raw_data:
+                clean_row = {}
+                for k, v in row.items():
+                    if pd.isna(v): clean_row[k] = None
+                    elif hasattr(v, 'isoformat'): clean_row[k] = v.isoformat()
+                    else: clean_row[k] = v
+                new_data.append(clean_row)
+
+            if new_data != sec_obj.structured_data:
+                sec_obj.structured_data = new_data
+                flag_modified(sec_obj, "structured_data")
+                db.add(sec_obj)
+                db.commit()
+                st.toast(f"✅ Saved comment for Section {sid}!", icon="💾")
+
+        # Overall section remark box
+        rem_col1, rem_col2 = st.columns([8, 2])
+        with rem_col1:
+            rem_val = st.text_input(
+                f"Overall Section Remark for Section {sid}:",
+                placeholder=f"e.g., Row 1 & 2 need specific control descriptions before approval.",
+                key=f"{key_prefix}_tbl_rem_{sid}_{sec_obj.id}",
+                label_visibility="collapsed"
+            )
+        with rem_col2:
+            if st.button("💾 Save Remark", key=f"{key_prefix}_btn_tbl_{sid}_{sec_obj.id}", use_container_width=True):
+                if rem_val.strip():
+                    rev_rec = ReviewHistory(
+                        process_note_id=current_note.id,
+                        process_name=current_note.process_name,
+                        reviewer=st.session_state.get("current_user_name") or "Reviewer",
+                        action="COMMENTED",
+                        comments=f"[Section {sid} - {sname}]: {rem_val.strip()}"
+                    )
+                    db.add(rev_rec)
+                    db.commit()
+                    st.toast(f"✅ Remark saved for Section {sid}!", icon="💾")
+                    st.rerun()
+
+    elif stype in ["flowchart", "file"]:
+        mermaid_src = sec_obj.content or ""
+        st.caption(f"📊 Section {sid} Flowchart Diagram:")
+        if "graph " in mermaid_src or "flowchart " in mermaid_src:
+            st.markdown(f"```mermaid\n{mermaid_src}\n```")
+        else:
+            st.code(mermaid_src, language="mermaid")
+            
+        rem_col1, rem_col2 = st.columns([8, 2])
+        with rem_col1:
+            rem_val = st.text_input(
+                f"Remark for Section {sid}:",
+                placeholder="e.g., Please add decision diamonds for the approval gate.",
+                key=f"{key_prefix}_diag_rem_{sid}_{sec_obj.id}",
+                label_visibility="collapsed"
+            )
+        with rem_col2:
+            if st.button("💾 Save Remark", key=f"{key_prefix}_btn_diag_{sid}_{sec_obj.id}", use_container_width=True):
+                if rem_val.strip():
+                    rev_rec = ReviewHistory(
+                        process_note_id=current_note.id,
+                        process_name=current_note.process_name,
+                        reviewer=st.session_state.get("current_user_name") or "Reviewer",
+                        action="COMMENTED",
+                        comments=f"[Section {sid} - {sname}]: {rem_val.strip()}"
+                    )
+                    db.add(rev_rec)
+                    db.commit()
+                    st.toast(f"✅ Remark saved for Section {sid}!", icon="💾")
+                    st.rerun()
+    else:
+        # Text/narrative section
+        clean_txt = clean_heading_hashes(sec_obj.content or "", sid, sname)
+        st.markdown(f"""
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px 14px; font-size: 13px; color: #334155; max-height: 200px; overflow-y: auto; margin-bottom: 8px; white-space: pre-wrap;">
+            {clean_txt}
+        </div>
+        """, unsafe_allow_html=True)
+        
+        rem_col1, rem_col2 = st.columns([8, 2])
+        with rem_col1:
+            rem_val = st.text_input(
+                f"Remark for Section {sid}:",
+                placeholder=f"e.g., Needs more operational detail regarding the entry criteria.",
+                key=f"{key_prefix}_text_rem_{sid}_{sec_obj.id}",
+                label_visibility="collapsed"
+            )
+        with rem_col2:
+            if st.button("💾 Save Remark", key=f"{key_prefix}_btn_save_{sid}_{sec_obj.id}", use_container_width=True):
+                if rem_val.strip():
+                    rev_rec = ReviewHistory(
+                        process_note_id=current_note.id,
+                        process_name=current_note.process_name,
+                        reviewer=st.session_state.get("current_user_name") or "Reviewer",
+                        action="COMMENTED",
+                        comments=f"[Section {sid} - {sname}]: {rem_val.strip()}"
+                    )
+                    db.add(rev_rec)
+                    db.commit()
+                    st.toast(f"✅ Remark saved for Section {sid}!", icon="💾")
+                    st.rerun()
+
+    # Show previous remarks if any
+    prev_remarks = db.query(ReviewHistory).filter(
+        ReviewHistory.process_note_id == current_note.id,
+        ReviewHistory.action == "COMMENTED",
+        ReviewHistory.comments.like(f"[Section {sid}%")
+    ).order_by(ReviewHistory.timestamp.desc()).all()
+    if prev_remarks:
+        st.markdown("<div style='font-size: 11.5px; font-weight: 700; color: #4338CA; margin-top: 6px;'>💬 Previous Reviewer Remarks on this Section:</div>", unsafe_allow_html=True)
+        for pr in prev_remarks[:3]:
+            st.markdown(f"""
+            <div style="background: #EEF2FF; border-left: 3px solid #6366F1; padding: 5px 10px; border-radius: 4px; font-size: 12px; color: #312E81; margin-top: 4px;">
+                <strong>{pr.reviewer or 'Reviewer'}</strong> <span style="color: #6366F1; font-size: 11px;">({pr.timestamp.strftime('%b %d, %H:%M') if pr.timestamp else ''})</span>: {pr.comments.split(']: ', 1)[-1] if ']: ' in (pr.comments or '') else pr.comments}
+            </div>
+            """, unsafe_allow_html=True)
 
 inject_custom_css()
 
@@ -290,7 +485,9 @@ try:
                             process_name=current_note.process_name,
                             reviewer=reviewer_name,
                             action="SENT_BACK",
-                            comments=reviewer_comments or "Revisions requested by reviewer."
+                            comments=(reviewer_comments if (reviewer_comments and reviewer_comments.strip()) else (
+                            "\n".join([f"• {h.comments}" for h in db.query(ReviewHistory).filter(ReviewHistory.process_note_id == current_note.id, ReviewHistory.action == "COMMENTED").all() if h.comments]) or "Revisions requested by reviewer."
+                        ))
                         )
                         db.add(rev_rec)
                         db.commit()
@@ -408,23 +605,40 @@ try:
                     status_badge = "🟢 Resolved by Creator" if is_ok_user else ("🔴 Critical Discrepancy" if is_critical else "🟡 Advisory Notice")
 
                     with st.expander(f"Discrepancy {idx}: {f.section_id or 'General Governance'} • {status_badge}", expanded=is_critical):
-                        formatted_issue = format_direct_discrepancy(clean_issue)
-                        st.markdown(f"**Discrepancy Details:**\n\n{formatted_issue}")
+                        # 1. Crisp 'What to Check' box
+                        crisp_info = simplify_discrepancy(clean_issue)
+                        
+                        st.markdown(f"""
+                        <div style="background: {'#FEF2F2' if is_critical else '#FFFBEB'}; border-left: 4px solid {'#EF4444' if is_critical else '#F59E0B'}; padding: 12px 16px; border-radius: 6px; margin-bottom: 12px;">
+                            <div style="font-weight: 700; font-size: 12px; color: {'#991B1B' if is_critical else '#92400E'}; margin-bottom: 6px; letter-spacing: 0.04em; text-transform: uppercase;">
+                                🔍 What to Check & Verify:
+                            </div>
+                            <div style="color: #1E293B; font-size: 13.5px; line-height: 1.55;">
+                                {crisp_info.replace(chr(10), '<br>')}
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
 
                         if f.recommendation and f.recommendation.strip():
-                            st.markdown("---")
-                            st.markdown(f"**Action Required to Resolve:**\n\n{f.recommendation}")
+                            with st.expander("💡 Recommended Action & Clarification Questions", expanded=False):
+                                st.markdown(f.recommendation)
 
-                        # Find corresponding section data
-                        matching_sec = next((s for s in current_note.sections if str(s.section_id) == str(f.section_id)), None)
-                        if matching_sec:
-                            st.markdown("---")
-                            st.markdown(f"**Preview Section Data ({matching_sec.section_id}):**")
-                            if matching_sec.content:
-                                st.info(clean_heading_hashes(matching_sec.content, matching_sec.section_id))
-                            elif matching_sec.structured_data:
-                                df_find = pd.DataFrame(matching_sec.structured_data)
-                                st.dataframe(df_find, use_container_width=True)
+                        # 2. Section Details & In-Line Reviewer Comments
+                        matched_sections = resolve_sections_for_finding(f, current_note.sections, sections_config)
+                        
+                        if matched_sections:
+                            st.markdown("<div style='font-weight: 700; font-size: 13px; color: #1E293B; margin: 12px 0 6px 0;'>📋 Section Details & In-Line Feedback:</div>", unsafe_allow_html=True)
+                            if len(matched_sections) > 1:
+                                sec_tabs = st.tabs([f"Sec {m_cfg['id']} ({m_cfg['name']})" for m_cfg, _ in matched_sections])
+                                for t_idx, (m_cfg, m_sec_obj) in enumerate(matched_sections):
+                                    with sec_tabs[t_idx]:
+                                        render_inline_section_comment_ui(m_cfg, m_sec_obj, current_note, db, key_prefix=f"disc_{f.id}_{m_cfg['id']}")
+                            else:
+                                m_cfg, m_sec_obj = matched_sections[0]
+                                render_inline_section_comment_ui(m_cfg, m_sec_obj, current_note, db, key_prefix=f"disc_{f.id}")
+                        else:
+                            st.caption("ℹ️ Section content is currently empty.")
+
 
     # -------------------------------------------------------------
     # TAB 3: FULL 22 SECTIONS REVIEW

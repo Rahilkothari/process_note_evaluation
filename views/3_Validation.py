@@ -3,8 +3,28 @@ def format_direct_discrepancy(text: str) -> str:
     if not text or not text.strip():
         return ""
     import re
-    if "Specifically:" in text or "Specifically :" in text:
-        parts = re.split(r'Specifically\s*:\s*', text, maxsplit=1)
+    clean_text = text.strip()
+
+    pattern = r'Row\s+(\d+)\s*:\s*(.*?)(?:\s+in\s+[^.]+?)?\s+(?:is missing|cannot be blank|is empty|required)\.?'
+    matches = re.findall(pattern, clean_text, re.IGNORECASE)
+    if matches:
+        from collections import defaultdict
+        field_to_rows = defaultdict(list)
+        for r_num, field in matches:
+            clean_f = field.strip().rstrip(".").strip()
+            if clean_f.lower().startswith("document title"):
+                clean_f = "Document Title"
+            if r_num not in field_to_rows[clean_f]:
+                field_to_rows[clean_f].append(r_num)
+        items = []
+        for field, rows in field_to_rows.items():
+            sorted_rows = sorted(rows, key=lambda x: int(x))
+            r_phrase = f"Row {sorted_rows[0]}" if len(sorted_rows) == 1 else f"Rows {', '.join(sorted_rows[:-1])} & {sorted_rows[-1]}"
+            items.append(f"• **{field}** is incomplete in **{r_phrase}**")
+        return "\n".join(items)
+
+    if "Specifically:" in clean_text or "Specifically :" in clean_text:
+        parts = re.split(r'Specifically\s*:\s*', clean_text, maxsplit=1)
         summary = parts[0].strip()
         details = parts[1].strip()
         raw_points = re.split(r'\s*(?:;\s*)?(?:\d+\))\s*', details)
@@ -12,8 +32,8 @@ def format_direct_discrepancy(text: str) -> str:
         if clean_points:
             bullet_md = "\n".join([f"- **Gap {i+1}**: {p}" for i, p in enumerate(clean_points)])
             return f"**Direct Summary:** {summary}\n\n**Key Mismatches:**\n{bullet_md}"
-    elif ";" in text and len(text) > 80:
-        clauses = [c.strip().rstrip(';.') for c in text.split(";") if c.strip()]
+    elif ";" in clean_text and len(clean_text) > 80:
+        clauses = [c.strip().rstrip(';.') for c in clean_text.split(";") if c.strip()]
         if len(clauses) >= 2:
             bullet_md = "\n".join([f"- {c}" for c in clauses])
             return f"**Direct Summary:**\n{bullet_md}"
