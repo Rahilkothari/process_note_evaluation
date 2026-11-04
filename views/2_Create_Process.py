@@ -346,8 +346,8 @@ try:
         total_count = len(sections)
         estimated_readiness = round((ready_count / total_count) * 100, 1)
 
-        # Sleek 1-row Summary Bar: Note Name, Readiness, and Edit Button
-        bar_col1, bar_col2 = st.columns([3.8, 1.2])
+        # Sleek 1-row Summary Bar: Note Name, Readiness, Edit Button, and Submit for Review Button
+        bar_col1, bar_col2, bar_col3 = st.columns([2.6, 1.1, 1.3])
         with bar_col1:
             st.markdown(f"""
             <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 8px 14px; display: flex; justify-content: space-between; align-items: center;">
@@ -363,11 +363,47 @@ try:
             """, unsafe_allow_html=True)
             st.progress(ready_count / total_count if total_count > 0 else 0)
 
-
         with bar_col2:
             if st.button("✏️ Edit Basic Info", key="btn_back_to_s1", use_container_width=True):
                 st.session_state["process_step"] = 1
                 st.rerun()
+
+        with bar_col3:
+            if current_note.status == "UNDER_REVIEW":
+                st.markdown("""
+                <div style="background: #FEF3C7; border: 1px solid #FCD34D; border-radius: 6px; padding: 7px 10px; text-align: center; color: #92400E; font-size: 12px; font-weight: 700; height: 38px; display: flex; align-items: center; justify-content: center;">
+                    🕒 Under Review
+                </div>
+                """, unsafe_allow_html=True)
+            elif current_note.status == "APPROVED":
+                st.markdown("""
+                <div style="background: #DCFCE7; border: 1px solid #86EFAC; border-radius: 6px; padding: 7px 10px; text-align: center; color: #166534; font-size: 12px; font-weight: 700; height: 38px; display: flex; align-items: center; justify-content: center;">
+                    🎉 Approved
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                if st.button("🚀 Submit for Review", key="btn_creator_submit_review", type="primary", use_container_width=True):
+                    current_note.status = "UNDER_REVIEW"
+                    from models.database import ReviewHistory, User
+                    from core.notifications import create_notification
+                    user_name = st.session_state.get("current_user_name", "Creator")
+                    rev_history = ReviewHistory(
+                        process_note_id=current_note.id,
+                        process_name=current_note.process_name,
+                        reviewer=user_name,
+                        action="SUBMITTED",
+                        comments="Submitted by creator for manual review.",
+                    )
+                    db.add(rev_history)
+                    db.commit()
+
+                    reviewers = db.query(User).filter(User.role.in_(["reviewer", "admin"])).all()
+                    msg = f"{user_name} has submitted '{current_note.process_name}' (v{current_note.version}) for manual review."
+                    for r in reviewers:
+                        create_notification(db, r.id, msg, current_note.id)
+
+                    st.toast("Submitted for manual review!", icon="🚀")
+                    st.rerun()
 
         team_lower = current_note.team.lower() if current_note.team else ""
         if "volunteer" in team_lower or "comm" in team_lower:
