@@ -401,7 +401,7 @@ try:
                     db.add(rev_history)
                     db.commit()
 
-                    reviewers = db.query(User).filter(User.role.in_(["reviewer", "admin"])).all()
+                    reviewers = db.query(User).filter(User.role == "reviewer").all()
                     msg = f"{user_name} has submitted '{current_note.process_name}' (v{current_note.version}) for manual review."
                     for r in reviewers:
                         create_notification(db, r.id, msg, current_note.id)

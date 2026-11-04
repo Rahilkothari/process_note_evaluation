@@ -208,13 +208,11 @@ try:
 
                 from models.database import User
                 from core.notifications import create_notification
-                reviewers = db.query(User).filter(User.role.in_(["reviewer", "admin"])).all()
+                reviewers = db.query(User).filter(User.role == "reviewer").all()
                 msg = f"{user_name} has submitted '{current_note.process_name}' (v{current_note.version}) for manual review."
                 for r in reviewers:
                     create_notification(db, r.id, msg, current_note.id)
 
-                updated_key = f"[{current_note.id}] {current_note.process_name} (v{current_note.version})"
-                st.session_state.validation_selectbox = updated_key
                 st.session_state.selected_note_id = current_note.id
                 st.toast("Submitted for manual review!", icon="🚀")
                 st.rerun()
@@ -652,17 +650,13 @@ try:
                 # Notify reviewers
                 from models.database import User
                 from core.notifications import create_notification
-                reviewers = db.query(User).filter(User.role.in_(["reviewer", "admin"])).all()
+                reviewers = db.query(User).filter(User.role == "reviewer").all()
                 user_name = st.session_state.get("current_user_name", "A user")
                 msg = f"{user_name} has submitted '{current_note.process_name}' for manual review."
                 for r in reviewers:
                     create_notification(db, r.id, msg, current_note.id)
 
-                # Safely update selectbox key in session state
-                updated_key = f"[{current_note.id}] {current_note.process_name} (v{current_note.version})"
-                st.session_state.validation_selectbox = updated_key
                 st.session_state.selected_note_id = current_note.id
-
                 st.success("🎉 Successfully submitted for manual review! Reviewers have been notified.")
                 st.rerun()
         elif current_note.status == "UNDER_REVIEW":
