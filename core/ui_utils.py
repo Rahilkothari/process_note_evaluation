@@ -442,7 +442,7 @@ def get_mermaid_png_bytes(clean_code: str) -> bytes:
         b64 = base64.b64encode(clean_code.encode("utf-8")).decode("ascii")
         url = f"https://mermaid.ink/img/{b64}"
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
-        with urllib.request.urlopen(req, timeout=5) as res:
+        with urllib.request.urlopen(req, timeout=10) as res:
             if res.status == 200:
                 return res.read()
     except Exception:
@@ -460,7 +460,7 @@ def get_mermaid_svg_bytes(clean_code: str) -> bytes:
         b64 = base64.b64encode(clean_code.encode("utf-8")).decode("ascii")
         url = f"https://mermaid.ink/svg/{b64}"
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
-        with urllib.request.urlopen(req, timeout=5) as res:
+        with urllib.request.urlopen(req, timeout=10) as res:
             if res.status == 200:
                 return res.read()
     except Exception:
@@ -487,6 +487,10 @@ def render_mermaid_flowchart(chart_code: str, height: int = None, show_code_togg
     # Calculate responsive container height based on node count
     lines = [l for l in clean_code.split("\n") if l.strip()]
     calc_height = max(420, min(880, len(lines) * 45 + 110)) if not height else height
+
+    svg_bytes = get_mermaid_svg_bytes(clean_code)
+    svg_html = svg_bytes.decode("utf-8", errors="ignore") if svg_bytes else ""
+    has_pre_rendered = bool(svg_html and "<svg" in svg_html)
 
     if show_code_toggle:
         dl_col1, dl_col2, dl_col3 = st.columns([1, 1, 1])
@@ -631,9 +635,7 @@ def render_mermaid_flowchart(chart_code: str, height: int = None, show_code_togg
           </div>
         </div>
         <div id="error-msg"></div>
-        <pre class="mermaid" id="mermaid-target">
-{clean_code}
-        </pre>
+        {f'<div class="diagram-rendered" id="mermaid-target" style="display:flex; justify-content:center; width:100%;">{svg_html}</div>' if has_pre_rendered else f'<pre class="mermaid" id="mermaid-target">{clean_code}</pre>'}
       </div>
 
       <script>
@@ -767,7 +769,7 @@ def render_mermaid_flowchart(chart_code: str, height: int = None, show_code_togg
             securityLevel: 'loose',
             flowchart: {{
               useMaxWidth: true,
-              htmlLabels: false,
+              htmlLabels: true,
               curve: 'basis'
             }},
             themeVariables: {{

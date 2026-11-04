@@ -75,8 +75,14 @@ def simplify_discrepancy(text: str) -> str:
     # 3. Flowchart vs Process Description Inconsistency
     if "Inconsistency between the Process Flowchart" in clean_text or ("Flowchart" in clean_text and "Process Description" in clean_text):
         m_loop = re.search(r"contains\s+(?:a\s+)?(.*?)(?:,\s*but|\s+but)", clean_text, re.IGNORECASE)
-        loop_str = (m_loop.group(1) if m_loop else "decision / rejection loop").replace("*", "")
-        return f"📍 <b>Location:</b> Section 1.11 (Flowchart) vs Section 1.12 (Process Description)\n• Flowchart has <b>{loop_str[:60]}</b>, but Section 1.12 omits how this is executed."
+        if m_loop:
+            raw_loop = m_loop.group(1).replace("*", "").strip()
+            loop_desc = re.sub(r'\s*\([^)]*\)', '', raw_loop).strip()
+            if not loop_desc:
+                loop_desc = "decision branch and non-compliance loop"
+        else:
+            loop_desc = "decision branch and non-compliance loop"
+        return f"📍 <b>Location:</b> Section 1.11 (Flowchart) vs Section 1.12 (Process Description)\n• Flowchart specifies <b>{loop_desc}</b>, but Section 1.12 omits how this is executed."
 
     # 4. RACI Matrix vs Process Description
     if "RACI" in clean_text and ("missing" in clean_text.lower() or "activities" in clean_text.lower()):

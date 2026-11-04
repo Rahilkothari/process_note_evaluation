@@ -350,6 +350,59 @@ def test_section_1_18_missing_title_flagged():
     assert len(issues) > 0
     assert any("Document Title is missing" in iss or "Table is empty" in iss for iss in issues)
 
+def test_alias_and_case_insensitive_table_validation():
+    from core.rule_validator import RuleValidator
+    validator = RuleValidator()
+    config = {
+        "sections": [
+            {"id": "1.16", "name": "Risk Management", "type": "table"},
+            {"id": "1.17", "name": "Compliance Management", "type": "table"},
+            {"id": "1.18", "name": "Data Archival", "type": "table"},
+            {"id": "1.19", "name": "Abbreviations & Acronyms", "type": "table"}
+        ]
+    }
+
+    # 1.18 with Document / Record Name and Retention Period
+    sec_118 = ProcessSectionSchema(
+        section_id="1.18",
+        content="",
+        structured_data=[
+            {"Document / Record Name": "Counter-Signed MOUs", "Retention Period": "7 Years"}
+        ]
+    )
+    assert len(validator.validate(sec_118, config)) == 0
+
+    # 1.16 with Mitigation Control
+    sec_116 = ProcessSectionSchema(
+        section_id="1.16",
+        content="",
+        structured_data=[
+            {"Risk Description": "Hazard", "Mitigation Control": "Audit Checklist"}
+        ]
+    )
+    assert len(validator.validate(sec_116, config)) == 0
+
+    # 1.17 with Compliance Particulars
+    sec_117 = ProcessSectionSchema(
+        section_id="1.17",
+        content="",
+        structured_data=[
+            {"Compliance Particulars": "RTE Norms", "Description / Requirement": "Valid"}
+        ]
+    )
+    assert len(validator.validate(sec_117, config)) == 0
+
+    # 1.19 with Full Form and Context / Definition
+    sec_119 = ProcessSectionSchema(
+        section_id="1.19",
+        content="",
+        structured_data=[
+            {"Abbreviation": "MOU", "Full Form": "Memorandum of Understanding", "Context / Definition": "Formal agreement"}
+        ]
+    )
+    assert len(validator.validate(sec_119, config)) == 0
+
+
 
 
 

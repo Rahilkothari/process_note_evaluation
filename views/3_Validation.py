@@ -1,8 +1,8 @@
 def extract_concise_gap(gap_str: str) -> str:
     """Distill verbose cross-section gap text into 1 punchy line."""
     step_m = re.search(r'(Step\s*\d+)', gap_str, re.IGNORECASE)
-    step_prefix = f"**{step_m.group(1)}**: " if step_m else ""
-    clean_p = gap_str.strip()
+    step_prefix = f"<b>{step_m.group(1)}:</b> " if step_m else ""
+    clean_p = gap_str.replace("*", "").strip()
 
     if "omits" in clean_p.lower():
         after = re.split(r'omits\s+', clean_p, flags=re.IGNORECASE)[1].strip()
@@ -31,7 +31,7 @@ def format_direct_discrepancy(text: str) -> str:
         from collections import defaultdict
         field_to_rows = defaultdict(list)
         for r_num, field in matches:
-            clean_f = field.strip().rstrip(".").strip()
+            clean_f = field.strip().rstrip(".").strip().replace("*", "")
             if clean_f.lower().startswith("document title"):
                 clean_f = "Document Title"
             if r_num not in field_to_rows[clean_f]:
@@ -40,7 +40,7 @@ def format_direct_discrepancy(text: str) -> str:
         for field, rows in field_to_rows.items():
             sorted_rows = sorted(rows, key=lambda x: int(x))
             r_phrase = f"Row {sorted_rows[0]}" if len(sorted_rows) == 1 else f"Rows {', '.join(sorted_rows[:-1])} & {sorted_rows[-1]}"
-            items.append(f"• **{field}** is incomplete in **{r_phrase}**")
+            items.append(f"• <b>{field}</b> is incomplete in <b>{r_phrase}</b>")
         return "\n".join(items)
 
     if "Specifically:" in clean_text or "Specifically :" in clean_text:
@@ -51,25 +51,31 @@ def format_direct_discrepancy(text: str) -> str:
         condensed_gaps = [extract_concise_gap(p) for p in clean_points]
         sec_m = re.findall(r'1\.\d+', clean_text)
         sec_str = " vs ".join(sorted(list(set(sec_m)))) if sec_m else ""
-        header = f"📍 **Location:** Section {sec_str}\n" if sec_str else ""
+        header = f"📍 <b>Location:</b> Section {sec_str}\n" if sec_str else ""
         return f"{header}\n".strip() + "\n" + "\n".join(condensed_gaps)
 
     # Flowchart vs Process Description Inconsistency
     if "Inconsistency between the Process Flowchart" in clean_text or ("Flowchart" in clean_text and "Process Description" in clean_text):
         m_loop = re.search(r"contains\s+(?:a\s+)?(.*?)(?:,\s*but|\s+but)", clean_text, re.IGNORECASE)
-        loop_str = m_loop.group(1) if m_loop else "decision / rejection loop"
-        return f"📍 **Location:** Section 1.11 (Flowchart) vs Section 1.12 (Process Description)\n• Flowchart has **{loop_str[:60]}**, but Section 1.12 omits how this is executed."
+        if m_loop:
+            raw_loop = m_loop.group(1).replace("*", "").strip()
+            loop_desc = re.sub(r'\s*\([^)]*\)', '', raw_loop).strip()
+            if not loop_desc:
+                loop_desc = "decision branch and non-compliance loop"
+        else:
+            loop_desc = "decision branch and non-compliance loop"
+        return f"📍 <b>Location:</b> Section 1.11 (Flowchart) vs Section 1.12 (Process Description)\n• Flowchart specifies <b>{loop_desc}</b>, but Section 1.12 omits how this is executed."
 
     # RACI Matrix vs Process Description
     if "RACI" in clean_text and ("missing" in clean_text.lower() or "activities" in clean_text.lower()):
         m_acts = re.search(r':\s*([^.]+)', clean_text)
-        act_list = m_acts.group(1).strip() if m_acts else "workflow activities"
-        return f"📍 **Location:** Section 1.12 (Process Description) vs Section 1.13 (RACI Matrix)\n• **Missing Roles:** Assign Responsible & Accountable for: **{act_list}**"
+        act_list = (m_acts.group(1).strip() if m_acts else "workflow activities").replace("*", "")
+        return f"📍 <b>Location:</b> Section 1.12 (Process Description) vs Section 1.13 (RACI Matrix)\n• <b>Missing Roles:</b> Assign Responsible & Accountable for: <b>{act_list}</b>"
 
-    sentences = [s.strip() for s in re.split(r'\.\s+', clean_text) if s.strip()]
+    sentences = [s.strip().replace("*", "") for s in re.split(r'\.\s+', clean_text) if s.strip()]
     if len(sentences) > 1:
         return f"• {sentences[0]}.\n• {sentences[1]}."
-    return f"• {clean_text}"
+    return f"• {clean_text.replace('*', '')}"
 
 import streamlit as st
 from models.database import SessionLocal, get_db, ProcessNote, ValidationRun, ValidationFinding, ProcessSection, ReviewHistory
