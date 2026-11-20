@@ -738,6 +738,14 @@ You MUST output exactly one of the following fixed scores and statuses:
    - Content is completely missing/empty, has inverted math formulas, broken/truncated sentences, or severe non-compliance.
    - Status: "NEEDS_REVISION", Severity: "HIGH".
 
+CRITICAL STYLE REQUIREMENT - KEEP REVIEWS BITE-SIZED, CRISP & ACTIONABLE:
+- Avoid long narrative paragraphs, academic jargon, and run-on sentences.
+- Each item in "issues" MUST be a single, short bullet point (1-2 sentences max).
+  Specify the exact location: e.g. "Row 2, 3, 9: Inverted formula ((Planned / Confirmed) * 100)".
+- Each item in "recommendations" MUST be the exact 1-line actionable fix matching the issue.
+  Specify the exact fix: e.g. "Change formula to: (Confirmed Count / Planned Count) * 100".
+- If questions exist, limit to 1-2 concise, direct questions.
+
 Return your evaluation as a valid JSON object matching this schema exactly:
 {{
     "status": "PASS" | "WARNING" | "NEEDS_REVISION",

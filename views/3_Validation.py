@@ -93,6 +93,89 @@ import re
 
 from core.ui_utils import inject_custom_css
 
+def render_crisp_feedback(issue_text: str, rec_text: str, severity: str = "MEDIUM", questions_text: str = ""):
+    """Renders validation issues and recommendations as crisp, bite-sized, high-contrast action cards instead of dense text."""
+    def parse_items(t):
+        if not t or not t.strip():
+            return []
+        clean = t.replace('*(Marked as OK by User)*', '').replace('*(Resolved by Clarification)*', '').strip()
+        lines = [l.strip() for l in re.split(r'[\r\n]+', clean) if l.strip()]
+        if len(lines) > 1 and any(l.startswith(('•', '-', '*', '1.', '2.', '3.')) for l in lines):
+            return [re.sub(r'^[•\-\*\d\.\s]+', '', l).strip() for l in lines if l.strip()]
+        pattern = r'(?<!\bSr)(?<!\bNo)(?<!\be\.g)(?<!\bi\.e)(?<!\bvs)(?<!\bSec)(?<!\bv)\.\s+(?=[A-Z0-9])'
+        sents = [s.strip() for s in re.split(pattern, clean) if s.strip()]
+        return [s.rstrip('.') + '.' if not s.endswith('.') else s for s in sents]
+
+    issues = parse_items(issue_text)
+    recs = parse_items(rec_text)
+
+    is_high = severity == "HIGH"
+    is_warn = severity == "MEDIUM"
+    border_color = "#E11D48" if is_high else ("#F59E0B" if is_warn else "#10B981")
+    header_color = "#9F1239" if is_high else ("#92400E" if is_warn else "#166534")
+    icon = "🔴" if is_high else ("⚠️" if is_warn else "💡")
+    badge_label = "Action Required" if is_high else ("Operational Gap" if is_warn else "Polish Tip")
+
+    # If issues and recs pair up (same count)
+    if len(issues) > 0 and len(issues) == len(recs):
+        for idx, (iss, rc) in enumerate(zip(issues, recs)):
+            st.markdown(f"""
+            <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-left: 4.5px solid {border_color}; border-radius: 8px; padding: 12px 16px; margin: 8px 0 10px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <span style="font-weight: 700; color: {header_color}; font-size: 13.5px;">{icon} Point {idx + 1}:</span>
+                    <span style="font-size: 11px; font-weight: 700; color: {header_color}; background: #F8FAFC; padding: 2px 8px; border-radius: 10px; border: 1px solid #E2E8F0;">{badge_label}</span>
+                </div>
+                <div style="color: #334155; font-size: 13px; line-height: 1.5; margin-bottom: 8px;">
+                    {iss}
+                </div>
+                <div style="padding: 6px 12px; background: #F0FDF4; border-radius: 6px; border: 1px solid #BBF7D0; font-size: 12.5px; color: #166534; line-height: 1.45;">
+                    <b>💡 Recommended Fix:</b> {rc}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        # If counts differ or singular
+        if issues:
+            bullets_html = "".join([f'<li style="margin-bottom: 6px;">{it}</li>' for it in issues])
+            st.markdown(f"""
+            <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-left: 4.5px solid {border_color}; border-radius: 8px; padding: 12px 16px; margin: 8px 0 10px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+                <div style="font-weight: 700; color: {header_color}; font-size: 13.5px; margin-bottom: 6px;">
+                    {icon} What Needs Attention ({severity}):
+                </div>
+                <ul style="margin: 0; padding-left: 20px; color: #334155; font-size: 13px; line-height: 1.5;">
+                    {bullets_html}
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+
+        if recs:
+            rec_bullets_html = "".join([f'<li style="margin-bottom: 5px;">{rc}</li>' for rc in recs])
+            st.markdown(f"""
+            <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-left: 4.5px solid #22C55E; border-radius: 8px; padding: 10px 16px; margin: 8px 0 10px 0;">
+                <div style="font-weight: 700; color: #166534; font-size: 13px; margin-bottom: 5px;">
+                    💡 Actionable Fixes:
+                </div>
+                <ul style="margin: 0; padding-left: 20px; color: #14532D; font-size: 12.5px; line-height: 1.45;">
+                    {rec_bullets_html}
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+
+    if questions_text and questions_text.strip():
+        q_lines = parse_items(questions_text)
+        if q_lines:
+            q_html = "".join([f'<li style="margin-bottom: 5px;">{q}</li>' for q in q_lines])
+            st.markdown(f"""
+            <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-left: 4.5px solid #3B82F6; border-radius: 8px; padding: 10px 16px; margin: 10px 0;">
+                <div style="font-weight: 700; color: #1E40AF; font-size: 13px; margin-bottom: 5px;">
+                    💬 Clarification Questions for Creator:
+                </div>
+                <ul style="margin: 0; padding-left: 20px; color: #1E3A8A; font-size: 12.5px; line-height: 1.45;">
+                    {q_html}
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+
 def render_inline_section_editor(sec_def, section, current_note, db, key_suffix=""):
     """Renders interactive inline editor (data_editor for tables, text_area for text/flowcharts) directly inside finding cards."""
     if not sec_def:
@@ -486,16 +569,14 @@ try:
                 exp_title = f"✅ {clean_sec_label} - Resolved" if is_resolved else f"💡 Suggestion: {clean_sec_label} Alignment"
 
                 with st.expander(exp_title, expanded=False):
-                    st.markdown(f"**Suggestion:**\n\n{format_direct_discrepancy(display_cr_issue)}")
-
+                    cr_advice = f.recommendation or ""
+                    cr_questions = ""
                     if f.recommendation and "**Clarification Questions for Process Owner:**" in f.recommendation:
-                        st.markdown("""
-                        <div style="background-color: #F8FAFC; border-left: 4px solid #3B82F6; padding: 10px 14px; border-radius: 4px; margin: 10px 0;">
-                            <strong style="color: #1E3A8A;">💬 Question to consider:</strong>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        q_part = f.recommendation.split("**Clarification Questions for Process Owner:**")[1].strip()
-                        st.markdown(q_part)
+                        rec_parts = f.recommendation.split("**Clarification Questions for Process Owner:**")
+                        cr_advice = rec_parts[0].strip()
+                        cr_questions = rec_parts[1].strip()
+
+                    render_crisp_feedback(display_cr_issue, cr_advice, f.severity or "MEDIUM", cr_questions)
 
                     # Identify all involved sections for this cross-section finding
                     found_sids = re.findall(r'1\.\d+', str(f.section_id or ""))
@@ -600,66 +681,55 @@ try:
                     </div>
                     """, unsafe_allow_html=True)
                 st.markdown(f"**Status:** {badge_html}", unsafe_allow_html=True)
-                if display_issue.strip():
-                    st.markdown(f"**Issues ({f.severity}):**")
-                    st.write(display_issue.strip())
+                advice = f.recommendation or ""
+                questions = ""
+                if f.recommendation and "**Clarification Questions for Process Owner:**" in f.recommendation:
+                    rec_parts = f.recommendation.split("**Clarification Questions for Process Owner:**")
+                    advice = rec_parts[0].strip()
+                    questions = rec_parts[1].strip()
 
-                # Check for clarification questions
-                if f.recommendation:
-                    if "**Clarification Questions for Process Owner:**" in f.recommendation:
-                        rec_parts = f.recommendation.split("**Clarification Questions for Process Owner:**")
-                        advice = rec_parts[0].strip()
-                        questions = rec_parts[1].strip()
+                if display_issue.strip() or advice.strip() or questions.strip():
+                    render_crisp_feedback(display_issue, advice, f.severity, questions)
+                else:
+                    st.markdown("""
+                    <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-left: 4.5px solid #22C55E; border-radius: 8px; padding: 10px 14px; margin: 8px 0; color: #166534; font-size: 13px; font-weight: 600;">
+                        ✅ Section looks good. Fully compliant with enterprise process note standards.
+                    </div>
+                    """, unsafe_allow_html=True)
 
-                        if advice:
-                            st.markdown("**Recommendation:**")
-                            st.write(advice)
+                if f.status != "PASS" and not is_manual:
+                    show_sec_ai = st.toggle("🤖 Need AI help updating this section with your answer?", key=f"toggle_sec_ai_{f.id}", value=False)
+                    if show_sec_ai:
+                        sec_ans = st.text_area("Your response / missing details for this section:", key=f"ans_sec_{f.id}", height=75)
+                        if st.button("✨ Apply Clarification to This Section", key=f"btn_sec_apply_{f.id}", type="primary"):
+                            if not sec_ans.strip():
+                                st.warning("Please type your response before applying.")
+                            else:
+                                with st.spinner("AI is updating this section..."):
+                                    from services.llm_service import get_llm_provider
+                                    llm = get_llm_provider()
 
-                        st.markdown("""
-                        <div style="background-color: #FEF3C7; border-left: 4px solid #F59E0B; padding: 10px; border-radius: 4px; margin: 10px 0;">
-                            <strong style="color: #92400E;">💬 Clarification Questions for Process Owner:</strong>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        st.markdown(questions)
+                                    # Find true section ID
+                                    sec_def = next((s for s in sections_config if str(s.get("id")) == str(f.section_id) or str(s.get("name")) == str(f.section_id) or str(f.section_id).startswith(str(s.get("id")))), None)
+                                    t_sec_id = sec_def.get("id") if sec_def else f.section_id.split(" ")[0].replace("-", "").strip()
 
-                        if f.status != "PASS" and not is_manual:
-                            show_sec_ai = st.toggle("🤖 Need AI help updating this section with your answer?", key=f"toggle_sec_ai_{f.id}", value=False)
-                            if show_sec_ai:
-                                sec_ans = st.text_area("Your response / missing details for this section:", key=f"ans_sec_{f.id}", height=75)
-                                if st.button("✨ Apply Clarification to This Section", key=f"btn_sec_apply_{f.id}", type="primary"):
-                                    if not sec_ans.strip():
-                                        st.warning("Please type your response before applying.")
-                                    else:
-                                        with st.spinner("AI is updating this section..."):
-                                            from services.llm_service import get_llm_provider
-                                            llm = get_llm_provider()
+                                    target_sec = db.query(ProcessSection).filter(ProcessSection.process_note_id == current_note.id, ProcessSection.section_id == t_sec_id).first()
+                                    if target_sec:
+                                        s_type = sec_def.get("type", "text") if sec_def else "text"
+                                        curr_cont = target_sec.structured_data if s_type == "table" else (target_sec.content or "")
+                                        questions_to_use = questions if questions else (display_issue if display_issue else advice)
+                                        updated_res = llm.resolve_clarification(t_sec_id, s_type, curr_cont, questions_to_use, sec_ans)
+                                        if s_type == "table" and isinstance(updated_res, list):
+                                            target_sec.structured_data = updated_res
+                                        else:
+                                            target_sec.content = str(updated_res)
 
-                                            # Find true section ID
-                                            sec_def = next((s for s in sections_config if str(s.get("id")) == str(f.section_id) or str(s.get("name")) == str(f.section_id) or str(f.section_id).startswith(str(s.get("id")))), None)
-                                            t_sec_id = sec_def.get("id") if sec_def else f.section_id.split(" ")[0].replace("-", "").strip()
-
-                                            target_sec = db.query(ProcessSection).filter(ProcessSection.process_note_id == current_note.id, ProcessSection.section_id == t_sec_id).first()
-                                            if target_sec:
-                                                s_type = sec_def.get("type", "text") if sec_def else "text"
-                                                curr_cont = target_sec.structured_data if s_type == "table" else (target_sec.content or "")
-                                                updated_res = llm.resolve_clarification(t_sec_id, s_type, curr_cont, questions, sec_ans)
-                                                if s_type == "table" and isinstance(updated_res, list):
-                                                    target_sec.structured_data = updated_res
-                                                else:
-                                                    target_sec.content = str(updated_res)
-
-                                                f.status = "PASS"
-                                                f.severity = "LOW"
-                                                f.issue = f"*(Resolved by Clarification)*\n\n{f.issue}"
-                                                db.commit()
-                                                st.success(f"Section {t_sec_id} updated with your clarification! Click 'Run AI Validation' above to re-evaluate.")
-                                                st.rerun()
-                    else:
-                        st.markdown("**Recommendation:**")
-                        st.write(f.recommendation)
-
-                if not display_issue.strip() and not f.recommendation:
-                    st.write("Section looks good.")
+                                        f.status = "PASS"
+                                        f.severity = "LOW"
+                                        f.issue = f"*(Resolved by Clarification)*\n\n{f.issue}"
+                                        db.commit()
+                                        st.success(f"Section {t_sec_id} updated with your clarification! Click 'Run AI Validation' above to re-evaluate.")
+                                        st.rerun()
 
                 if f.status != "PASS" and not is_manual:
                     if st.button("Mark as OK (Ignore Feedback)", key=f"ignore_{f.id}"):
