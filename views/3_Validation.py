@@ -505,12 +505,12 @@ try:
                         pass_threshold = float(os.getenv("PASS_THRESHOLD", 75))
                         warning_threshold = float(os.getenv("WARNING_THRESHOLD", 65))
 
-                        if sections_needing_revision > 0 or critical_section_issues > 0 or latest_run.overall_score < warning_threshold:
-                            latest_run.status = "NEEDS_REVISION"
-                        elif warnings > 0 or latest_run.overall_score < pass_threshold:
+                        if latest_run.overall_score >= pass_threshold:
+                            latest_run.status = "PASS"
+                        elif latest_run.overall_score >= warning_threshold:
                             latest_run.status = "WARNING"
                         else:
-                            latest_run.status = "PASS"
+                            latest_run.status = "NEEDS_REVISION"
 
                         current_note.status = latest_run.status
                         db.commit()

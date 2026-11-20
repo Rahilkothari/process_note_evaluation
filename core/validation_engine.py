@@ -136,14 +136,16 @@ class ValidationEngine:
         sections_passed = sum([1 for res in section_results if res.status == "PASS"])
         sections_needing_revision = sum([1 for res in section_results if res.status == "NEEDS_REVISION"])
 
-        # A document only NEEDS_REVISION if an individual section failed, if score < warning threshold, or critical section issues exist.
-        # Cross-section gaps are advisory guidance.
-        if sections_needing_revision > 0 or critical_section_issues > 0 or overall_score < warning_threshold:
-            overall_status = "NEEDS_REVISION"
-        elif warnings > 0 or overall_score < pass_threshold:
+        # Status follows the overall score percentage bands:
+        # Score >= 75.0% -> PASS
+        # 65.0% <= Score < 75.0% -> WARNING
+        # Score < 65.0% -> NEEDS_REVISION
+        if overall_score >= pass_threshold:
+            overall_status = "PASS"
+        elif overall_score >= warning_threshold:
             overall_status = "WARNING"
         else:
-            overall_status = "PASS"
+            overall_status = "NEEDS_REVISION"
 
         return ValidationResponse(
             overall_score=round(overall_score, 1),
