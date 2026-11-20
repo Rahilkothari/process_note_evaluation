@@ -611,9 +611,34 @@ MANDATORY AUDIT FOR SECTION 1.6 (PROCESS COVERAGE / SCOPE):
 - MUST explicitly specify BOTH:
   1) IN-SCOPE: Specific activities, programs, locations, and teams covered.
   2) OUT-OF-SCOPE: Related activities, handoffs, or teams explicitly excluded.
-- If both in-scope and exclusions are articulated, assign PASS (Score: 100). If minor clarifications exist, assign PASS (Score: 75).
+- TABLE ARITHMETIC VERIFICATION: If Section 1.6 includes a table detailing hours, modules, or workshop durations (e.g. Workshop Hours, Training Inputs) with a 'Total' or 'Total Hours' row, VERIFY THAT THE SUM OF INDIVIDUAL ACTIVITIES MATCHES THE STATED TOTAL. If individual activities sum to 21 hours (7+7+7) but the Total row states '13 hours', FLAG THIS MATHEMATICAL DISCREPANCY as an issue and assign WARNING (Score: 50) or PASS with Minor Polish (Score: 75).
+- If both in-scope and exclusions are articulated and numbers/math are consistent, assign PASS (Score: 100). If minor clarifications or arithmetic adjustments exist, assign PASS (Score: 75).
 """
-        elif sec_id == "1.12":
+        elif sec_id == "1.3":
+            section_specific_prompt = """
+MANDATORY AUDIT FOR SECTION 1.3 (DOCUMENT REVIEW CYCLE):
+- Strictly evaluate ONLY the fields provided in the form/table: [Effective Date, Next Review Date, Review Frequency (if present), Process Owner, Name, Sign].
+- MANDATORY FIELD AUDIT:
+  1) 'Next Review Date' MUST NOT BE BLANK. If 'Next review date' is empty, blank, or missing, FLAG THIS DEFECT: "Next review date is blank. A documented review schedule requires an explicit future target review date" and assign WARNING (Score: 50) or PASS (Score: 75).
+  2) Effective Date currency: Flag if the Effective Date is drastically out of date compared to the document title/version (e.g., Aug 2023 in a 2025-26 process note).
+  3) Table Header formatting: Flag if column headers are duplicated (e.g., 'Process Owner | Process Owner').
+- If Effective Date and a future Next Review Date are both specified logically and a Process Owner is present, assign PASS (Score: 100).
+"""
+        elif sec_id == "1.15":
+            section_specific_prompt = """
+MANDATORY AUDIT FOR SECTION 1.15 (EXCEPTION AND CHANGE MANAGEMENT):
+- Evaluate exception triggers, mitigation procedures, and escalation hierarchy.
+- Standard managerial abbreviations across different functional teams (e.g., Manager, SAM, DPH, PH, GL team) are legitimate team designations. DO NOT flag standard internal designations as 'ghost roles'.
+- Flag only if an approval role explicitly contradicts the RACI matrix or Approval Matrix, or if mitigation steps are blank.
+"""
+        elif sec_id == "1.19":
+            section_specific_prompt = """
+MANDATORY AUDIT FOR SECTION 1.19 (ABBREVIATIONS & DEFINITIONS):
+- Evaluates whether acronyms and abbreviations used throughout the document are accurately defined.
+- ROLE CONFLICT AUDIT: If an acronym like 'DEO' is defined as 'Data entry operator' in definitions, but functions as a strategic governance authority (District Education Officer) in RACI or field governance, FLAG THIS ROLE CONFLICT and assign PASS (Score: 75).
+- TYPOS & SPELLING: If an abbreviation expansion contains typographical errors (e.g. 'Inding' instead of 'India'), FLAG THE TYPO and assign PASS (Score: 75) so it is caught by creator and reviewer before final release.
+- If all acronyms are accurate, complete, and free of typos, assign PASS (Score: 100).
+"""
             section_specific_prompt = """
 MANDATORY 6-DIMENSION AUDIT FOR SECTION 1.12 (PROCESS DESCRIPTION):
 Evaluate whether the steps provide clear, actionable details across these 6 enterprise dimensions:
@@ -650,33 +675,12 @@ MANDATORY AUDIT FOR SECTION 1.17 (COMPLIANCE MANAGEMENT):
 - IMPORTANT: Do NOT demand statutory/legal acts when the intervention is an educational/field implementation program.
 - If compliance reporting deliverables and target dates are listed, assign PASS (Score: 100) or PASS (Score: 75 with minor advisory).
 """
-        elif sec_id == "1.19":
-            section_specific_prompt = """
-MANDATORY AUDIT FOR SECTION 1.19 (ABBREVIATIONS & ACRONYMS):
-- If definitions are provided for acronyms, assign PASS (Score: 100).
-- If there is a minor spelling typo in an expansion (e.g., 'Inding' instead of 'India'), assign PASS (Score: 75, severity: LOW) with a friendly tip to correct the spelling, rather than failing the section.
-"""
         elif sec_id == "1.21":
             section_specific_prompt = """
 MANDATORY AUDIT FOR SECTION 1.21 (INNOVATIONS):
 - Evaluate program and operational improvements (e.g., Mother School hub model, structured 10-visit continuous support cycles, rubric-based classroom observation protocols, digital app integration).
 - IMPORTANT: Recognize systematic continuous support models and standardized classroom rubrics as legitimate educational/program innovations. Do NOT dismiss them as 'routine monitoring'.
 - If plausible program enhancements or novel practices are described, assign PASS (Score: 100) or PASS (Score: 75).
-"""
-        elif sec_id == "1.3":
-            section_specific_prompt = """
-MANDATORY AUDIT FOR SECTION 1.3 (DOCUMENT REVIEW CYCLE):
-- Strictly evaluate ONLY the fields provided in the form/table: [Effective Date, Next Review Date, Review Frequency (if present), Process Owner, Name, Sign].
-- If Effective Date and Next Review Date are specified and Next Review Date is logically after Effective Date:
-  The review frequency is fully established and valid (the difference between dates directly establishes the review interval, e.g. 1 year difference = Annual Review).
-- If Process Owner is specified, this section fulfills 100% of corporate governance requirements.
-- If valid dates and a Process Owner are present, you MUST return:
-  "status": "PASS",
-  "score": 100,
-  "severity": "LOW",
-  "issues": [],
-  "recommendations": [],
-  "questions": []
 """
         elif sec_id == "1.7":
             section_specific_prompt = """

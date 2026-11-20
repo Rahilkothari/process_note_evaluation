@@ -511,46 +511,7 @@ try:
 
                     st.markdown("---")
 
-                    # Option A: Ask AI to update by typing into textbox
-                    if not is_resolved and involved_sections:
-                        st.markdown('<div style="font-weight: 700; font-size: 14px; color: #1E3A8A; margin-bottom: 4px;">🤖 Ask AI to Update a Section for You</div>', unsafe_allow_html=True)
-                        st.caption("Type your operational explanation below. AI will automatically incorporate your updates into the chosen section.")
-
-                        sec_labels = [f"Section {c['id']} ({c['name']})" for c, _ in involved_sections]
-                        sel_col1, sel_col2 = st.columns([1.5, 2.5])
-                        with sel_col1:
-                            target_sec_label = st.selectbox("Target Section to update:", sec_labels, key=f"cr_target_sec_{f.id}")
-                            chosen_idx = sec_labels.index(target_sec_label)
-                            chosen_cfg, chosen_sec_obj = involved_sections[chosen_idx]
-
-                        with sel_col2:
-                            cr_ans = st.text_area("Your response / clarification notes:", key=f"cr_ans_{f.id}", height=75, placeholder="e.g. Specify responsible roles, TAT, or step procedures...")
-
-                        if st.button(f"✨ Have AI Update Section {chosen_cfg['id']}", key=f"btn_apply_cr_{f.id}", type="primary"):
-                            if not cr_ans.strip():
-                                st.warning("Please enter your clarification response.")
-                            else:
-                                with st.spinner(f"AI is incorporating your explanation into Section {chosen_cfg['id']}..."):
-                                    from services.llm_service import get_llm_provider
-                                    llm = get_llm_provider()
-                                    target_sec = db.query(ProcessSection).filter(ProcessSection.process_note_id == current_note.id, ProcessSection.section_id == chosen_cfg['id']).first()
-                                    sec_type = chosen_cfg.get("type", "table")
-                                    curr_cont = target_sec.structured_data if sec_type == "table" else (target_sec.content if target_sec else "")
-                                    if target_sec:
-                                        updated_data = llm.resolve_clarification(chosen_cfg['id'], sec_type, curr_cont, display_cr_issue, cr_ans)
-                                        if sec_type == "table":
-                                            target_sec.structured_data = updated_data
-                                            flag_modified(target_sec, "structured_data")
-                                        else:
-                                            target_sec.content = updated_data
-                                        f.status = "PASS"
-                                        f.severity = "LOW"
-                                        f.issue = f"*(Resolved by Clarification)*\n\n{f.issue}"
-                                        db.commit()
-                                        st.success(f"✅ AI successfully updated Section {chosen_cfg['id']}! ⚠️ Click 'Run AI Validation' above to re-evaluate.")
-                                        st.rerun()
-
-                    # Option B: Direct Section Content Editor (The edit section content part!)
+                    # Direct Section Content Editor (Primary Action)
                     st.markdown("---")
                     st.markdown('<div style="font-weight: 700; font-size: 14px; color: #1E293B; margin-bottom: 6px;">✏️ Edit Section Content Directly (In-Place)</div>', unsafe_allow_html=True)
                     st.caption("You can directly edit the table cells, text, or flowchart for any involved section below:")
@@ -564,6 +525,45 @@ try:
                         for t_idx, (c_def, s_obj) in enumerate(involved_sections):
                             with sec_tabs[t_idx]:
                                 render_inline_section_editor(c_def, s_obj, current_note, db, key_suffix=f"cr_{f.id}_{c_def['id']}")
+
+                    # Optional AI Assistant Expander (Secondary Helper)
+                    if not is_resolved and involved_sections:
+                        with st.expander("🤖 Optional: Have AI update a section based on your prompt", expanded=False):
+                            st.caption("Type your operational explanation below. AI will automatically incorporate your updates into the chosen section.")
+
+                            sec_labels = [f"Section {c['id']} ({c['name']})" for c, _ in involved_sections]
+                            sel_col1, sel_col2 = st.columns([1.5, 2.5])
+                            with sel_col1:
+                                target_sec_label = st.selectbox("Target Section to update:", sec_labels, key=f"cr_target_sec_{f.id}")
+                                chosen_idx = sec_labels.index(target_sec_label)
+                                chosen_cfg, chosen_sec_obj = involved_sections[chosen_idx]
+
+                            with sel_col2:
+                                cr_ans = st.text_area("Your response / clarification notes:", key=f"cr_ans_{f.id}", height=75, placeholder="e.g. Specify responsible roles, TAT, or step procedures...")
+
+                            if st.button(f"✨ Have AI Update Section {chosen_cfg['id']}", key=f"btn_apply_cr_{f.id}", type="primary"):
+                                if not cr_ans.strip():
+                                    st.warning("Please enter your clarification response.")
+                                else:
+                                    with st.spinner(f"AI is incorporating your explanation into Section {chosen_cfg['id']}..."):
+                                        from services.llm_service import get_llm_provider
+                                        llm = get_llm_provider()
+                                        target_sec = db.query(ProcessSection).filter(ProcessSection.process_note_id == current_note.id, ProcessSection.section_id == chosen_cfg['id']).first()
+                                        sec_type = chosen_cfg.get("type", "table")
+                                        curr_cont = target_sec.structured_data if sec_type == "table" else (target_sec.content if target_sec else "")
+                                        if target_sec:
+                                            updated_data = llm.resolve_clarification(chosen_cfg['id'], sec_type, curr_cont, display_cr_issue, cr_ans)
+                                            if sec_type == "table":
+                                                target_sec.structured_data = updated_data
+                                                flag_modified(target_sec, "structured_data")
+                                            else:
+                                                target_sec.content = updated_data
+                                            f.status = "PASS"
+                                            f.severity = "LOW"
+                                            f.issue = f"*(Resolved by Clarification)*\n\n{f.issue}"
+                                            db.commit()
+                                            st.success(f"✅ AI successfully updated Section {chosen_cfg['id']}! ⚠️ Click 'Run AI Validation' above to re-evaluate.")
+                                            st.rerun()
         else:
             st.success("✅ No cross-section gaps found. Business rules, KPIs, flowchart, and RACI are fully aligned with Process Description.")
 
@@ -620,8 +620,7 @@ try:
                         st.markdown(questions)
 
                         if f.status != "PASS" and not is_manual:
-                            use_sec_ai = st.toggle("✨ Have AI update this section with your answer (Optional)", key=f"toggle_sec_ai_{f.id}", value=False)
-                            if use_sec_ai:
+                            with st.expander("🤖 Optional: Have AI update this section with your answer", expanded=False):
                                 sec_ans = st.text_area("Your response / missing details for this section:", key=f"ans_sec_{f.id}", height=75)
                                 if st.button("✨ Apply Clarification to This Section", key=f"btn_sec_apply_{f.id}", type="primary"):
                                     if not sec_ans.strip():
