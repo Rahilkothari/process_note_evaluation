@@ -95,15 +95,74 @@ def get_document_review_feedback(note, db_session):
 db: Session = SessionLocal()
 try:
 
-    action_options = ["Create New Process Note", "Edit Existing Process Note"]
+    action_options = ["Create New Process Note", "📄 Upload & Import Document (PDF / Word)", "Edit Existing Process Note"]
     default_action_idx = 0
     if st.session_state.get("action_radio") == "Edit Existing Process Note":
+        default_action_idx = 2
+    elif st.session_state.get("action_radio") == "📄 Upload & Import Document (PDF / Word)":
         default_action_idx = 1
 
     action = st.radio("What would you like to do?", action_options, index=default_action_idx, horizontal=True)
     st.session_state["action_radio"] = action
 
-    if action == "Create New Process Note":
+    if action == "📄 Upload & Import Document (PDF / Word)":
+        st.markdown("""
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px 24px; margin-top: 14px; margin-bottom: 20px;">
+            <div style="font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 700; color: #0F172A; margin-bottom: 4px;">
+                📄 Instant Process Note Importer (PDF / Word)
+            </div>
+            <div style="font-size: 13.5px; color: #64748B;">
+                Upload your team's existing PDF or Word (.docx) process note. The AI parser will automatically extract and map your content into all 22 standard sections for instant AI Validation.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        up_col1, up_col2 = st.columns([1.5, 1])
+        with up_col1:
+            uploaded_file = st.file_uploader(
+                "Upload Process Note (.pdf, .docx)",
+                type=["pdf", "docx"],
+                help="Upload an existing process document. Tables and text will be mapped to the 22 sections."
+            )
+        with up_col2:
+            default_pname = ""
+            if uploaded_file:
+                default_pname = os.path.splitext(uploaded_file.name)[0].replace("_", " ").title()
+            pname_input = st.text_input("Process Name (Optional override)", value=default_pname, placeholder="e.g. PM SHRI Process Note 25-26")
+            team_input = st.text_input("Team / Department *", value="Operations", placeholder="e.g. School Education, PM SHRI, HR")
+            version_input = st.text_input("Version Number", value="1.0")
+
+        if uploaded_file is not None:
+            if st.button("🚀 Extract & Import into 22 Sections", type="primary", use_container_width=True):
+                with st.spinner("⏳ Parsing document, extracting tables, and structuring into 22 sections..."):
+                    from services.document_importer import document_importer
+                    try:
+                        file_bytes = uploaded_file.getvalue()
+                        new_note = document_importer.import_document(
+                            file_bytes=file_bytes,
+                            filename=uploaded_file.name,
+                            process_name=pname_input if pname_input else default_pname,
+                            team_name=team_input,
+                            version=version_input,
+                            user_id=st.session_state.get("current_user_id"),
+                            db=db
+                        )
+                        st.success(f"🎉 Successfully imported '{new_note.process_name}' (v{new_note.version}) into all 22 sections!")
+                        st.session_state.selected_note_id = new_note.id
+                        st.session_state["action_radio"] = "Edit Existing Process Note"
+                        st.session_state.selected_note_key = f"[{new_note.id}] {new_note.process_name} (v{new_note.version}) - {new_note.status}"
+
+                        col_btn1, col_btn2 = st.columns(2)
+                        with col_btn1:
+                            if st.button("🔍 Go to AI Validation & Audit", type="primary", use_container_width=True):
+                                st.switch_page("views/3_Validation.py")
+                        with col_btn2:
+                            if st.button("✏️ Review & Edit Imported Sections", use_container_width=True):
+                                st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Failed to import document: {str(e)}")
+        st.stop()
+    elif action == "Create New Process Note":
         current_note = None
     else:
         current_user_id = st.session_state.get("current_user_id")
