@@ -99,40 +99,53 @@ def render_crisp_feedback(issue_text: str, rec_text: str, severity: str = "MEDIU
         if not text:
             return ""
         t = text.strip()
-        # 1. Strip leading bullets, dashes, numbers, but NOT asterisks (so **bold** is preserved)
-        t = re.sub(r'^[•\-\–\—\s\d\.\)\(]+', '', t).strip()
-        # 2. Convert markdown **bold** to <b>bold</b> (handle any multiline or whitespace)
-        t = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', t, flags=re.DOTALL)
-        # 3. Convert markdown *italic* to <i>italic</i>
-        t = re.sub(r'\*([^*]+)\*', r'<i>\1</i>', t)
-        # 4. Strip any leftover stray asterisks / stars
-        t = t.replace('*', '')
-        # 5. Strip any leading list markers again
-        t = re.sub(r'^[•\-\–\—\s]+', '', t).strip()
+        t = re.sub(r"^[•\-\–\—\s\d\.\)\(]+", "", t).strip()
+        t = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", t, flags=re.DOTALL)
+        t = re.sub(r"\*([^*]+)\*", r"<i>\1</i>", t)
+        t = t.replace("*", "")
+        t = re.sub(r"^[•\-\–\—\s]+", "", t).strip()
         return t
 
-    def parse_items(t):
+    def extract_lines(t):
         if not t or not t.strip():
             return []
-        clean = t.replace('*(Marked as OK by User)*', '').replace('*(Resolved by Clarification)*', '').strip()
-        raw_lines = [l.strip() for l in re.split(r'[\r\n]+', clean) if l.strip()]
-        if any(re.match(r'^[•\-\–\—\*\d\.]', l) for l in raw_lines):
+        clean = t.replace("*(Marked as OK by User)*", "").replace("*(Resolved by Clarification)*", "").replace("*(Resolved by Auto-Correction)*", "").strip()
+        raw_lines = [l.strip() for l in re.split(r"[\r\n]+", clean) if l.strip()]
+        if any(re.match(r"^[•\-\–\—\*\d\.]", l) for l in raw_lines):
             items = raw_lines
         else:
-            pattern = r'(?<!\bSr)(?<!\bNo)(?<!\be\.g)(?<!\bi\.e)(?<!\bvs)(?<!\bSec)(?<!\bv)\.\s+(?=[A-Z0-9])'
+            pattern = r"(?<!\bSr)(?<!\bNo)(?<!\be\.g)(?<!\bi\.e)(?<!\bvs)(?<!\bSec)(?<!\bv)\.\s+(?=[A-Z0-9])"
             items = [s.strip() for s in re.split(pattern, clean) if s.strip()]
 
-        parsed = []
-        for item in items:
-            cleaned = clean_html_text(item)
+        res = []
+        for it in items:
+            cleaned = clean_html_text(it)
             if cleaned:
-                if not cleaned.endswith(('.', '?', '!', ':', ';', '>', '"', "'")):
-                    cleaned += '.'
-                parsed.append(cleaned)
-        return parsed
+                if not cleaned.endswith((".", "?", "!", ":", ";", ">", "'", "\"")):
+                    cleaned += "."
+                res.append(cleaned)
+        return res
 
-    issues = parse_items(issue_text)
-    recs = parse_items(rec_text)
+    def to_clean_html(raw_html: str) -> str:
+        return "\n".join(l.strip() for l in raw_html.strip().splitlines() if l.strip())
+
+    raw_issues = extract_lines(issue_text)
+    raw_recs = extract_lines(rec_text)
+
+    pure_issues = []
+    embedded_recs = []
+    for l in raw_issues:
+        l_lower = l.lower()
+        if any(k in l_lower for k in ["must be clearly articulated", "must be specified", "should be updated", "recommended fix", "clearly articulate", "must be defined", "please define"]):
+            embedded_recs.append(l)
+        else:
+            pure_issues.append(l)
+
+    all_recs = raw_recs + embedded_recs
+    unique_recs = []
+    for r in all_recs:
+        if r and r not in unique_recs:
+            unique_recs.append(r)
 
     is_high = severity == "HIGH"
     is_warn = severity == "MEDIUM"
@@ -141,65 +154,84 @@ def render_crisp_feedback(issue_text: str, rec_text: str, severity: str = "MEDIU
     icon = "🔴" if is_high else ("⚠️" if is_warn else "💡")
     badge_label = "Action Required" if is_high else ("Operational Gap" if is_warn else "Polish Tip")
 
-    # Render Point-by-Point one by one for 100% UI consistency across every section
-    if issues:
-        for idx, iss in enumerate(issues):
-            rc = recs[idx] if idx < len(recs) else (recs[0] if len(recs) == 1 else "")
-            rec_html = ""
-            if rc:
-                rec_html = f"""
-                <div style="padding: 6px 12px; background: #F0FDF4; border-radius: 6px; border: 1px solid #BBF7D0; font-size: 12.5px; color: #166534; line-height: 1.45; margin-top: 6px;">
-                    <b>💡 Recommended Fix:</b> {rc}
-                </div>
-                """
-            st.markdown(f"""
-            <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-left: 4.5px solid {border_color}; border-radius: 8px; padding: 12px 16px; margin: 8px 0 10px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                    <span style="font-weight: 700; color: {header_color}; font-size: 13.5px;">{icon} Point {idx + 1}:</span>
-                    <span style="font-size: 11px; font-weight: 700; color: {header_color}; background: #F8FAFC; padding: 2px 8px; border-radius: 10px; border: 1px solid #E2E8F0;">{badge_label}</span>
-                </div>
-                <div style="color: #334155; font-size: 13px; line-height: 1.5;">
-                    {iss}
-                </div>
-                {rec_html}
-            </div>
-            """, unsafe_allow_html=True)
+    # Case A: Multiple issues share ONE common recommendation (consolidate and mention solution ONCE)
+    if len(pure_issues) > 1 and len(unique_recs) == 1:
+        iss_items = "".join([f'<li style="margin-bottom: 5px;">{iss}</li>' for iss in pure_issues])
+        common_rec = unique_recs[0]
+        card = f"""
+<div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-left: 4.5px solid {border_color}; border-radius: 8px; padding: 12px 16px; margin: 8px 0 10px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+<span style="font-weight: 700; color: {header_color}; font-size: 13.5px;">{icon} Identified Issues ({len(pure_issues)} items):</span>
+<span style="font-size: 11px; font-weight: 700; color: {header_color}; background: #F8FAFC; padding: 2px 8px; border-radius: 10px; border: 1px solid #E2E8F0;">{badge_label}</span>
+</div>
+<ul style="margin: 0; padding-left: 20px; color: #334155; font-size: 13px; line-height: 1.5; margin-bottom: 8px;">
+{iss_items}
+</ul>
+<div style="padding: 8px 12px; background: #F0FDF4; border-radius: 6px; border: 1px solid #BBF7D0; font-size: 12.5px; color: #166534; line-height: 1.45;">
+<b>💡 Recommended Fix:</b> {common_rec}
+</div>
+</div>
+"""
+        st.markdown(to_clean_html(card), unsafe_allow_html=True)
 
-        if len(recs) > len(issues):
-            for r_idx in range(len(issues), len(recs)):
-                st.markdown(f"""
-                <div style="padding: 8px 14px; background: #F0FDF4; border-radius: 6px; border: 1px solid #BBF7D0; border-left: 4px solid #22C55E; font-size: 12.5px; color: #166534; line-height: 1.45; margin: 6px 0;">
-                    <b>💡 Additional Fix:</b> {recs[r_idx]}
-                </div>
-                """, unsafe_allow_html=True)
-    elif recs:
-        for idx, rc in enumerate(recs):
-            st.markdown(f"""
-            <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-left: 4.5px solid {border_color}; border-radius: 8px; padding: 12px 16px; margin: 8px 0 10px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                    <span style="font-weight: 700; color: {header_color}; font-size: 13.5px;">{icon} Point {idx + 1}:</span>
-                    <span style="font-size: 11px; font-weight: 700; color: {header_color}; background: #F8FAFC; padding: 2px 8px; border-radius: 10px; border: 1px solid #E2E8F0;">{badge_label}</span>
-                </div>
-                <div style="padding: 6px 12px; background: #F0FDF4; border-radius: 6px; border: 1px solid #BBF7D0; font-size: 12.5px; color: #166534; line-height: 1.45; margin-top: 6px;">
-                    <b>💡 Recommended Fix:</b> {rc}
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+    # Case B: Individual issues with distinct recommendations or single issue
+    elif pure_issues:
+        for idx, iss in enumerate(pure_issues):
+            rc = unique_recs[idx] if idx < len(unique_recs) else ""
+            rec_html = f'<div style="padding: 8px 12px; background: #F0FDF4; border-radius: 6px; border: 1px solid #BBF7D0; font-size: 12.5px; color: #166534; line-height: 1.45; margin-top: 8px;"><b>💡 Recommended Fix:</b> {rc}</div>' if rc else ""
+            card = f"""
+<div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-left: 4.5px solid {border_color}; border-radius: 8px; padding: 12px 16px; margin: 8px 0 10px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+<span style="font-weight: 700; color: {header_color}; font-size: 13.5px;">{icon} Point {idx + 1}:</span>
+<span style="font-size: 11px; font-weight: 700; color: {header_color}; background: #F8FAFC; padding: 2px 8px; border-radius: 10px; border: 1px solid #E2E8F0;">{badge_label}</span>
+</div>
+<div style="color: #334155; font-size: 13px; line-height: 1.5;">
+{iss}
+</div>
+{rec_html}
+</div>
+"""
+            st.markdown(to_clean_html(card), unsafe_allow_html=True)
+
+        if len(unique_recs) > len(pure_issues):
+            for r_idx in range(len(pure_issues), len(unique_recs)):
+                extra = f"""
+<div style="padding: 8px 14px; background: #F0FDF4; border-radius: 6px; border: 1px solid #BBF7D0; border-left: 4px solid #22C55E; font-size: 12.5px; color: #166534; line-height: 1.45; margin: 6px 0;">
+<b>💡 Additional Fix:</b> {unique_recs[r_idx]}
+</div>
+"""
+                st.markdown(to_clean_html(extra), unsafe_allow_html=True)
+
+    elif unique_recs:
+        for idx, rc in enumerate(unique_recs):
+            card = f"""
+<div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-left: 4.5px solid {border_color}; border-radius: 8px; padding: 12px 16px; margin: 8px 0 10px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+<span style="font-weight: 700; color: {header_color}; font-size: 13.5px;">{icon} Point {idx + 1}:</span>
+<span style="font-size: 11px; font-weight: 700; color: {header_color}; background: #F8FAFC; padding: 2px 8px; border-radius: 10px; border: 1px solid #E2E8F0;">{badge_label}</span>
+</div>
+<div style="padding: 8px 12px; background: #F0FDF4; border-radius: 6px; border: 1px solid #BBF7D0; font-size: 12.5px; color: #166534; line-height: 1.45;">
+<b>💡 Recommended Fix:</b> {rc}
+</div>
+</div>
+"""
+            st.markdown(to_clean_html(card), unsafe_allow_html=True)
 
     if questions_text and questions_text.strip():
-        q_lines = parse_items(questions_text)
+        q_lines = extract_lines(questions_text)
         if q_lines:
             q_html = "".join([f'<li style="margin-bottom: 5px;">{q}</li>' for q in q_lines])
-            st.markdown(f"""
-            <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-left: 4.5px solid #3B82F6; border-radius: 8px; padding: 10px 16px; margin: 10px 0;">
-                <div style="font-weight: 700; color: #1E40AF; font-size: 13px; margin-bottom: 5px;">
-                    💬 Clarification Questions for Creator:
-                </div>
-                <ul style="margin: 0; padding-left: 20px; color: #1E3A8A; font-size: 12.5px; line-height: 1.45;">
-                    {q_html}
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
+            q_box = f"""
+<div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-left: 4.5px solid #3B82F6; border-radius: 8px; padding: 10px 16px; margin: 10px 0;">
+<div style="font-weight: 700; color: #1E40AF; font-size: 13px; margin-bottom: 5px;">
+💬 Clarification Questions for Creator:
+</div>
+<ul style="margin: 0; padding-left: 20px; color: #1E3A8A; font-size: 12.5px; line-height: 1.45;">
+{q_html}
+</ul>
+</div>
+"""
+            st.markdown(to_clean_html(q_box), unsafe_allow_html=True)
 
 def render_inline_section_editor(sec_def, section, current_note, db, key_suffix=""):
     """Renders interactive inline editor (data_editor for tables, text_area for text/flowcharts) directly inside finding cards."""
@@ -748,42 +780,14 @@ try:
                     t_sec_id = sec_def.get("id") if sec_def else f.section_id.split(" ")[0].replace("-", "").strip()
                     target_sec = db.query(ProcessSection).filter(ProcessSection.process_note_id == current_note.id, ProcessSection.section_id == t_sec_id).first()
 
-                    col_fix1, col_fix2 = st.columns([1.6, 1.2])
-                    with col_fix1:
-                        if st.button("✨ Auto-Correct Section (Spelling & Polish)", key=f"btn_autocorrect_{f.id}", type="primary"):
-                            with st.spinner(f"AI is correcting minor spelling & grammar hiccups in Section {t_sec_id}..."):
-                                from services.llm_service import get_llm_provider
-                                llm = get_llm_provider()
-                                s_type = sec_def.get("type", "text") if sec_def else "text"
-                                curr_cont = target_sec.structured_data if s_type == "table" else (target_sec.content or "") if target_sec else ""
-                                if target_sec:
-                                    fixed_res = llm.auto_correct_minor_hiccups(t_sec_id, s_type, curr_cont)
-                                    if s_type == "table" and isinstance(fixed_res, list):
-                                        target_sec.structured_data = fixed_res
-                                        from sqlalchemy.orm.attributes import flag_modified
-                                        flag_modified(target_sec, "structured_data")
-                                    else:
-                                        target_sec.content = str(fixed_res)
-
-                                f.score = 100.0
-                                f.status = "PASS"
-                                f.severity = "LOW"
-                                f.issue = "*(Resolved by Auto-Correction)*"
-                                f.recommendation = ""
-                                db.commit()
-                                recompute_latest_run_score(latest_run, current_note)
-                                st.success(f"✅ Section {t_sec_id} auto-corrected! Minor spelling and grammar hiccups resolved with Score 100.")
-                                st.rerun()
-
-                    with col_fix2:
-                        if st.button("Mark as OK (Ignore Feedback)", key=f"ignore_{f.id}"):
-                            f.score = 100.0 if f.score < 100 else f.score
-                            f.status = "PASS"
-                            f.severity = "LOW"
-                            f.issue = f"*(Marked as OK by User)*\n\n{f.issue}" if f.issue else "*(Marked as OK by User)*"
-                            db.commit()
-                            recompute_latest_run_score(latest_run, current_note)
-                            st.rerun()
+                    if st.button("Mark as OK (Ignore Feedback)", key=f"ignore_{f.id}"):
+                        f.score = 100.0 if f.score < 100 else f.score
+                        f.status = "PASS"
+                        f.severity = "LOW"
+                        f.issue = f"*(Marked as OK by User)*\n\n{f.issue}" if f.issue else "*(Marked as OK by User)*"
+                        db.commit()
+                        recompute_latest_run_score(latest_run, current_note)
+                        st.rerun()
 
                     if f.status != "PASS":
                         show_sec_ai = st.toggle("🤖 Need AI help updating this section with your answer?", key=f"toggle_sec_ai_{f.id}", value=False)
