@@ -144,7 +144,7 @@ def render_inline_section_editor(sec_def, section, current_note, db, key_suffix=
             if "date" in f_lower:
                 column_config[field] = st.column_config.DateColumn(field, format="YYYY-MM-DD")
                 df[field] = pd.to_datetime(df[field], errors='coerce').dt.date
-            elif "no." in f_lower or "tat" in f_lower:
+            elif f_lower in ["sr. no.", "sr. no", "sr no.", "sr no", "serial no"]:
                 column_config[field] = st.column_config.NumberColumn(field, step=1)
                 df[field] = pd.to_numeric(df[field], errors='coerce')
             elif field in ["Responsible (R)", "Accountable (A)", "Consulted (C)", "Informed (I)"]:
@@ -501,6 +501,8 @@ try:
                     found_sids = re.findall(r'1\.\d+', str(f.section_id or ""))
                     if not found_sids:
                         found_sids = ["1.12"]
+                    # Deduplicate found_sids while preserving order
+                    found_sids = list(dict.fromkeys(found_sids))
 
                     involved_sections = []
                     for sid in found_sids:
@@ -512,7 +514,6 @@ try:
                     st.markdown("---")
 
                     # Direct Section Content Editor (Primary Action)
-                    st.markdown("---")
                     st.markdown('<div style="font-weight: 700; font-size: 14px; color: #1E293B; margin-bottom: 6px;">✏️ Edit Section Content Directly (In-Place)</div>', unsafe_allow_html=True)
                     st.caption("You can directly edit the table cells, text, or flowchart for any involved section below:")
 
@@ -526,9 +527,11 @@ try:
                             with sec_tabs[t_idx]:
                                 render_inline_section_editor(c_def, s_obj, current_note, db, key_suffix=f"cr_{f.id}_{c_def['id']}")
 
-                    # Optional AI Assistant Expander (Secondary Helper)
+                    # Optional AI Assistant Helper (Toggled cleanly to avoid Streamlit nested expander exception)
                     if not is_resolved and involved_sections:
-                        with st.expander("🤖 Optional: Have AI update a section based on your prompt", expanded=False):
+                        st.markdown("---")
+                        show_cr_ai = st.toggle("🤖 Need AI help updating a section based on your prompt?", key=f"toggle_cr_ai_{f.id}", value=False)
+                        if show_cr_ai:
                             st.caption("Type your operational explanation below. AI will automatically incorporate your updates into the chosen section.")
 
                             sec_labels = [f"Section {c['id']} ({c['name']})" for c, _ in involved_sections]
@@ -620,7 +623,8 @@ try:
                         st.markdown(questions)
 
                         if f.status != "PASS" and not is_manual:
-                            with st.expander("🤖 Optional: Have AI update this section with your answer", expanded=False):
+                            show_sec_ai = st.toggle("🤖 Need AI help updating this section with your answer?", key=f"toggle_sec_ai_{f.id}", value=False)
+                            if show_sec_ai:
                                 sec_ans = st.text_area("Your response / missing details for this section:", key=f"ans_sec_{f.id}", height=75)
                                 if st.button("✨ Apply Clarification to This Section", key=f"btn_sec_apply_{f.id}", type="primary"):
                                     if not sec_ans.strip():
