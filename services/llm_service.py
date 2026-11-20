@@ -585,27 +585,24 @@ TEAM GOVERNANCE (FINANCE): Ensure Maker/Checker principles, delegation of author
         if sec_id == "1.10":
             section_specific_prompt = """
 MANDATORY AUDIT FOR SECTION 1.10 (OBJECTIVE):
-- Must articulate a substantive, comprehensive business objective.
-- MUST state:
-  1) The primary operational purpose of the process.
-  2) The tangible, measurable business outcomes and targets (e.g., turnaround time thresholds, accuracy rates, compliance adherence, error reduction).
-  3) Organizational value and alignment.
-- STRICT DEPTH ENFORCEMENT: If the objective is brief (fewer than 20-25 words), superficial, or merely states a generic intent without concrete measurable targets or deliverables:
-  DO NOT ASSIGN PASS (Score: 100).
-  You MUST assign WARNING (Score: 50) or NEEDS_REVISION (Score: 0).
-  Specifically state in 'issues' that the objective is too brief and lacks measurable targets, and formulate clarification questions asking for specific success benchmarks.
+- Must state the primary operational and pedagogical purpose and qualitative success outcomes (e.g., student learning outcomes, teacher capacity, literacy/numeracy proficiency).
+- IMPORTANT: Numerical percentage KPIs and quantitative targets belong in Section 1.5 (KPIs), so do NOT penalize or downgrade this section if explicit numerical percentages are omitted.
+- If the objective articulates substantive operational goals (at least 20 words with clear focus areas), assign PASS (Score: 100). If there are minor optional polish suggestions, assign PASS (Score: 75). Only assign WARNING (Score: 50) if it is an empty or brief generic 1-liner (fewer than 15 words).
 """
         elif sec_id == "1.9":
             section_specific_prompt = """
 MANDATORY AUDIT FOR SECTION 1.9 (INTRODUCTION):
-- Must provide substantive organizational context and background rationale.
-- MUST cover:
-  1) Operational context and background within the organization.
-  2) Why standardizing this specific process is critical (e.g. risk mitigation, consistency, auditability).
-- STRICT DEPTH ENFORCEMENT: If the introduction is merely 1-2 generic sentences (fewer than 25-30 words):
-  DO NOT ASSIGN PASS (Score: 100).
-  You MUST assign WARNING (Score: 50) or NEEDS_REVISION (Score: 0).
-  Request the Process Owner to detail the organizational necessity.
+- Must provide project/operational background context, setting, vision, mission, and target beneficiaries (e.g. grades/teachers/students).
+- IMPORTANT: NEVER penalize the user or flag an issue for not citing corporate buzzwords like 'risk mitigation and auditability rationale'.
+- If substantive background, vision/mission, or beneficiary context is provided, assign PASS (Score: 100) or PASS (Score: 75 with minor polish notes).
+"""
+        elif sec_id == "1.4":
+            section_specific_prompt = """
+MANDATORY AUDIT FOR SECTION 1.4 (RELATED DOCUMENTS):
+- Strictly evaluate ONLY the fields provided: [Process / Policy ID, Document Name].
+- Accept internal project tracking sheets, Google sheets, curriculum frameworks, and data files (e.g., 'PM Shri All district Merged Data 25-26').
+- NEVER penalize or flag an issue for not using formal ISO/SOP IDs like 'SOP-EDU-01'.
+- If valid related documents, trackers, or policies are listed, assign PASS (Score: 100) or PASS (Score: 75).
 """
         elif sec_id == "1.6":
             section_specific_prompt = """
@@ -614,9 +611,7 @@ MANDATORY AUDIT FOR SECTION 1.6 (PROCESS COVERAGE / SCOPE):
 - MUST explicitly specify BOTH:
   1) IN-SCOPE: Specific activities, programs, locations, and teams covered.
   2) OUT-OF-SCOPE: Related activities, handoffs, or teams explicitly excluded.
-- STRICT DEPTH ENFORCEMENT: If the scope is only a brief generic phrase or fails to explicitly state out-of-scope exclusions:
-  DO NOT ASSIGN PASS (Score: 100).
-  Assign WARNING (Score: 50). Ask what related activities are explicitly excluded.
+- If both in-scope and exclusions are articulated, assign PASS (Score: 100). If minor clarifications exist, assign PASS (Score: 75).
 """
         elif sec_id == "1.12":
             section_specific_prompt = """
@@ -629,24 +624,44 @@ Evaluate whether the steps provide clear, actionable details across these 6 ente
 5. Expected outcome or deliverable of each activity and the overall process.
 6. Checks, validations, and approvals (who verifies, against what criteria).
 
-If ANY of these 6 dimensions are missing, vague, or if descriptions are brief 1-liners:
-- Assign status WARNING (score 50) or NEEDS_REVISION (score 0).
-- Specifically state the missing dimension in 'issues'.
-- Formulate 1 to 3 direct, probing CLARIFICATION QUESTIONS for the Process Owner to ask for the exact missing information.
+- If the activities cover the operational workflow with reasonable procedure and roles, assign PASS (Score: 75) with minor recommendations for brevity or TAT refinement.
+- Only assign WARNING (Score: 50) if critical steps are completely missing tools, handoffs, and verification criteria across the board.
 """
         elif sec_id == "1.13":
             section_specific_prompt = """
 MANDATORY AUDIT FOR SECTION 1.13 (RACI MATRIX):
 - Must follow the standard 8-column format: Sr. No., Activity name, Activity description, Timeline, Responsible, Accountable, Consulted by, Informed to.
 - Activities must align with Section 1.12.
-- Responsible, Accountable, Consulted by, and Informed to must specify EXACT job designations/roles (e.g., PH, Manager, Vertical Lead, Director).
-- Flag an issue if cells contain 'Yes', 'No', boolean values, or blanks. Single Accountable ownership is required per activity.
+- Responsible, Accountable, Consulted by, and Informed to must specify EXACT job designations/roles.
+- Single Accountable ownership is required per activity. If an activity has dual Accountable roles (e.g. 'Role A & Role B'), flag this as an issue and assign WARNING (Score: 50).
+- If roles are clear and single accountability is maintained, assign PASS (Score: 100) or PASS (Score: 75 for minor typo).
 """
         elif sec_id == "1.14":
             section_specific_prompt = """
 MANDATORY AUDIT FOR SECTION 1.14 (BUSINESS RULES):
-- Entries must be actual operational rules and boundaries, not generic process descriptions or suggestions.
-- Rules must be concrete and enforceable.
+- Evaluate whether entries provide operational governance rules, prerequisite criteria, and approval principles.
+- IMPORTANT: Do NOT penalize phrases like 'in advance' or 'prior to project implementation' if the rule itself is clear.
+- If rules clearly establish operational boundaries and protocols, assign PASS (Score: 100) or PASS (Score: 75 with minor polish tips).
+"""
+        elif sec_id == "1.17":
+            section_specific_prompt = """
+MANDATORY AUDIT FOR SECTION 1.17 (COMPLIANCE MANAGEMENT):
+- Evaluate internal and external compliance obligations (e.g. monthly MERAC reports, AOP submissions, SCERT proposal approvals, DIET letters, participant consent, and data reporting schedules).
+- IMPORTANT: Do NOT demand statutory/legal acts when the intervention is an educational/field implementation program.
+- If compliance reporting deliverables and target dates are listed, assign PASS (Score: 100) or PASS (Score: 75 with minor advisory).
+"""
+        elif sec_id == "1.19":
+            section_specific_prompt = """
+MANDATORY AUDIT FOR SECTION 1.19 (ABBREVIATIONS & ACRONYMS):
+- If definitions are provided for acronyms, assign PASS (Score: 100).
+- If there is a minor spelling typo in an expansion (e.g., 'Inding' instead of 'India'), assign PASS (Score: 75, severity: LOW) with a friendly tip to correct the spelling, rather than failing the section.
+"""
+        elif sec_id == "1.21":
+            section_specific_prompt = """
+MANDATORY AUDIT FOR SECTION 1.21 (INNOVATIONS):
+- Evaluate program and operational improvements (e.g., Mother School hub model, structured 10-visit continuous support cycles, rubric-based classroom observation protocols, digital app integration).
+- IMPORTANT: Recognize systematic continuous support models and standardized classroom rubrics as legitimate educational/program innovations. Do NOT dismiss them as 'routine monitoring'.
+- If plausible program enhancements or novel practices are described, assign PASS (Score: 100) or PASS (Score: 75).
 """
         elif sec_id == "1.3":
             section_specific_prompt = """
@@ -655,9 +670,6 @@ MANDATORY AUDIT FOR SECTION 1.3 (DOCUMENT REVIEW CYCLE):
 - If Effective Date and Next Review Date are specified and Next Review Date is logically after Effective Date:
   The review frequency is fully established and valid (the difference between dates directly establishes the review interval, e.g. 1 year difference = Annual Review).
 - If Process Owner is specified, this section fulfills 100% of corporate governance requirements.
-- ABSOLUTE PROHIBITION ON HALLUCINATED OR UNREQUESTED REQUIREMENTS:
-  * NEVER penalize the user, do NOT downgrade the score, and do NOT flag any issue/warning for review frequency wording or policy standards (dates define frequency).
-  * NEVER penalize the user or flag any issue/warning for missing out-of-cycle, ad-hoc, or regulatory review triggers (these are NOT fields in the form).
 - If valid dates and a Process Owner are present, you MUST return:
   "status": "PASS",
   "score": 100,
@@ -670,15 +682,13 @@ MANDATORY AUDIT FOR SECTION 1.3 (DOCUMENT REVIEW CYCLE):
             section_specific_prompt = """
 MANDATORY AUDIT FOR SECTION 1.7 (START POINT):
 - Strictly evaluate ONLY the fields provided: [Activity, Entry Criteria].
-- If a plausible trigger activity and entry condition are provided, assign PASS (Score: 100).
-- DO NOT penalize the user for missing intake channels (e.g. portal vs email), formats, or templates, as those are not fields in this table.
+- If a plausible trigger activity and entry condition are provided, assign PASS (Score: 100) or PASS (Score: 75 with minor tip).
 """
         elif sec_id == "1.8":
             section_specific_prompt = """
 MANDATORY AUDIT FOR SECTION 1.8 (END POINT):
 - Strictly evaluate ONLY the fields provided: [Activity, Exit Criteria].
-- If a plausible conclusion activity and exit condition are provided, assign PASS (Score: 100).
-- DO NOT penalize the user for missing fields or parameters not asked in this table.
+- If a plausible conclusion activity and exit condition are provided, assign PASS (Score: 100) or PASS (Score: 75 with minor tip).
 """
 
         prompt = f"""
@@ -699,34 +709,34 @@ Assess whether the content is complete, logical, and clearly documented from an 
 
 CORE GOVERNANCE PRINCIPLE - STRICT FIELD-ALIGNED AUDITING:
 - Users fill data strictly into the fields provided in each section's form or table.
-- You must NEVER penalize a user or flag a discrepancy/advisory notice for missing fields, policy declarations, ad-hoc triggers, or criteria that were never requested in the form!
-- If the required fields of the section are populated with legitimate operational content, the section MUST PASS (Score: 100).
-- Only flag a section if the provided fields themselves are empty, nonsensical/gibberish, or violate fundamental operational logic.
+- NEVER penalize a user or flag a discrepancy for missing fields, policy declarations, or criteria that were never requested in the form.
+- If the required fields of the section are populated with legitimate operational content, the section should PASS (Score: 100 or 75).
 
-STRICT AUDIT RULE ON SUBSTANCE & DEPTH:
-- NEVER assign PASS (Score: 100) to brief, superficial, or shallow descriptions.
-- Sections requiring narrative explanation (e.g., Objective 1.10, Introduction 1.9, Scope 1.6, Process Description 1.12) must have comprehensive operational depth, clarity, and specific details.
-- If a section contains only 1-2 brief generic sentences (e.g. fewer than 20-25 words) or lacks concrete metrics, targets, or boundaries, you MUST assign WARNING (Score: 50) or NEEDS_REVISION (Score: 0).
-
+4-TIER FIXED SCORING SCALE (0, 50, 75, 100):
 You MUST output exactly one of the following fixed scores and statuses:
 
 1. PASS (Score: 100):
-   - The content fully addresses the requirements and meets all evaluation criteria with proper depth.
-   - The logic is sound, end-to-end steps are documented, and no critical elements are missing.
+   - Fully addresses requirements with solid operational depth, sound logic, and zero defects.
    - Leave "issues", "recommendations", and "questions" COMPLETELY EMPTY.
+   - Severity: "LOW".
 
-2. WARNING (Score: 50):
-   - Content partially addresses requirements but lacks operational detail (e.g. missing tools, inputs, or handoffs).
-   - Provide specific issues, actionable recommendations, and targeted clarification questions for the Process Owner.
+2. PASS with Minor Polish (Score: 75):
+   - Substantially complete, operationally sound, and valid for organizational use.
+   - Has minor suggestions, small formatting tips, minor typos, or non-blocking clarification questions.
+   - Status: "PASS", Severity: "LOW".
 
-3. NEEDS_REVISION (Score: 0):
-   - Content is missing, illogical, severely incomplete, or uses generic corporate filler.
-   - Provide specific issues, actionable recommendations, and targeted clarification questions for the Process Owner.
+3. WARNING (Score: 50):
+   - Content has noticeable operational gaps, dual accountability in RACI, ambiguous roles, missing tools/inputs, or vague timelines that need creator attention.
+   - Status: "WARNING", Severity: "MEDIUM".
+
+4. NEEDS_REVISION (Score: 0):
+   - Content is completely missing/empty, has inverted math formulas, broken/truncated sentences, or severe non-compliance.
+   - Status: "NEEDS_REVISION", Severity: "HIGH".
 
 Return your evaluation as a valid JSON object matching this schema exactly:
 {{
     "status": "PASS" | "WARNING" | "NEEDS_REVISION",
-    "score": 100 | 50 | 0,
+    "score": 100 | 75 | 50 | 0,
     "severity": "LOW" | "MEDIUM" | "HIGH",
     "issues": [list of specific problems found, empty if none],
     "recommendations": [list of actionable advice, empty if none],
@@ -742,8 +752,23 @@ Do NOT wrap the JSON in markdown code blocks. Return only the raw JSON string.
                 text = match.group(0)
                 
             data = json.loads(text)
-            status = data.get("status", "PASS")
-            score = 100.0 if status == "PASS" else (50.0 if status == "WARNING" else 0.0)
+            score_val = float(data.get("score", 75.0))
+            if score_val >= 100.0:
+                score = 100.0
+                status = "PASS"
+                severity = "LOW"
+            elif score_val >= 75.0:
+                score = 75.0
+                status = "PASS"
+                severity = "LOW"
+            elif score_val >= 50.0:
+                score = 50.0
+                status = "WARNING"
+                severity = "MEDIUM"
+            else:
+                score = 0.0
+                status = "NEEDS_REVISION"
+                severity = "HIGH"
 
             return SectionValidationResult(
                 section=section_rules.get("name", "Unknown Section"),
@@ -752,7 +777,7 @@ Do NOT wrap the JSON in markdown code blocks. Return only the raw JSON string.
                 issues=data.get("issues", []),
                 recommendations=data.get("recommendations", []),
                 questions=data.get("questions", []),
-                severity=data.get("severity", "LOW")
+                severity=severity
             )
         except Exception as e:
             return SectionValidationResult(

@@ -80,13 +80,19 @@ class ValidationEngine:
                         existing_issues.append(r_iss)
                 ai_result.issues = existing_issues
 
-                # If rule issues exist, cap the score at WARNING (50.0) so minor gaps don't falsely pass
-                if ai_result.score > 50:
-                    ai_result.score = 50.0
-                    ai_result.status = "WARNING"
-                    ai_result.severity = "MEDIUM"
+                # Classify rule issues into major vs minor for 4-tier scale (0, 50, 75, 100)
+                has_major_rule_issue = any(
+                    any(k in r.lower() for k in ["empty", "missing", "conflict", "required", "invalid", "cannot be blank"])
+                    for r in rule_issues
+                )
+                if has_major_rule_issue:
+                    if ai_result.score > 50:
+                        ai_result.score = 50.0
+                else:
+                    if ai_result.score > 75:
+                        ai_result.score = 75.0
 
-            if ai_result.score >= 100:
+            if ai_result.score >= 75:
                 ai_result.status = "PASS"
                 ai_result.severity = "LOW"
             elif ai_result.score >= 50:
