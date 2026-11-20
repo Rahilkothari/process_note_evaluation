@@ -683,6 +683,14 @@ MANDATORY AUDIT FOR SECTION 1.17 (COMPLIANCE MANAGEMENT):
 - IMPORTANT: Do NOT demand statutory/legal acts when the intervention is an educational/field implementation program.
 - If compliance reporting deliverables and target dates are listed, assign PASS (Score: 100) or PASS (Score: 75 with minor advisory).
 """
+        elif sec_id == "1.20":
+            section_specific_prompt = """
+MANDATORY AUDIT FOR SECTION 1.20 (BEST PRACTICES SUMMARY):
+- Evaluate whether the section lists practical, operational best practices (e.g., timely coordination with field leads, T+1 documentation updates, school recce protocols).
+- If entries are populated with clear best practices and planned execution notes, assign PASS (Score: 100).
+- DO NOT invent speculative questions asking creators to elaborate on individual practices (e.g. asking about 'Recce of schools' in one run, then switching to 'T+1 documentation' in the next).
+- Leave "questions" and "issues" COMPLETELY EMPTY: [].
+"""
         elif sec_id == "1.21":
             section_specific_prompt = """
 MANDATORY AUDIT FOR SECTION 1.21 (INNOVATIONS):
@@ -757,7 +765,11 @@ CRITICAL PRAGMATIC AUDIT REQUIREMENT - HIGHLIGHT ONLY MAIN ISSUES, DO NOT OVERWH
   Specify the exact location: e.g. "Row 2, 3, 9: Inverted formula ((Planned / Confirmed) * 100)".
 - Each item in "recommendations" MUST be the exact 1-line actionable fix matching the issue.
   Specify the exact fix: e.g. "Change formula to: (Confirmed Count / Planned Count) * 100".
-- If questions exist, limit to 1 concise, direct question.
+- STRICT QUESTION RULES:
+  - DO NOT invent speculative or curiosity questions on sections that are already populated and valid.
+  - NEVER bounce between rows asking random operational questions across validation runs (e.g. asking about 'Recce of schools' in run 1, then switching to 'T+1 documentation' in run 2).
+  - If the section content provides sufficient clarity for business operations, leave "questions" COMPLETELY EMPTY: [].
+  - Only generate a question if the section is truly ambiguous, contradictory, or missing critical data required for execution (limit to 1 concise question).
 - Do NOT use markdown bold asterisks (**, *) anywhere in the strings. Keep all text clean and readable.
 
 Return your evaluation as a valid JSON object matching this schema exactly:
