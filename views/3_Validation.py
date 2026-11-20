@@ -326,8 +326,10 @@ try:
         local_time = latest_run.timestamp + timedelta(hours=5, minutes=30)
         st.markdown(f"### Latest Validation Results (<span style='white-space: nowrap;'>{local_time.strftime('%Y-%m-%d %H:%M')}</span>)", unsafe_allow_html=True)
 
+        pass_thresh = float(os.getenv("PASS_THRESHOLD", 75))
+        warn_thresh = float(os.getenv("WARNING_THRESHOLD", 65))
         status_class = "badge-pass" if latest_run.status == "PASS" else ("badge-warning" if latest_run.status == "WARNING" else "badge-fail")
-        score_bar_class = "score-pass" if latest_run.overall_score >= 85.0 else ("score-warn" if latest_run.overall_score >= 65.0 else "score-fail")
+        score_bar_class = "score-pass" if latest_run.overall_score >= pass_thresh else ("score-warn" if latest_run.overall_score >= warn_thresh else "score-fail")
 
         st.markdown(f"""
         <div style="background-color: #FFFFFF; border-radius: 12px; padding: 24px; border: 1px solid #E2E8F0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 24px;">
