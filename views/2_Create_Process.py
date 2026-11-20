@@ -88,6 +88,21 @@ def get_document_review_feedback(note, db_session):
                     except Exception:
                         pass
 
+        # Also extract section remarks directly from latest_sent_back.comments if present
+        if latest_sent_back and latest_sent_back.comments:
+            import re
+            pattern = r'(?:•\s*)?\[Section\s+(1\.\d+)[^\]]*\]:\s*(.*?)(?=(?:\n\s*(?:•\s*)?\[Section|\Z))'
+            for sec_cand, text_cand in re.findall(pattern, latest_sent_back.comments, re.DOTALL):
+                clean_cand = text_cand.strip()
+                existing_comments = [x["comment"] for x in section_remarks_map.get(sec_cand, [])]
+                if clean_cand not in existing_comments:
+                    section_remarks_map.setdefault(sec_cand, []).append({
+                        "reviewer": latest_sent_back.reviewer,
+                        "comment": clean_cand,
+                        "timestamp": latest_sent_back.timestamp.strftime('%b %d, %H:%M') if latest_sent_back.timestamp else "",
+                        "raw": clean_cand
+                    })
+
         return latest_sent_back, section_remarks_map
     except Exception:
         return None, {}
@@ -195,27 +210,36 @@ try:
     latest_sent_back, section_remarks_map = get_document_review_feedback(current_note, db) if current_note else (None, {})
 
     if latest_sent_back and current_note and (current_note.status == "NEEDS_REVISION" or "revision" in current_note.status.lower()):
-        badge_pills = ""
-        if section_remarks_map:
-            sorted_sids = sorted(section_remarks_map.keys(), key=lambda x: [int(p) if p.isdigit() else p for p in x.split('.')])
-            badge_pills = " ".join([f'<span style="background: #FFFFFF; border: 1px solid #FECDD3; color: #9F1239; padding: 2px 8px; border-radius: 6px; font-weight: 600; font-size: 11.5px; margin-right: 6px;">💬 Section {sid}</span>' for sid in sorted_sids])
+        sorted_sids = sorted(section_remarks_map.keys(), key=lambda x: [int(p) if p.isdigit() else p for p in x.split('.')]) if section_remarks_map else []
+        badge_pills = " ".join([f'<span style="background: #FFFFFF; border: 1.5px solid #F43F5E; color: #9F1239; padding: 3px 10px; border-radius: 6px; font-weight: 700; font-size: 11.5px; margin-right: 6px;">⚠️ Section {sid}</span>' for sid in sorted_sids])
 
-        remarks_summary_html = f'<div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #FECDD3; font-size: 12px; color: #9F1239;"><b>Sections with Specific Reviewer Remarks:</b> {badge_pills}</div>' if badge_pills else ""
+        remarks_summary_html = f'<div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #FECDD3; font-size: 12.5px; color: #9F1239;"><b>Sections Requiring Action:</b> {badge_pills}</div>' if badge_pills else ""
 
         st.markdown(f"""
-        <div style="background: #FFF1F2; border: 1.5px solid #FDA4AF; border-left: 5px solid #E11D48; border-radius: 8px; padding: 14px 18px; margin: 10px 0 16px 0;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 8px;">
-                <div style="font-weight: 700; color: #9F1239; font-size: 13.5px; display: flex; align-items: center; gap: 6px;">
+        <div style="background: #FFF1F2; border: 2px solid #FDA4AF; border-left: 6px solid #E11D48; border-radius: 10px; padding: 16px 20px; margin: 10px 0 16px 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+                <div style="font-weight: 800; color: #9F1239; font-size: 14.5px; display: flex; align-items: center; gap: 8px;">
                     <span>📢</span> <b>Reviewer Feedback from {latest_sent_back.reviewer or 'Reviewer'} (v{current_note.version} Revisions Required):</b>
                 </div>
-                <span style="font-size: 11px; color: #E11D48; background: #FFE4E6; border: 1px solid #FECDD3; padding: 2px 8px; border-radius: 12px; font-weight: 700;">Action Required</span>
+                <span style="font-size: 11px; color: #E11D48; background: #FFE4E6; border: 1.5px solid #FDA4AF; padding: 3px 10px; border-radius: 12px; font-weight: 800;">Action Required</span>
             </div>
-            <div style="color: #4C0519; font-size: 13.5px; line-height: 1.5; font-weight: 500; background: #FFFFFF; border: 1px solid #FECDD3; border-radius: 6px; padding: 10px 14px; margin-top: 4px;">
-                {latest_sent_back.comments}
-            </div>
+            <div style="color: #4C0519; font-size: 13.5px; line-height: 1.5; font-weight: 500; background: #FFFFFF; border: 1px solid #FECDD3; border-radius: 6px; padding: 12px 16px; margin-top: 4px; white-space: pre-wrap;">{latest_sent_back.comments}</div>
             {remarks_summary_html}
         </div>
         """, unsafe_allow_html=True)
+
+        if sorted_sids:
+            st.markdown('<div style="font-weight: 700; font-size: 13px; color: #9F1239; margin-bottom: 6px;">👉 Click to jump directly to sections needing revision:</div>', unsafe_allow_html=True)
+            jump_cols = st.columns(min(len(sorted_sids), 5))
+            for j_idx, sid in enumerate(sorted_sids):
+                with jump_cols[j_idx % len(jump_cols)]:
+                    sec_def_item = next((s for s in sections if s["id"] == sid), None)
+                    s_name_short = sec_def_item['name'][:12] + "..." if (sec_def_item and len(sec_def_item['name']) > 12) else (sec_def_item['name'] if sec_def_item else "")
+                    s_label = f"⚠️ Fix {sid} ({s_name_short})" if s_name_short else f"⚠️ Fix Section {sid}"
+                    if st.button(s_label, key=f"btn_quick_jump_{sid}_{current_note.id}", use_container_width=True, type="secondary"):
+                        st.session_state["active_section_tab_id"] = sid
+                        st.session_state["process_step"] = 2
+                        st.rerun()
 
     # Manage Wizard Step: 1 for Process Identity, 2 for Process Details (22 Sections)
     if "process_step" not in st.session_state:
@@ -480,12 +504,25 @@ try:
 - Ensure your process note covers branding guidelines, logo approvals, marketing calendar, PR approvals, creative workflow, and campaign records.
                     """)
 
-        tab_names = [f"{sec['id']} {sec['name']}" + (" 💬" if sec['id'] in section_remarks_map else "") for sec in sections]
+        tab_names = [
+            (f"⚠️ {sec['id']} {sec['name']} (🔴 Action Required)" if sec['id'] in section_remarks_map else f"{sec['id']} {sec['name']}")
+            for sec in sections
+        ]
+
+        if "active_section_tab_id" in st.session_state:
+            target_sid = st.session_state.pop("active_section_tab_id")
+            for t in tab_names:
+                if t.startswith(f"{target_sid} ") or t.startswith(f"⚠️ {target_sid} "):
+                    st.session_state["active_section_tab"] = t
+                    st.session_state["current_section_edit"] = t
+                    break
 
         if "active_section_tab" not in st.session_state:
             st.session_state["active_section_tab"] = st.session_state.get("current_section_edit", tab_names[0])
         if st.session_state["active_section_tab"] not in tab_names:
-            st.session_state["active_section_tab"] = tab_names[0]
+            curr_val = st.session_state.get("active_section_tab", "")
+            matched = next((t for t in tab_names if curr_val and (t.split()[0] in curr_val or (len(t.split()) > 1 and t.split()[1] in curr_val))), None)
+            st.session_state["active_section_tab"] = matched or tab_names[0]
 
         current_idx = tab_names.index(st.session_state["active_section_tab"])
 
@@ -559,13 +596,13 @@ try:
         # -------------------------------------------------------------
         if sec_id in section_remarks_map:
             for rmk in section_remarks_map[sec_id]:
-                ts_str = f" <span style='font-size: 11px; color: #4F46E5; font-weight: 500;'>({rmk['timestamp']})</span>" if rmk.get('timestamp') else ""
+                ts_str = f" <span style='font-size: 11px; color: #E11D48; font-weight: 600;'>({rmk['timestamp']})</span>" if rmk.get('timestamp') else ""
                 st.markdown(f"""
-                <div style="background: #EEF2FF; border: 1.5px solid #C7D2FE; border-left: 5px solid #4F46E5; border-radius: 8px; padding: 12px 16px; margin: 8px 0 14px 0;">
-                    <div style="font-weight: 700; color: #3730A3; font-size: 13px; display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
-                        <span>💬</span> <b>Reviewer Feedback on Section {sec_id} from {rmk['reviewer'] or 'Reviewer'}:{ts_str}</b>
+                <div style="background: #FFF1F2; border: 2px solid #FDA4AF; border-left: 6px solid #E11D48; border-radius: 8px; padding: 14px 18px; margin: 8px 0 14px 0;">
+                    <div style="font-weight: 800; color: #9F1239; font-size: 13.5px; display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+                        <span>🚨</span> <b>Reviewer Action Required on Section {sec_id} from {rmk['reviewer'] or 'Reviewer'}:{ts_str}</b>
                     </div>
-                    <div style="color: #1E1B4B; font-size: 13.5px; line-height: 1.5; font-weight: 600; background: #FFFFFF; border: 1px solid #E0E7FF; border-radius: 6px; padding: 10px 14px; margin-top: 4px;">
+                    <div style="color: #4C0519; font-size: 13.5px; line-height: 1.5; font-weight: 600; background: #FFFFFF; border: 1px solid #FECDD3; border-radius: 6px; padding: 12px 16px; margin-top: 4px; white-space: pre-wrap;">
                         {rmk['comment']}
                     </div>
                 </div>

@@ -398,6 +398,68 @@ try:
         st.markdown("<div style='font-weight: 700; font-size: 15px; color: #1E293B; margin-bottom: 8px;'>Managerial Determination:</div>", unsafe_allow_html=True)
 
         if current_note.status in ["UNDER_REVIEW", "NEEDS_REVISION", "WARNING", "DRAFT", "PASS"]:
+            # Smart Helper: Auto-Consolidate AI Findings into Review Comments
+            auto_comments_key = f"rev_comments_val_{current_note.id}"
+            if auto_comments_key not in st.session_state:
+                st.session_state[auto_comments_key] = ""
+
+            latest_audit_run = db.query(ValidationRun).filter(ValidationRun.process_note_id == current_note.id).order_by(ValidationRun.timestamp.desc()).first()
+
+            af_col1, af_col2 = st.columns([2.8, 4.2])
+            with af_col1:
+                if st.button("📋 Auto-Fill Comments with AI Findings", key=f"btn_autofill_{current_note.id}", use_container_width=True, help="Compiles active discrepancies into structured, actionable comments for the creator"):
+                    if latest_audit_run:
+                        all_findings = db.query(ValidationFinding).filter(ValidationFinding.validation_id == latest_audit_run.id).all()
+                        # Filter out resolved or clean passes
+                        discrepancies = [
+                            f for f in all_findings
+                            if (f.issue and f.issue.strip()) and (f.status in ["NEEDS_REVISION", "WARNING", "FAIL"]) and "*(Marked as OK by User)*" not in (f.issue or "") and "*(Resolved by Clarification)*" not in (f.issue or "")
+                        ]
+                        if discrepancies:
+                            comment_lines = ["Please address the following items before final sign-off:\n"]
+                            for f in discrepancies:
+                                sid = f.section_id or ""
+                                sec_name = "Cross-Section Alignment"
+                                if sid.startswith("1."):
+                                    sec_def = next((s for s in config.get("sections", []) if s["id"] == sid), None)
+                                    sec_name = sec_def["name"] if sec_def else f"Section {sid}"
+                                elif "Cross" in sid:
+                                    sec_name = "Cross-Section Alignment"
+                                else:
+                                    sec_def = next((s for s in config.get("sections", []) if s["id"] == sid), None)
+                                    sec_name = sec_def["name"] if sec_def else sid
+
+                                clean_iss = f.issue.replace("*(Marked as OK by User)*", "").replace("*(Resolved by Clarification)*", "").strip()
+                                clean_iss = re.sub(r'\*\*(.*?)\*\*', r'\1', clean_iss).replace("\n", " ").strip()
+                                clean_iss = re.sub(r'\s+', ' ', clean_iss)
+
+                                rec_text = ""
+                                if f.recommendation:
+                                    rec_clean = f.recommendation.split("**Clarification Questions")[0].strip()
+                                    rec_lines = [l.strip().lstrip("-* ").strip() for l in rec_clean.split("\n") if l.strip() and not l.startswith("**")]
+                                    if rec_lines:
+                                        rec_text = rec_lines[0]
+
+                                comment_lines.append(f"• [Section {sid} - {sec_name}]:")
+                                comment_lines.append(f"  - Issue: {clean_iss}")
+                                if rec_text:
+                                    comment_lines.append(f"  - Action Required: {rec_text}")
+                                comment_lines.append("")
+
+                            st.session_state[auto_comments_key] = "\n".join(comment_lines).strip()
+                            st.toast("✅ AI Findings compiled into review comments below!", icon="📋")
+                            st.rerun()
+                        else:
+                            st.info("ℹ️ No active discrepancies found in the latest AI Audit.")
+                    else:
+                        st.warning("⚠️ No automated audit run found for this note.")
+
+            with af_col2:
+                if st.session_state.get(auto_comments_key):
+                    if st.button("✖ Clear Auto-Filled Comments", key=f"btn_clear_comments_{current_note.id}"):
+                        st.session_state[auto_comments_key] = ""
+                        st.rerun()
+
             with st.form(f"review_action_form_{current_note.id}"):
                 c_act1, c_act2 = st.columns([1, 1])
                 with c_act1:
@@ -417,8 +479,9 @@ try:
 
                 reviewer_comments = st.text_area(
                     "Reviewer Comments & Executive Guidance for the Creator:",
+                    value=st.session_state.get(auto_comments_key, ""),
                     placeholder="e.g., Process looks solid. Approved with minor clarification on Turnaround Time targets in Section 1.5.",
-                    height=100
+                    height=150
                 )
 
                 submit_decision = st.form_submit_button("🚀 Submit Final Decision", type="primary", use_container_width=True)
@@ -556,6 +619,22 @@ try:
                                 comments=cr.comments,
                                 timestamp=cr.timestamp
                             ))
+
+                        # Extract section comments from final_sent_back_comments and record them directly on new_note
+                        parsed_from_text = re.findall(r'(?:•\s*)?\[Section\s+(1\.\d+)[^\]]*\]:\s*(.*?)(?=(?:\n\s*(?:•\s*)?\[Section|\Z))', final_sent_back_comments, re.DOTALL)
+                        for psid, pcomm in parsed_from_text:
+                            sec_cfg_item = next((s for s in config.get("sections", []) if s["id"] == psid), None)
+                            sname_item = sec_cfg_item["name"] if sec_cfg_item else ""
+                            db.add(ReviewHistory(
+                                process_note_id=new_note.id,
+                                process_name=new_note.process_name,
+                                reviewer=reviewer_name,
+                                action="COMMENTED",
+                                comments=f"[Section {psid} - {sname_item}]: {pcomm.strip()}"
+                            ))
+
+                        if auto_comments_key in st.session_state:
+                            st.session_state[auto_comments_key] = ""
 
                         db.commit()
 

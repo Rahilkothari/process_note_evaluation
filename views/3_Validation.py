@@ -257,8 +257,30 @@ try:
     st.markdown(f"**Current Status:** <span class='badge {status_class}'>{current_note.status.replace('_', ' ')}</span>", unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
 
-    if current_note.status in ["NEEDS_REVISION", "APPROVED"]:
-        latest_review = db.query(ReviewHistory).filter(ReviewHistory.process_note_id == current_note.id).order_by(ReviewHistory.timestamp.desc()).first()
+    latest_review = db.query(ReviewHistory).filter(ReviewHistory.process_note_id == current_note.id).order_by(ReviewHistory.timestamp.desc()).first()
+    flagged_review_sids = set()
+    if latest_review and latest_review.comments:
+        flagged_review_sids = set(re.findall(r'1\.\d+', latest_review.comments))
+
+    if current_note.status == "NEEDS_REVISION":
+        if latest_review and latest_review.comments:
+            pills_html = " ".join([f'<span style="background: #FFFFFF; border: 1.5px solid #F43F5E; color: #9F1239; padding: 3px 10px; border-radius: 6px; font-weight: 700; font-size: 11.5px; margin-right: 6px;">⚠️ Section {sid}</span>' for sid in sorted(flagged_review_sids)])
+            pills_summary = f'<div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #FECDD3; font-size: 12.5px; color: #9F1239;"><b>Flagged Sections Needing Revision:</b> {pills_html}</div>' if pills_html else ""
+            st.markdown(f"""
+            <div style="background: #FFF1F2; border: 2px solid #FDA4AF; border-left: 6px solid #E11D48; border-radius: 10px; padding: 16px 20px; margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <div style="font-weight: 800; color: #9F1239; font-size: 14.5px; display: flex; align-items: center; gap: 8px;">
+                        <span>📢</span> <b>Reviewer Feedback from {latest_review.reviewer} (Revisions Required):</b>
+                    </div>
+                    <span style="font-size: 11px; color: #E11D48; background: #FFE4E6; border: 1.5px solid #FDA4AF; padding: 3px 10px; border-radius: 12px; font-weight: 800;">Action Required</span>
+                </div>
+                <div style="color: #4C0519; font-size: 13.5px; line-height: 1.5; font-weight: 500; background: #FFFFFF; border: 1px solid #FECDD3; border-radius: 6px; padding: 12px 16px; margin-top: 4px; white-space: pre-wrap;">
+                    {latest_review.comments}
+                </div>
+                {pills_summary}
+            </div>
+            """, unsafe_allow_html=True)
+    elif current_note.status == "APPROVED":
         if latest_review and latest_review.comments:
             st.markdown(f"**Reviewer Comment ({latest_review.reviewer}):**")
             st.info(latest_review.comments)
@@ -561,7 +583,19 @@ try:
             else:
                 status_emoji = "✅ PASS" if f.status == "PASS" else ("⚠️ WARNING" if f.status == "WARNING" else "❌ NEEDS REVISION")
 
-            with st.expander(f"{f.section_id} (Score: {f.score}) - {status_emoji}"):
+            is_flagged_by_reviewer = f.section_id in flagged_review_sids
+            if is_flagged_by_reviewer:
+                exp_label = f"🚨 {f.section_id} (Score: {f.score}) - 🔴 REVIEWER FLAGGED - {status_emoji}"
+            else:
+                exp_label = f"{f.section_id} (Score: {f.score}) - {status_emoji}"
+
+            with st.expander(exp_label, expanded=is_flagged_by_reviewer):
+                if is_flagged_by_reviewer:
+                    st.markdown("""
+                    <div style="background: #FFF1F2; border-left: 5px solid #E11D48; border-radius: 4px; padding: 8px 12px; margin-bottom: 12px; color: #9F1239; font-weight: 700; font-size: 13px;">
+                        🚨 Reviewer has specifically requested changes on this section.
+                    </div>
+                    """, unsafe_allow_html=True)
                 st.markdown(f"**Status:** {badge_html}", unsafe_allow_html=True)
                 if display_issue.strip():
                     st.markdown(f"**Issues ({f.severity}):**")
