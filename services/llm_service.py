@@ -641,17 +641,17 @@ MANDATORY AUDIT FOR SECTION 1.19 (ABBREVIATIONS & DEFINITIONS):
 """
         elif sec_id == "1.12":
             section_specific_prompt = """
-MANDATORY 6-DIMENSION AUDIT FOR SECTION 1.12 (PROCESS DESCRIPTION):
-Evaluate whether the steps provide clear, actionable details across these 6 enterprise dimensions:
-1. Source of data / inputs required for each activity.
-2. Step-by-step breakdown (major activities broken into specific sub-activities).
-3. Tools, applications, and systems used at each stage (e.g., ERP, portals, Excel, field apps).
-4. Teams or stakeholders involved and the hand-offs between them.
-5. Expected outcome or deliverable of each activity and the overall process.
-6. Checks, validations, and approvals (who verifies, against what criteria).
-
-- If the activities cover the operational workflow with reasonable procedure and roles, assign PASS (Score: 75) with minor recommendations for brevity or TAT refinement.
-- Only assign WARNING (Score: 50) if critical steps are completely missing tools, handoffs, and verification criteria across the board.
+PRAGMATIC ENTERPRISE AUDIT FOR SECTION 1.12 (PROCESS DESCRIPTION):
+- Evaluate whether the section provides an understandable, practical sequence of operational steps from start to finish.
+- STRICT ANTI-NITPICKING RULES:
+  1) DO NOT count words in individual rows or demand that short procedural steps (e.g. ERP approvals, sign-offs, quotation requests, receipts) be bloated with unnecessary sub-steps. Crisp, concise steps are good practice.
+  2) DO NOT penalize calendar range timelines (e.g. 'April to March', 'May to August', 'Q1-Q3', 'Ongoing', 'As per schedule') - these are standard, legitimate operational timelines in program and field interventions.
+  3) DO NOT flag slash-separated role titles (e.g. 'SPOC / Coordinator', 'Manager / Project Head') as dual accountability. These are standard role designations.
+  4) Focus ONLY on genuine macro gaps:
+     - Is any major process phase from the flowchart or scope completely missing?
+     - Are any step descriptions literally blank or missing core procedure?
+- If the workflow covers the key operational activities with plausible roles and timelines, assign PASS (Score: 100) or PASS (Score: 75 with at most 1 practical refinement tip).
+- Limit feedback to at most 1-2 high-value, actionable points. NEVER output a long laundry list of repetitive row-by-row complaints.
 """
         elif sec_id == "1.13":
             section_specific_prompt = """
@@ -738,13 +738,17 @@ You MUST output exactly one of the following fixed scores and statuses:
    - Content is completely missing/empty, has inverted math formulas, broken/truncated sentences, or severe non-compliance.
    - Status: "NEEDS_REVISION", Severity: "HIGH".
 
-CRITICAL STYLE REQUIREMENT - KEEP REVIEWS BITE-SIZED, CRISP & ACTIONABLE:
+CRITICAL PRAGMATIC AUDIT REQUIREMENT - HIGHLIGHT ONLY MAIN ISSUES, DO NOT OVERWHELM:
+- Focus strictly on HIGH-VALUE GOVERNANCE ISSUES that genuinely affect execution (e.g., inverted math formulas, broken/truncated sentences, direct role contradictions, blank mandatory cells, or missing entire phases).
+- NEVER overwhelm the creator with trivial micro-critiques, word-count complaints (e.g. "Row X is too brief"), or demanding textbook-perfection on simple steps.
+- Provide at most 1 to 3 main issues total. If an issue is minor polish, keep it to a single 1-line suggestion.
 - Avoid long narrative paragraphs, academic jargon, and run-on sentences.
 - Each item in "issues" MUST be a single, short bullet point (1-2 sentences max).
   Specify the exact location: e.g. "Row 2, 3, 9: Inverted formula ((Planned / Confirmed) * 100)".
 - Each item in "recommendations" MUST be the exact 1-line actionable fix matching the issue.
   Specify the exact fix: e.g. "Change formula to: (Confirmed Count / Planned Count) * 100".
-- If questions exist, limit to 1-2 concise, direct questions.
+- If questions exist, limit to 1 concise, direct question.
+- Do NOT use markdown bold asterisks (**, *) anywhere in the strings. Keep all text clean and readable.
 
 Return your evaluation as a valid JSON object matching this schema exactly:
 {{
@@ -831,10 +835,11 @@ You MUST rigorously audit the 4 core inter-relationships defined by the Business
 
 OUTPUT FORMAT:
 CRITICAL EXPLANATION RULES:
-- BE EXTREMELY CRISP, BRIEF, AND DIRECT. Max 25-35 words per finding.
-- State exactly WHERE the gap is and WHAT is missing in 1-2 punchy lines (e.g. "• Step 2: Missing 95% safety audit score & Mobile Verification Audit App").
+- BE EXTREMELY CRISP, BRIEF, AND DIRECT. Max 20-30 words per finding.
+- State exactly WHERE the gap is and WHAT is missing in 1-2 punchy lines.
 - NEVER write long paragraphs, generic boilerplate, or academic lectures.
-- Keep questions short (1 sentence max).
+- NEVER use markdown bold or italic asterisks (**, *). Keep text completely clean.
+- Keep questions short (1 sentence max) and do not prefix questions with dashes or bullets.
 
 If there are gaps or inconsistencies, return a JSON array of objects with this schema:
 [

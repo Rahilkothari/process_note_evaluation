@@ -99,14 +99,16 @@ def render_crisp_feedback(issue_text: str, rec_text: str, severity: str = "MEDIU
         if not text:
             return ""
         t = text.strip()
-        # 1. Convert markdown **bold** to <b>bold</b>
-        t = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', t)
-        # 2. Convert markdown *italic* to <i>italic</i>
+        # 1. Strip leading bullets, dashes, numbers, but NOT asterisks (so **bold** is preserved)
+        t = re.sub(r'^[•\-\–\—\s\d\.\)\(]+', '', t).strip()
+        # 2. Convert markdown **bold** to <b>bold</b> (handle any multiline or whitespace)
+        t = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', t, flags=re.DOTALL)
+        # 3. Convert markdown *italic* to <i>italic</i>
         t = re.sub(r'\*([^*]+)\*', r'<i>\1</i>', t)
-        # 3. Strip any leftover stray asterisks / stars
+        # 4. Strip any leftover stray asterisks / stars
         t = t.replace('*', '')
-        # 4. Strip any leading list markers like •, -, 1., etc. (leaving HTML tags intact)
-        t = re.sub(r'^[•\-\s]+', '', t).strip()
+        # 5. Strip any leading list markers again
+        t = re.sub(r'^[•\-\–\—\s]+', '', t).strip()
         return t
 
     def parse_items(t):
@@ -114,7 +116,7 @@ def render_crisp_feedback(issue_text: str, rec_text: str, severity: str = "MEDIU
             return []
         clean = t.replace('*(Marked as OK by User)*', '').replace('*(Resolved by Clarification)*', '').strip()
         raw_lines = [l.strip() for l in re.split(r'[\r\n]+', clean) if l.strip()]
-        if len(raw_lines) > 1 and any(l.startswith(('•', '-', '*', '1.', '2.', '3.')) for l in raw_lines):
+        if any(re.match(r'^[•\-\–\—\*\d\.]', l) for l in raw_lines):
             items = raw_lines
         else:
             pattern = r'(?<!\bSr)(?<!\bNo)(?<!\be\.g)(?<!\bi\.e)(?<!\bvs)(?<!\bSec)(?<!\bv)\.\s+(?=[A-Z0-9])'
