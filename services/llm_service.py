@@ -639,6 +639,7 @@ MANDATORY AUDIT FOR SECTION 1.19 (ABBREVIATIONS & DEFINITIONS):
 - TYPOS & SPELLING: If an abbreviation expansion contains typographical errors (e.g. 'Inding' instead of 'India'), FLAG THE TYPO and assign PASS (Score: 75) so it is caught by creator and reviewer before final release.
 - If all acronyms are accurate, complete, and free of typos, assign PASS (Score: 100).
 """
+        elif sec_id == "1.12":
             section_specific_prompt = """
 MANDATORY 6-DIMENSION AUDIT FOR SECTION 1.12 (PROCESS DESCRIPTION):
 Evaluate whether the steps provide clear, actionable details across these 6 enterprise dimensions:
