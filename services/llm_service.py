@@ -51,6 +51,10 @@ class LLMProvider(ABC):
         pass
 
     @abstractmethod
+    def auto_correct_minor_hiccups(self, section_id: str, section_type: str, current_content: Any) -> Any:
+        pass
+
+    @abstractmethod
     def audit_guided_input(
         self,
         section_id: str,
@@ -291,6 +295,9 @@ class MockProvider(LLMProvider):
                 current_content[0]["Description"] = current_content[0].get("Description", "") + f" [Clarification incorporated: {answer}]"
             return current_content
         return f"{current_content}\n\nClarification Note ({question}): {answer}"
+
+    def auto_correct_minor_hiccups(self, section_id: str, section_type: str, current_content: Any) -> Any:
+        return current_content
 
     def detect_clarifications_needed(self, section_id: str, section_config: Dict[str, Any], user_answers: str, team_name: str = "") -> List[str]:
         words = [w for w in user_answers.split() if len(w) > 2]
@@ -721,13 +728,15 @@ CORE GOVERNANCE PRINCIPLE - STRICT FIELD-ALIGNED AUDITING:
 You MUST output exactly one of the following fixed scores and statuses:
 
 1. PASS (Score: 100):
-   - Fully addresses requirements with solid operational depth, sound logic, and zero defects.
-   - Leave "issues", "recommendations", and "questions" COMPLETELY EMPTY.
+   - Fully addresses requirements with solid operational depth, sound logic, and valid enterprise governance.
+   - CRITICAL - NO PENALTY FOR MINOR TYPOS, SPELLING, OR VERB TENSES:
+     If the content is functionally complete with only minor typos, small spelling slips, or minor verb tense variations (e.g. mixing 'Prepared' with 'Prepare'), DO NOT dock marks! Assign PASS (Score: 100) and leave "issues", "recommendations", and "questions" COMPLETELY EMPTY.
+     Do NOT nag creators or generate Polish Tips asking them to manually fix minor grammatical tenses or small spelling mistakes.
    - Severity: "LOW".
 
-2. PASS with Minor Polish (Score: 75):
-   - Substantially complete, operationally sound, and valid for organizational use.
-   - Has minor suggestions, small formatting tips, minor typos, or non-blocking clarification questions.
+2. PASS with Minor Operational Polish (Score: 75):
+   - Substantially complete and valid, but has a genuine non-blocking operational suggestion (e.g., clarifying a high-level KPI target benchmark or missing a recommended role hand-off).
+   - NEVER use Score 75 for minor spelling, grammar, or phrasing tenses.
    - Status: "PASS", Severity: "LOW".
 
 3. WARNING (Score: 50):
@@ -740,8 +749,9 @@ You MUST output exactly one of the following fixed scores and statuses:
 
 CRITICAL PRAGMATIC AUDIT REQUIREMENT - HIGHLIGHT ONLY MAIN ISSUES, DO NOT OVERWHELM:
 - Focus strictly on HIGH-VALUE GOVERNANCE ISSUES that genuinely affect execution (e.g., inverted math formulas, broken/truncated sentences, direct role contradictions, blank mandatory cells, or missing entire phases).
-- NEVER overwhelm the creator with trivial micro-critiques, word-count complaints (e.g. "Row X is too brief"), or demanding textbook-perfection on simple steps.
-- Provide at most 1 to 3 main issues total. If an issue is minor polish, keep it to a single 1-line suggestion.
+- NEVER overwhelm the creator with trivial micro-critiques, word-count complaints (e.g. "Row X is too brief"), spelling/grammar nitpicks, or demanding textbook-perfection on simple steps.
+- DO NOT ask creators to manually fix minor spelling mistakes, small typos, or verb tense variations. If a section is complete and valid, award Score 100 without nagging tips.
+- Provide at most 1 to 2 main issues total if real operational gaps exist.
 - Avoid long narrative paragraphs, academic jargon, and run-on sentences.
 - Each item in "issues" MUST be a single, short bullet point (1-2 sentences max).
   Specify the exact location: e.g. "Row 2, 3, 9: Inverted formula ((Planned / Confirmed) * 100)".
@@ -1176,6 +1186,44 @@ Return ONLY the updated content. If JSON, do not wrap in markdown fences.
                     current_content[0]["Description"] = current_content[0].get("Description", "") + f" [Clarification: {answer}]"
                 return current_content
             return f"{current_content}\n\nClarification ({question}): {answer}"
+
+    def auto_correct_minor_hiccups(self, section_id: str, section_type: str, current_content: Any) -> Any:
+        prompt = f"""
+You are an expert enterprise Process Management Editor and Senior Technical Writer.
+Your task is to automatically correct minor hiccups (spelling errors, typos, verb tense inconsistencies, and grammar slips) in this process note section.
+
+Section ID: {section_id}
+Section Type: {section_type}
+
+Current Section Content:
+{json.dumps(current_content, indent=2) if section_type == 'table' else str(current_content)}
+
+RULES:
+1. Fix all typographical errors, misspelled words, and punctuation slips.
+2. Standardize verb tenses (use active, professional imperative/present tense, e.g. "Prepare and submit monthly reports" instead of mixed past tense "Prepared" or "We submitted").
+3. Preserve all operational facts, figures, dates, role designations, and business logic exactly as intended.
+4. If Section Type is 'table':
+   - Return ONLY a valid JSON array of objects with the exact same column keys as the input.
+   - Do NOT wrap in markdown code fences.
+5. If Section Type is 'text':
+   - Return ONLY the clean, polished plain text.
+   - Absolutely NO markdown heading hashes (###, ##, #) and NO markdown bold/italic asterisks (**, *).
+"""
+        try:
+            response = self.model.generate_content(prompt)
+            text = response.text.strip()
+            if section_type == "table":
+                match = re.search(r'\[.*\]', text, re.DOTALL)
+                if match:
+                    text = match.group(0)
+                data = json.loads(text)
+                if isinstance(data, list) and len(data) > 0:
+                    return data
+            from config.guided_questions import clean_heading_hashes
+            return clean_heading_hashes(text, section_id)
+        except Exception as e:
+            print(f"Error in auto_correct_minor_hiccups: {e}")
+            return current_content
 
     def refine_table_rows_with_ai(
         self,

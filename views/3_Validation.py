@@ -677,12 +677,30 @@ try:
         else:
             st.success("✅ No cross-section gaps found. Business rules, KPIs, flowchart, and RACI are fully aligned with Process Description.")
 
+        def recompute_latest_run_score(run_obj, note_obj):
+            all_f = db.query(ValidationFinding).filter(ValidationFinding.validation_id == run_obj.id).all()
+            sec_f = [res for res in all_f if res.is_cross_section == 0]
+            total_score = sum([res.score for res in sec_f])
+            num_sections = len(sec_f)
+            raw_score = (total_score / num_sections) if num_sections > 0 else 0.0
+            run_obj.overall_score = max(0.0, round(raw_score, 1))
+            pass_threshold = float(os.getenv("PASS_THRESHOLD", 75))
+            warning_threshold = float(os.getenv("WARNING_THRESHOLD", 65))
+            if run_obj.overall_score >= pass_threshold:
+                run_obj.status = "PASS"
+            elif run_obj.overall_score >= warning_threshold:
+                run_obj.status = "WARNING"
+            else:
+                run_obj.status = "NEEDS_REVISION"
+            note_obj.status = run_obj.status
+            db.commit()
+
         st.markdown("### Section-by-Section Findings")
         sec_findings = [f for f in findings if f.is_cross_section == 0]
 
         for f in sec_findings:
-            is_manual = "*(Marked as OK by User)*" in (f.issue or "") or "*(Resolved by Clarification)*" in (f.issue or "")
-            display_issue = (f.issue or "").replace("*(Marked as OK by User)*\n\n", "").replace("*(Marked as OK by User)*", "").replace("*(Resolved by Clarification)*\n\n", "")
+            is_manual = "*(Marked as OK by User)*" in (f.issue or "") or "*(Resolved by Clarification)*" in (f.issue or "") or "*(Resolved by Auto-Correction)*" in (f.issue or "")
+            display_issue = (f.issue or "").replace("*(Marked as OK by User)*\n\n", "").replace("*(Marked as OK by User)*", "").replace("*(Resolved by Clarification)*\n\n", "").replace("*(Resolved by Clarification)*", "").replace("*(Resolved by Auto-Correction)*\n\n", "").replace("*(Resolved by Auto-Correction)*", "")
 
             badge_cls = "badge-pass" if f.status == "PASS" else ("badge-warning" if f.status == "WARNING" else "badge-fail")
             badge_text = "PASS (Resolved)" if is_manual else f.status
@@ -723,79 +741,81 @@ try:
                     </div>
                     """, unsafe_allow_html=True)
 
-                if f.status != "PASS" and not is_manual:
-                    show_sec_ai = st.toggle("🤖 Need AI help updating this section with your answer?", key=f"toggle_sec_ai_{f.id}", value=False)
-                    if show_sec_ai:
-                        sec_ans = st.text_area("Your response / missing details for this section:", key=f"ans_sec_{f.id}", height=75)
-                        if st.button("✨ Apply Clarification to This Section", key=f"btn_sec_apply_{f.id}", type="primary"):
-                            if not sec_ans.strip():
-                                st.warning("Please type your response before applying.")
-                            else:
-                                with st.spinner("AI is updating this section..."):
-                                    from services.llm_service import get_llm_provider
-                                    llm = get_llm_provider()
+                needs_polish_or_fix = (f.score < 100 or f.status != "PASS" or bool(display_issue.strip()) or bool(advice.strip())) and not is_manual
 
-                                    # Find true section ID
-                                    sec_def = next((s for s in sections_config if str(s.get("id")) == str(f.section_id) or str(s.get("name")) == str(f.section_id) or str(f.section_id).startswith(str(s.get("id")))), None)
-                                    t_sec_id = sec_def.get("id") if sec_def else f.section_id.split(" ")[0].replace("-", "").strip()
+                if needs_polish_or_fix:
+                    sec_def = next((s for s in sections_config if str(s.get("id")) == str(f.section_id) or str(s.get("name")) == str(f.section_id) or str(f.section_id).startswith(str(s.get("id")))), None)
+                    t_sec_id = sec_def.get("id") if sec_def else f.section_id.split(" ")[0].replace("-", "").strip()
+                    target_sec = db.query(ProcessSection).filter(ProcessSection.process_note_id == current_note.id, ProcessSection.section_id == t_sec_id).first()
 
-                                    target_sec = db.query(ProcessSection).filter(ProcessSection.process_note_id == current_note.id, ProcessSection.section_id == t_sec_id).first()
-                                    if target_sec:
-                                        s_type = sec_def.get("type", "text") if sec_def else "text"
-                                        curr_cont = target_sec.structured_data if s_type == "table" else (target_sec.content or "")
-                                        questions_to_use = questions if questions else (display_issue if display_issue else advice)
-                                        updated_res = llm.resolve_clarification(t_sec_id, s_type, curr_cont, questions_to_use, sec_ans)
-                                        if s_type == "table" and isinstance(updated_res, list):
-                                            target_sec.structured_data = updated_res
-                                        else:
-                                            target_sec.content = str(updated_res)
+                    col_fix1, col_fix2 = st.columns([1.6, 1.2])
+                    with col_fix1:
+                        if st.button("✨ Auto-Correct Section (Spelling & Polish)", key=f"btn_autocorrect_{f.id}", type="primary"):
+                            with st.spinner(f"AI is correcting minor spelling & grammar hiccups in Section {t_sec_id}..."):
+                                from services.llm_service import get_llm_provider
+                                llm = get_llm_provider()
+                                s_type = sec_def.get("type", "text") if sec_def else "text"
+                                curr_cont = target_sec.structured_data if s_type == "table" else (target_sec.content or "") if target_sec else ""
+                                if target_sec:
+                                    fixed_res = llm.auto_correct_minor_hiccups(t_sec_id, s_type, curr_cont)
+                                    if s_type == "table" and isinstance(fixed_res, list):
+                                        target_sec.structured_data = fixed_res
+                                        from sqlalchemy.orm.attributes import flag_modified
+                                        flag_modified(target_sec, "structured_data")
+                                    else:
+                                        target_sec.content = str(fixed_res)
 
-                                        f.status = "PASS"
-                                        f.severity = "LOW"
-                                        f.issue = f"*(Resolved by Clarification)*\n\n{f.issue}"
-                                        db.commit()
-                                        st.success(f"Section {t_sec_id} updated with your clarification! Click 'Run AI Validation' above to re-evaluate.")
-                                        st.rerun()
+                                f.score = 100.0
+                                f.status = "PASS"
+                                f.severity = "LOW"
+                                f.issue = "*(Resolved by Auto-Correction)*"
+                                f.recommendation = ""
+                                db.commit()
+                                recompute_latest_run_score(latest_run, current_note)
+                                st.success(f"✅ Section {t_sec_id} auto-corrected! Minor spelling and grammar hiccups resolved with Score 100.")
+                                st.rerun()
 
-                if f.status != "PASS" and not is_manual:
-                    if st.button("Mark as OK (Ignore Feedback)", key=f"ignore_{f.id}"):
-                        f.status = "PASS"
-                        f.severity = "LOW"
-                        f.issue = f"*(Marked as OK by User)*\n\n{f.issue}" if f.issue else "*(Marked as OK by User)*"
-                        db.commit()
+                    with col_fix2:
+                        if st.button("Mark as OK (Ignore Feedback)", key=f"ignore_{f.id}"):
+                            f.score = 100.0 if f.score < 100 else f.score
+                            f.status = "PASS"
+                            f.severity = "LOW"
+                            f.issue = f"*(Marked as OK by User)*\n\n{f.issue}" if f.issue else "*(Marked as OK by User)*"
+                            db.commit()
+                            recompute_latest_run_score(latest_run, current_note)
+                            st.rerun()
 
-                        # Recalculate overall run score and status
-                        all_f = db.query(ValidationFinding).filter(ValidationFinding.validation_id == latest_run.id).all()
-                        sec_f = [res for res in all_f if res.is_cross_section == 0]
-                        cross_f = [res for res in all_f if res.is_cross_section == 1]
+                    if f.status != "PASS":
+                        show_sec_ai = st.toggle("🤖 Need AI help updating this section with your answer?", key=f"toggle_sec_ai_{f.id}", value=False)
+                        if show_sec_ai:
+                            sec_ans = st.text_area("Your response / missing details for this section:", key=f"ans_sec_{f.id}", height=75)
+                            if st.button("✨ Apply Clarification to This Section", key=f"btn_sec_apply_{f.id}", type="primary"):
+                                if not sec_ans.strip():
+                                    st.warning("Please type your response before applying.")
+                                else:
+                                    with st.spinner("AI is updating this section..."):
+                                        from services.llm_service import get_llm_provider
+                                        llm = get_llm_provider()
+                                        if target_sec:
+                                            s_type = sec_def.get("type", "text") if sec_def else "text"
+                                            curr_cont = target_sec.structured_data if s_type == "table" else (target_sec.content or "")
+                                            questions_to_use = questions if questions else (display_issue if display_issue else advice)
+                                            updated_res = llm.resolve_clarification(t_sec_id, s_type, curr_cont, questions_to_use, sec_ans)
+                                            if s_type == "table" and isinstance(updated_res, list):
+                                                target_sec.structured_data = updated_res
+                                                from sqlalchemy.orm.attributes import flag_modified
+                                                flag_modified(target_sec, "structured_data")
+                                            else:
+                                                target_sec.content = str(updated_res)
 
-                        total_score = sum([res.score for res in sec_f])
-                        num_sections = len(sec_f)
-                        raw_score = (total_score / num_sections) if num_sections > 0 else 0.0
-
-                        active_cr_high = sum([1 for res in cross_f if res.severity == "HIGH" and res.status != "PASS"])
-                        active_cr_med = sum([1 for res in cross_f if res.severity == "MEDIUM" and res.status != "PASS"])
-
-                        # Cross-section findings are shown as advisory guidance without cutting marks
-                        latest_run.overall_score = max(0.0, round(raw_score, 1))
-
-                        critical_section_issues = sum([1 for res in sec_f if res.severity == "HIGH" and res.status != "PASS"])
-                        sections_needing_revision = sum([1 for res in sec_f if res.status == "NEEDS_REVISION"])
-                        warnings = sum([1 for res in sec_f if res.status == "WARNING"]) + sum([1 for res in cross_f if res.status != "PASS"])
-
-                        pass_threshold = float(os.getenv("PASS_THRESHOLD", 75))
-                        warning_threshold = float(os.getenv("WARNING_THRESHOLD", 65))
-
-                        if latest_run.overall_score >= pass_threshold:
-                            latest_run.status = "PASS"
-                        elif latest_run.overall_score >= warning_threshold:
-                            latest_run.status = "WARNING"
-                        else:
-                            latest_run.status = "NEEDS_REVISION"
-
-                        current_note.status = latest_run.status
-                        db.commit()
-                        st.rerun()
+                                            f.score = 100.0 if f.score < 100 else f.score
+                                            f.status = "PASS"
+                                            f.severity = "LOW"
+                                            f.issue = f"*(Resolved by Clarification)*\n\n{f.issue}"
+                                            db.commit()
+                                            recompute_latest_run_score(latest_run, current_note)
+                                            st.success(f"Section {t_sec_id} updated with your clarification! Score updated.")
+                                            st.rerun()
 
                 # Show manual reviewer comments if they exist
                 # f.section_id from ValidationFinding might actually be the section name due to validation_engine logic.
