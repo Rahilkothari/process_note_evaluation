@@ -94,17 +94,40 @@ import re
 from core.ui_utils import inject_custom_css
 
 def render_crisp_feedback(issue_text: str, rec_text: str, severity: str = "MEDIUM", questions_text: str = ""):
-    """Renders validation issues and recommendations as crisp, bite-sized, high-contrast action cards instead of dense text."""
+    """Renders validation issues and recommendations as crisp, bite-sized, high-contrast action cards without raw markdown asterisks or stars."""
+    def clean_html_text(text: str) -> str:
+        if not text:
+            return ""
+        t = text.strip()
+        # 1. Convert markdown **bold** to <b>bold</b>
+        t = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', t)
+        # 2. Convert markdown *italic* to <i>italic</i>
+        t = re.sub(r'\*([^*]+)\*', r'<i>\1</i>', t)
+        # 3. Strip any leftover stray asterisks / stars
+        t = t.replace('*', '')
+        # 4. Strip any leading list markers like •, -, 1., etc. (leaving HTML tags intact)
+        t = re.sub(r'^[•\-\s]+', '', t).strip()
+        return t
+
     def parse_items(t):
         if not t or not t.strip():
             return []
         clean = t.replace('*(Marked as OK by User)*', '').replace('*(Resolved by Clarification)*', '').strip()
-        lines = [l.strip() for l in re.split(r'[\r\n]+', clean) if l.strip()]
-        if len(lines) > 1 and any(l.startswith(('•', '-', '*', '1.', '2.', '3.')) for l in lines):
-            return [re.sub(r'^[•\-\*\d\.\s]+', '', l).strip() for l in lines if l.strip()]
-        pattern = r'(?<!\bSr)(?<!\bNo)(?<!\be\.g)(?<!\bi\.e)(?<!\bvs)(?<!\bSec)(?<!\bv)\.\s+(?=[A-Z0-9])'
-        sents = [s.strip() for s in re.split(pattern, clean) if s.strip()]
-        return [s.rstrip('.') + '.' if not s.endswith('.') else s for s in sents]
+        raw_lines = [l.strip() for l in re.split(r'[\r\n]+', clean) if l.strip()]
+        if len(raw_lines) > 1 and any(l.startswith(('•', '-', '*', '1.', '2.', '3.')) for l in raw_lines):
+            items = raw_lines
+        else:
+            pattern = r'(?<!\bSr)(?<!\bNo)(?<!\be\.g)(?<!\bi\.e)(?<!\bvs)(?<!\bSec)(?<!\bv)\.\s+(?=[A-Z0-9])'
+            items = [s.strip() for s in re.split(pattern, clean) if s.strip()]
+
+        parsed = []
+        for item in items:
+            cleaned = clean_html_text(item)
+            if cleaned:
+                if not cleaned.endswith(('.', '?', '!', ':', ';', '>', '"', "'")):
+                    cleaned += '.'
+                parsed.append(cleaned)
+        return parsed
 
     issues = parse_items(issue_text)
     recs = parse_items(rec_text)
@@ -349,6 +372,7 @@ try:
         if latest_review and latest_review.comments:
             pills_html = " ".join([f'<span style="background: #FFFFFF; border: 1.5px solid #F43F5E; color: #9F1239; padding: 3px 10px; border-radius: 6px; font-weight: 700; font-size: 11.5px; margin-right: 6px;">⚠️ Section {sid}</span>' for sid in sorted(flagged_review_sids)])
             pills_summary = f'<div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #FECDD3; font-size: 12.5px; color: #9F1239;"><b>Flagged Sections Needing Revision:</b> {pills_html}</div>' if pills_html else ""
+            clean_reviewer_comments = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', latest_review.comments).replace('*', '')
             st.markdown(f"""
             <div style="background: #FFF1F2; border: 2px solid #FDA4AF; border-left: 6px solid #E11D48; border-radius: 10px; padding: 16px 20px; margin-bottom: 16px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -358,7 +382,7 @@ try:
                     <span style="font-size: 11px; color: #E11D48; background: #FFE4E6; border: 1.5px solid #FDA4AF; padding: 3px 10px; border-radius: 12px; font-weight: 800;">Action Required</span>
                 </div>
                 <div style="color: #4C0519; font-size: 13.5px; line-height: 1.5; font-weight: 500; background: #FFFFFF; border: 1px solid #FECDD3; border-radius: 6px; padding: 12px 16px; margin-top: 4px; white-space: pre-wrap;">
-                    {latest_review.comments}
+                    {clean_reviewer_comments}
                 </div>
                 {pills_summary}
             </div>

@@ -770,9 +770,10 @@ try:
                         # Only show clean action guidance if any (never dump author essay questions on reviewer)
                         clean_advice = (f.recommendation or "").split("**Clarification Questions")[0].strip()
                         if clean_advice:
+                            clean_html_advice = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', clean_advice).replace('*', '').replace(chr(10), ' ')
                             st.markdown(f"""
                             <div style="font-size: 12px; color: #475569; margin: -6px 0 10px 0; background: #F8FAFC; border-left: 3px solid #94A3B8; padding: 6px 12px; border-radius: 4px;">
-                                💡 <b>Guidance:</b> {clean_advice.replace(chr(10), ' ')}
+                                💡 <b>Guidance:</b> {clean_html_advice}
                             </div>
                             """, unsafe_allow_html=True)
 
