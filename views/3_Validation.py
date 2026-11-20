@@ -85,13 +85,116 @@ import streamlit as st
 from models.database import SessionLocal, get_db, ProcessNote, ValidationRun, ValidationFinding, ProcessSection, ReviewHistory
 from models.schemas import ProcessNoteSchema, ProcessSectionSchema
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 from core.validation_engine import ValidationEngine
 import json
 import os
-
+import re
 
 from core.ui_utils import inject_custom_css
-from core.ui_utils import inject_custom_css
+
+def render_inline_section_editor(sec_def, section, current_note, db, key_suffix=""):
+    """Renders interactive inline editor (data_editor for tables, text_area for text/flowcharts) directly inside finding cards."""
+    if not sec_def:
+        st.warning("Could not load configuration for this section.")
+        return
+
+    sec_id = sec_def.get("id")
+    sec_name = sec_def.get("name")
+    sec_type = sec_def.get("type")
+
+    st.markdown(f'<div style="font-weight: 700; font-size: 13.5px; color: #1E293B; margin: 10px 0 6px 0;">✏️ Edit Section {sec_id} ({sec_name}) Content</div>', unsafe_allow_html=True)
+
+    if sec_type == "text":
+        with st.form(f"inline_edit_{sec_id}_{key_suffix}"):
+            from config.guided_questions import clean_heading_hashes
+            current_val = clean_heading_hashes(section.content, sec_id) if section else ""
+            new_content = st.text_area("Update content:", value=current_val, height=150)
+            if st.form_submit_button(f"💾 Save Update to Section {sec_id}", type="primary"):
+                cleaned_val = clean_heading_hashes(new_content, sec_id)
+                if not section:
+                    section = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=cleaned_val)
+                    db.add(section)
+                else:
+                    section.content = cleaned_val
+                db.commit()
+                st.success(f"✅ Section {sec_id} updated! ⚠️ Re-run AI Validation above to get an updated score.")
+                st.rerun()
+
+    elif sec_type == "table":
+        fields = sec_def.get("fields", [])
+        import pandas as pd
+        if section and section.structured_data:
+            df = pd.DataFrame(section.structured_data)
+            df.index = df.index + 1
+            render_fields = list(fields)
+            if "Reviewer Comment" in df.columns:
+                render_fields.append("Reviewer Comment")
+            for field in render_fields:
+                if field not in df.columns:
+                    df[field] = None
+            df = df[render_fields]
+        else:
+            df = pd.DataFrame(columns=fields)
+            df.loc[1] = [None for _ in fields]
+
+        column_config = {}
+        for field in fields:
+            f_lower = field.lower()
+            if "date" in f_lower:
+                column_config[field] = st.column_config.DateColumn(field, format="YYYY-MM-DD")
+                df[field] = pd.to_datetime(df[field], errors='coerce').dt.date
+            elif "no." in f_lower or "tat" in f_lower:
+                column_config[field] = st.column_config.NumberColumn(field, step=1)
+                df[field] = pd.to_numeric(df[field], errors='coerce')
+            elif field in ["Responsible (R)", "Accountable (A)", "Consulted (C)", "Informed (I)"]:
+                column_config[field] = st.column_config.SelectboxColumn(field, options=["Yes", "No"])
+            elif "level of risk" in f_lower:
+                column_config[field] = st.column_config.SelectboxColumn(field, options=["High", "Medium", "Low"])
+            else:
+                column_config[field] = st.column_config.TextColumn(field)
+
+        with st.form(f"inline_edit_{sec_id}_{key_suffix}"):
+            st.markdown(f"Update table rows for **Section {sec_id} - {sec_name}**:")
+            disabled_cols = ["Reviewer Comment"] if "Reviewer Comment" in df.columns else False
+            edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, key=f"inline_editor_{sec_id}_{key_suffix}", column_config=column_config, disabled=disabled_cols)
+            if st.form_submit_button(f"💾 Save Update to Section {sec_id}", type="primary"):
+                raw_data = edited_df.to_dict(orient="records")
+                json_data = []
+                for row in raw_data:
+                    clean_row = {}
+                    for k, v in row.items():
+                        if pd.isna(v):
+                            clean_row[k] = None
+                        elif hasattr(v, 'isoformat'):
+                            clean_row[k] = v.isoformat()
+                        else:
+                            clean_row[k] = v
+                    json_data.append(clean_row)
+                if not section:
+                    section = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, structured_data=json_data)
+                    db.add(section)
+                else:
+                    section.structured_data = json_data
+                    flag_modified(section, "structured_data")
+                db.commit()
+                st.success(f"✅ Section {sec_id} updated! ⚠️ Re-run AI Validation above to get an updated score.")
+                st.rerun()
+
+    elif sec_type in ["flowchart", "file"]:
+        current_chart = section.content if section else ""
+        with st.form(f"inline_edit_{sec_id}_{key_suffix}"):
+            st.markdown(f"Update Mermaid flowchart syntax for **Section {sec_id}**:")
+            new_flow = st.text_area("Mermaid Flowchart Code:", value=current_chart or "", height=140)
+            if st.form_submit_button(f"💾 Save Flowchart to Section {sec_id}", type="primary"):
+                if not section:
+                    section = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=sec_id, content=new_flow)
+                    db.add(section)
+                else:
+                    section.content = new_flow
+                db.commit()
+                st.success(f"✅ Flowchart updated! ⚠️ Re-run AI Validation above to get an updated score.")
+                st.rerun()
 
 
 st.title("Run AI Validation")
@@ -372,28 +475,73 @@ try:
                         q_part = f.recommendation.split("**Clarification Questions for Process Owner:**")[1].strip()
                         st.markdown(q_part)
 
-                        if not is_resolved:
-                            use_ai_cr = st.toggle("✨ Have AI update Section 1.12 with your answer (Optional)", key=f"toggle_ai_{f.id}", value=False)
-                            if use_ai_cr:
-                                st.caption("If you would like AI to incorporate your clarification directly into Section 1.12, type your operational details below:")
-                                cr_ans = st.text_area("Your response / clarification notes:", key=f"cr_ans_{f.id}", height=75, placeholder="e.g. Turnaround time is 14 days total; update Section 1.12 steps to reflect 14 days.")
-                                if st.button("✨ Apply Update to Section 1.12", key=f"btn_apply_cr_{f.id}", type="primary"):
-                                    if not cr_ans.strip():
-                                        st.warning("Please enter your clarification response.")
-                                    else:
-                                        with st.spinner("AI is incorporating your explanation into Section 1.12..."):
-                                            from services.llm_service import get_llm_provider
-                                            llm = get_llm_provider()
-                                            desc_sec = db.query(ProcessSection).filter(ProcessSection.process_note_id == current_note.id, ProcessSection.section_id == "1.12").first()
-                                            if desc_sec and desc_sec.structured_data:
-                                                updated_data = llm.resolve_clarification("1.12", "table", desc_sec.structured_data, display_cr_issue, cr_ans)
-                                                desc_sec.structured_data = updated_data
-                                                f.status = "PASS"
-                                                f.severity = "LOW"
-                                                f.issue = f"*(Resolved by Clarification)*\n\n{f.issue}"
-                                                db.commit()
-                                                st.success("Clarification saved to Section 1.12! Click 'Run AI Validation' above to re-evaluate.")
-                                                st.rerun()
+                    # Identify all involved sections for this cross-section finding
+                    found_sids = re.findall(r'1\.\d+', str(f.section_id or ""))
+                    if not found_sids:
+                        found_sids = ["1.12"]
+
+                    involved_sections = []
+                    for sid in found_sids:
+                        c_def = next((s for s in sections_config if str(s.get("id")) == sid), None)
+                        s_obj = next((s for s in current_note.sections if str(s.section_id) == sid), None)
+                        if c_def:
+                            involved_sections.append((c_def, s_obj))
+
+                    st.markdown("---")
+
+                    # Option A: Ask AI to update by typing into textbox
+                    if not is_resolved and involved_sections:
+                        st.markdown('<div style="font-weight: 700; font-size: 14px; color: #1E3A8A; margin-bottom: 4px;">🤖 Ask AI to Update a Section for You</div>', unsafe_allow_html=True)
+                        st.caption("Type your operational explanation below. AI will automatically incorporate your updates into the chosen section.")
+
+                        sec_labels = [f"Section {c['id']} ({c['name']})" for c, _ in involved_sections]
+                        sel_col1, sel_col2 = st.columns([1.5, 2.5])
+                        with sel_col1:
+                            target_sec_label = st.selectbox("Target Section to update:", sec_labels, key=f"cr_target_sec_{f.id}")
+                            chosen_idx = sec_labels.index(target_sec_label)
+                            chosen_cfg, chosen_sec_obj = involved_sections[chosen_idx]
+
+                        with sel_col2:
+                            cr_ans = st.text_area("Your response / clarification notes:", key=f"cr_ans_{f.id}", height=75, placeholder="e.g. Specify responsible roles, TAT, or step procedures...")
+
+                        if st.button(f"✨ Have AI Update Section {chosen_cfg['id']}", key=f"btn_apply_cr_{f.id}", type="primary"):
+                            if not cr_ans.strip():
+                                st.warning("Please enter your clarification response.")
+                            else:
+                                with st.spinner(f"AI is incorporating your explanation into Section {chosen_cfg['id']}..."):
+                                    from services.llm_service import get_llm_provider
+                                    llm = get_llm_provider()
+                                    target_sec = db.query(ProcessSection).filter(ProcessSection.process_note_id == current_note.id, ProcessSection.section_id == chosen_cfg['id']).first()
+                                    sec_type = chosen_cfg.get("type", "table")
+                                    curr_cont = target_sec.structured_data if sec_type == "table" else (target_sec.content if target_sec else "")
+                                    if target_sec:
+                                        updated_data = llm.resolve_clarification(chosen_cfg['id'], sec_type, curr_cont, display_cr_issue, cr_ans)
+                                        if sec_type == "table":
+                                            target_sec.structured_data = updated_data
+                                            flag_modified(target_sec, "structured_data")
+                                        else:
+                                            target_sec.content = updated_data
+                                        f.status = "PASS"
+                                        f.severity = "LOW"
+                                        f.issue = f"*(Resolved by Clarification)*\n\n{f.issue}"
+                                        db.commit()
+                                        st.success(f"✅ AI successfully updated Section {chosen_cfg['id']}! ⚠️ Click 'Run AI Validation' above to re-evaluate.")
+                                        st.rerun()
+
+                    # Option B: Direct Section Content Editor (The edit section content part!)
+                    st.markdown("---")
+                    st.markdown('<div style="font-weight: 700; font-size: 14px; color: #1E293B; margin-bottom: 6px;">✏️ Edit Section Content Directly (In-Place)</div>', unsafe_allow_html=True)
+                    st.caption("You can directly edit the table cells, text, or flowchart for any involved section below:")
+
+                    if len(involved_sections) == 1:
+                        c_def, s_obj = involved_sections[0]
+                        render_inline_section_editor(c_def, s_obj, current_note, db, key_suffix=f"cr_{f.id}_{c_def['id']}")
+                    elif len(involved_sections) > 1:
+                        tab_titles = [f"✏️ Section {c['id']} ({c['name']})" for c, _ in involved_sections]
+                        sec_tabs = st.tabs(tab_titles)
+                        for t_idx, (c_def, s_obj) in enumerate(involved_sections):
+                            with sec_tabs[t_idx]:
+                                render_inline_section_editor(c_def, s_obj, current_note, db, key_suffix=f"cr_{f.id}_{c_def['id']}")
         else:
             st.success("✅ No cross-section gaps found. Business rules, KPIs, flowchart, and RACI are fully aligned with Process Description.")
 
@@ -550,86 +698,8 @@ try:
 
                 # Inline Editing UI
                 st.markdown("---")
-                st.markdown('<div style="font-weight: 700; font-size: 14px; color: #1E293B; margin: 6px 0;">✏️ Edit Section Content</div>', unsafe_allow_html=True)
                 if sec_def:
-                    sec_type = sec_def.get("type")
-                    if sec_type == "text":
-                        with st.form(f"inline_edit_{true_section_id}_{latest_run.id}"):
-                            from config.guided_questions import clean_heading_hashes
-                            current_val = clean_heading_hashes(section.content, true_section_id) if section else ""
-                            new_content = st.text_area("Update content:", value=current_val, height=150)
-                            if st.form_submit_button("Save Update", type="primary"):
-                                cleaned_val = clean_heading_hashes(new_content, true_section_id)
-                                if not section:
-                                    section = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=true_section_id, content=cleaned_val)
-                                    db.add(section)
-                                else:
-                                    section.content = cleaned_val
-                                db.commit()
-                                st.success("Section updated! ⚠️ **Note: Re-run AI Validation to get an updated score.**")
-
-                    elif sec_type == "table":
-                        fields = sec_def.get("fields", [])
-                        import pandas as pd
-                        if section and section.structured_data:
-                            df = pd.DataFrame(section.structured_data)
-                            df.index = df.index + 1
-                            render_fields = list(fields)
-                            if "Reviewer Comment" in df.columns:
-                                render_fields.append("Reviewer Comment")
-                            for field in render_fields:
-                                if field not in df.columns:
-                                    df[field] = None
-                            df = df[render_fields]
-                        else:
-                            df = pd.DataFrame(columns=fields)
-                            df.loc[1] = [None for _ in fields]
-
-                        column_config = {}
-                        for field in fields:
-                            f_lower = field.lower()
-                            if "date" in f_lower:
-                                column_config[field] = st.column_config.DateColumn(field, format="YYYY-MM-DD")
-                                df[field] = pd.to_datetime(df[field], errors='coerce').dt.date
-                            elif "no." in f_lower or "tat" in f_lower:
-                                column_config[field] = st.column_config.NumberColumn(field, step=1)
-                                df[field] = pd.to_numeric(df[field], errors='coerce')
-                            elif field in ["Responsible (R)", "Accountable (A)", "Consulted (C)", "Informed (I)"]:
-                                column_config[field] = st.column_config.SelectboxColumn(field, options=["Yes", "No"])
-                            elif "level of risk" in f_lower:
-                                column_config[field] = st.column_config.SelectboxColumn(field, options=["High", "Medium", "Low"])
-                            else:
-                                column_config[field] = st.column_config.TextColumn(field)
-
-                        with st.form(f"inline_edit_{true_section_id}_{latest_run.id}"):
-                            st.markdown("Update the table below:")
-                            disabled_cols = ["Reviewer Comment"] if "Reviewer Comment" in df.columns else False
-                            edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True, key=f"inline_editor_{true_section_id}_{latest_run.id}", column_config=column_config, disabled=disabled_cols)
-                            if st.form_submit_button("Save Update", type="primary"):
-                                raw_data = edited_df.to_dict(orient="records")
-                                json_data = []
-                                for row in raw_data:
-                                    clean_row = {}
-                                    for k, v in row.items():
-                                        if pd.isna(v):
-                                            clean_row[k] = None
-                                        elif hasattr(v, 'isoformat'):
-                                            clean_row[k] = v.isoformat()
-                                        else:
-                                            clean_row[k] = v
-                                    json_data.append(clean_row)
-                                if not section:
-                                    section = ProcessSection(process_note_id=current_note.id, process_name=current_note.process_name, section_id=true_section_id, structured_data=json_data)
-                                    db.add(section)
-                                else:
-                                    section.structured_data = json_data
-                                    from sqlalchemy.orm.attributes import flag_modified
-                                    flag_modified(section, "structured_data")
-                                db.commit()
-                                st.success("Section updated! ⚠️ **Note: Re-run AI Validation to get an updated score.**")
-
-                    elif sec_type == "file":
-                        st.info("File upload editing must be done on the Create Process page.")
+                    render_inline_section_editor(sec_def, section, current_note, db, key_suffix=f"sec_{f.id}_{true_section_id}")
                 else:
                     st.warning(f"Could not load configuration for section {f.section_id}.")
         st.markdown("<br>", unsafe_allow_html=True)
