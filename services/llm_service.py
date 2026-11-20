@@ -743,12 +743,13 @@ You MUST output exactly one of the following fixed scores and statuses:
    - Severity: "LOW".
 
 2. PASS with Minor Operational Polish (Score: 75):
-   - Substantially complete and valid, but has a genuine non-blocking operational suggestion (e.g., clarifying a high-level KPI target benchmark or missing a recommended role hand-off).
-   - NEVER use Score 75 for minor spelling, grammar, or phrasing tenses.
+   - Substantially complete and valid, with AT MOST 1 minor non-blocking polish tip (e.g. clarifying a high-level KPI target benchmark or missing a recommended role hand-off).
+   - STRICT CONSTRAINT: If there are MULTIPLE issues or multiple row gaps across steps, DO NOT assign 75! You MUST assign WARNING (Score: 50).
    - Status: "PASS", Severity: "LOW".
 
 3. WARNING (Score: 50):
-   - Content has noticeable operational gaps, dual accountability in RACI, ambiguous roles, missing tools/inputs, or vague timelines that need creator attention.
+   - Content has MULTIPLE issues, noticeable operational gaps across multiple rows/steps, dual accountability in RACI, ambiguous roles, missing tools/inputs, or vague timelines that need creator attention.
+   - If there are 2 or more issues or multiple affected rows with gaps, you MUST assign WARNING (Score: 50).
    - Status: "WARNING", Severity: "MEDIUM".
 
 4. NEEDS_REVISION (Score: 0):

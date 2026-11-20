@@ -141,48 +141,48 @@ def render_crisp_feedback(issue_text: str, rec_text: str, severity: str = "MEDIU
     icon = "🔴" if is_high else ("⚠️" if is_warn else "💡")
     badge_label = "Action Required" if is_high else ("Operational Gap" if is_warn else "Polish Tip")
 
-    # If issues and recs pair up (same count)
-    if len(issues) > 0 and len(issues) == len(recs):
-        for idx, (iss, rc) in enumerate(zip(issues, recs)):
+    # Render Point-by-Point one by one for 100% UI consistency across every section
+    if issues:
+        for idx, iss in enumerate(issues):
+            rc = recs[idx] if idx < len(recs) else (recs[0] if len(recs) == 1 else "")
+            rec_html = ""
+            if rc:
+                rec_html = f"""
+                <div style="padding: 6px 12px; background: #F0FDF4; border-radius: 6px; border: 1px solid #BBF7D0; font-size: 12.5px; color: #166534; line-height: 1.45; margin-top: 6px;">
+                    <b>💡 Recommended Fix:</b> {rc}
+                </div>
+                """
             st.markdown(f"""
             <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-left: 4.5px solid {border_color}; border-radius: 8px; padding: 12px 16px; margin: 8px 0 10px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                     <span style="font-weight: 700; color: {header_color}; font-size: 13.5px;">{icon} Point {idx + 1}:</span>
                     <span style="font-size: 11px; font-weight: 700; color: {header_color}; background: #F8FAFC; padding: 2px 8px; border-radius: 10px; border: 1px solid #E2E8F0;">{badge_label}</span>
                 </div>
-                <div style="color: #334155; font-size: 13px; line-height: 1.5; margin-bottom: 8px;">
+                <div style="color: #334155; font-size: 13px; line-height: 1.5;">
                     {iss}
                 </div>
-                <div style="padding: 6px 12px; background: #F0FDF4; border-radius: 6px; border: 1px solid #BBF7D0; font-size: 12.5px; color: #166534; line-height: 1.45;">
-                    <b>💡 Recommended Fix:</b> {rc}
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-    else:
-        # If counts differ or singular
-        if issues:
-            bullets_html = "".join([f'<li style="margin-bottom: 6px;">{it}</li>' for it in issues])
-            st.markdown(f"""
-            <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-left: 4.5px solid {border_color}; border-radius: 8px; padding: 12px 16px; margin: 8px 0 10px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
-                <div style="font-weight: 700; color: {header_color}; font-size: 13.5px; margin-bottom: 6px;">
-                    {icon} What Needs Attention ({severity}):
-                </div>
-                <ul style="margin: 0; padding-left: 20px; color: #334155; font-size: 13px; line-height: 1.5;">
-                    {bullets_html}
-                </ul>
+                {rec_html}
             </div>
             """, unsafe_allow_html=True)
 
-        if recs:
-            rec_bullets_html = "".join([f'<li style="margin-bottom: 5px;">{rc}</li>' for rc in recs])
-            st.markdown(f"""
-            <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-left: 4.5px solid #22C55E; border-radius: 8px; padding: 10px 16px; margin: 8px 0 10px 0;">
-                <div style="font-weight: 700; color: #166534; font-size: 13px; margin-bottom: 5px;">
-                    💡 Actionable Fixes:
+        if len(recs) > len(issues):
+            for r_idx in range(len(issues), len(recs)):
+                st.markdown(f"""
+                <div style="padding: 8px 14px; background: #F0FDF4; border-radius: 6px; border: 1px solid #BBF7D0; border-left: 4px solid #22C55E; font-size: 12.5px; color: #166534; line-height: 1.45; margin: 6px 0;">
+                    <b>💡 Additional Fix:</b> {recs[r_idx]}
                 </div>
-                <ul style="margin: 0; padding-left: 20px; color: #14532D; font-size: 12.5px; line-height: 1.45;">
-                    {rec_bullets_html}
-                </ul>
+                """, unsafe_allow_html=True)
+    elif recs:
+        for idx, rc in enumerate(recs):
+            st.markdown(f"""
+            <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-left: 4.5px solid {border_color}; border-radius: 8px; padding: 12px 16px; margin: 8px 0 10px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <span style="font-weight: 700; color: {header_color}; font-size: 13.5px;">{icon} Point {idx + 1}:</span>
+                    <span style="font-size: 11px; font-weight: 700; color: {header_color}; background: #F8FAFC; padding: 2px 8px; border-radius: 10px; border: 1px solid #E2E8F0;">{badge_label}</span>
+                </div>
+                <div style="padding: 6px 12px; background: #F0FDF4; border-radius: 6px; border: 1px solid #BBF7D0; font-size: 12.5px; color: #166534; line-height: 1.45; margin-top: 6px;">
+                    <b>💡 Recommended Fix:</b> {rc}
+                </div>
             </div>
             """, unsafe_allow_html=True)
 
