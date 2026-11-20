@@ -115,8 +115,8 @@ def main():
             "process_name": note_data["process_name"],
             "section_id": label,
             "severity": cr.get("severity", "MEDIUM"),
-            "status": "NEEDS_REVISION" if cr.get("severity") == "HIGH" else "WARNING",
-            "score": 0.0 if cr.get("severity") == "HIGH" else 50.0,
+            "status": "WARNING",
+            "score": 75.0,
             "issue": cr.get("issue", ""),
             "recommendation": "\n".join(cr_rec),
             "is_cross_section": 1

@@ -123,23 +123,24 @@ class ValidationEngine:
         total_score = sum([res.score for res in section_results]) if section_results else 0
         raw_score = total_score / len(section_results) if section_results else 0
 
-        # Factor cross-section consistency gaps into score: 5.0 pts for HIGH, 2.5 pts for MEDIUM
-        cr_deduction = sum([5.0 for cr in cross_section_issues if cr.get("severity") == "HIGH"]) +                        sum([2.5 for cr in cross_section_issues if cr.get("severity") != "HIGH"])
-        overall_score = max(0.0, round(raw_score - cr_deduction, 1))
+        # Cross-section consistency issues are displayed as advisory alignment findings
+        # to motivate and guide the creator, without penalizing / deducting marks from the overall score.
+        overall_score = max(0.0, round(raw_score, 1))
 
         critical_section_issues = sum([1 for res in section_results if res.severity == "HIGH"])
         critical_cross_issues = sum([1 for cr in cross_section_issues if cr.get("severity") == "HIGH"])
         critical_issues = critical_section_issues + critical_cross_issues
-        warnings = sum([1 for res in section_results if res.severity == "MEDIUM" or res.status == "WARNING"]) +                    sum([1 for cr in cross_section_issues if cr.get("severity") != "HIGH"])
+        warnings = sum([1 for res in section_results if res.severity == "MEDIUM" or res.status == "WARNING"]) + \
+                   sum([1 for cr in cross_section_issues])
 
         sections_passed = sum([1 for res in section_results if res.status == "PASS"])
         sections_needing_revision = sum([1 for res in section_results if res.status == "NEEDS_REVISION"])
 
         # A document only NEEDS_REVISION if an individual section failed, if score < warning threshold, or critical section issues exist.
-        # If all sections passed, cross-section gaps are advisory WARNINGs.
+        # Cross-section gaps are advisory guidance.
         if sections_needing_revision > 0 or critical_section_issues > 0 or overall_score < warning_threshold:
             overall_status = "NEEDS_REVISION"
-        elif warnings > 0 or critical_cross_issues > 0 or overall_score < pass_threshold:
+        elif warnings > 0 or overall_score < pass_threshold:
             overall_status = "WARNING"
         else:
             overall_status = "PASS"

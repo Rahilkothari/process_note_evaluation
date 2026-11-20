@@ -303,8 +303,8 @@ try:
                     process_name=current_note.process_name,
                     section_id=label,
                     severity=cr.get("severity", "MEDIUM"),
-                    status="NEEDS_REVISION" if cr.get("severity") == "HIGH" else "WARNING",
-                    score=0.0 if cr.get("severity") == "HIGH" else 50.0,
+                    status="WARNING",
+                    score=75.0,
                     issue=cr.get("issue", ""),
                     recommendation="\n".join(cr_rec),
                     is_cross_section=1
@@ -492,20 +492,20 @@ try:
 
                         active_cr_high = sum([1 for res in cross_f if res.severity == "HIGH" and res.status != "PASS"])
                         active_cr_med = sum([1 for res in cross_f if res.severity == "MEDIUM" and res.status != "PASS"])
-                        cr_deduction = (active_cr_high * 5.0) + (active_cr_med * 2.5)
 
-                        latest_run.overall_score = max(0.0, round(raw_score - cr_deduction, 1))
+                        # Cross-section findings are shown as advisory guidance without cutting marks
+                        latest_run.overall_score = max(0.0, round(raw_score, 1))
 
                         critical_section_issues = sum([1 for res in sec_f if res.severity == "HIGH" and res.status != "PASS"])
                         sections_needing_revision = sum([1 for res in sec_f if res.status == "NEEDS_REVISION"])
                         warnings = sum([1 for res in sec_f if res.status == "WARNING"]) + sum([1 for res in cross_f if res.status != "PASS"])
 
-                        pass_threshold = 85.0
-                        warning_threshold = 65.0
+                        pass_threshold = float(os.getenv("PASS_THRESHOLD", 75))
+                        warning_threshold = float(os.getenv("WARNING_THRESHOLD", 65))
 
                         if sections_needing_revision > 0 or critical_section_issues > 0 or latest_run.overall_score < warning_threshold:
                             latest_run.status = "NEEDS_REVISION"
-                        elif warnings > 0 or active_cr_high > 0 or latest_run.overall_score < pass_threshold:
+                        elif warnings > 0 or latest_run.overall_score < pass_threshold:
                             latest_run.status = "WARNING"
                         else:
                             latest_run.status = "PASS"
