@@ -555,27 +555,7 @@ try:
                 )
                 db.add(vf)
 
-            for cr in result.cross_section_issues:
-                cr_rec = []
-                if cr.get("questions"):
-                    cr_rec.append("**Clarification Questions for Process Owner:**")
-                    cr_rec.extend([f"- {q}" for q in cr.get("questions")])
-
-                rel = cr.get("related_sections", [])
-                label = f"Cross-Section ({' & '.join(rel)})" if rel else "Cross-Section Alignment"
-
-                vf = ValidationFinding(
-                    validation_id=v_run.id,
-                    process_name=current_note.process_name,
-                    section_id=label,
-                    severity=cr.get("severity", "MEDIUM"),
-                    status="WARNING",
-                    score=75.0,
-                    issue=cr.get("issue", ""),
-                    recommendation="\n".join(cr_rec),
-                    is_cross_section=1
-                )
-                db.add(vf)
+            # Cross-section validation disabled to strictly adhere to standard format and guidelines
 
             current_note.status = result.overall_status
             db.commit()
@@ -614,100 +594,7 @@ try:
         </div>
         """, unsafe_allow_html=True)
 
-        findings = db.query(ValidationFinding).filter(ValidationFinding.validation_id == latest_run.id).all()
-
-        st.markdown("### 💡 Draft Consistency Tips Between Sections")
-        st.caption("Optional suggestions to ensure timelines, roles, and rules stay aligned across your sections. You can submit your note for manual review anytime!")
-        cross_findings = [f for f in findings if f.is_cross_section == 1]
-        if cross_findings:
-            for f in cross_findings:
-                is_resolved = "*(Resolved by Clarification)*" in (f.issue or "")
-                display_cr_issue = (f.issue or "").replace("*(Resolved by Clarification)*\n\n", "").replace("*(Resolved by Clarification)*", "")
-                clean_sec_label = f.section_id.replace("Cross-Section", "Sections").strip()
-                exp_title = f"✅ {clean_sec_label} - Resolved" if is_resolved else f"💡 Suggestion: {clean_sec_label} Alignment"
-
-                with st.expander(exp_title, expanded=False):
-                    cr_advice = f.recommendation or ""
-                    cr_questions = ""
-                    if f.recommendation and "**Clarification Questions for Process Owner:**" in f.recommendation:
-                        rec_parts = f.recommendation.split("**Clarification Questions for Process Owner:**")
-                        cr_advice = rec_parts[0].strip()
-                        cr_questions = rec_parts[1].strip()
-
-                    render_crisp_feedback(display_cr_issue, cr_advice, f.severity or "MEDIUM", cr_questions)
-
-                    # Identify all involved sections for this cross-section finding
-                    found_sids = re.findall(r'1\.\d+', str(f.section_id or ""))
-                    if not found_sids:
-                        found_sids = ["1.12"]
-                    # Deduplicate found_sids while preserving order
-                    found_sids = list(dict.fromkeys(found_sids))
-
-                    involved_sections = []
-                    for sid in found_sids:
-                        c_def = next((s for s in sections_config if str(s.get("id")) == sid), None)
-                        s_obj = next((s for s in current_note.sections if str(s.section_id) == sid), None)
-                        if c_def:
-                            involved_sections.append((c_def, s_obj))
-
-                    st.markdown("---")
-
-                    # Direct Section Content Editor (Primary Action)
-                    st.markdown('<div style="font-weight: 700; font-size: 14px; color: #1E293B; margin-bottom: 6px;">✏️ Edit Section Content Directly (In-Place)</div>', unsafe_allow_html=True)
-                    st.caption("You can directly edit the table cells, text, or flowchart for any involved section below:")
-
-                    if len(involved_sections) == 1:
-                        c_def, s_obj = involved_sections[0]
-                        render_inline_section_editor(c_def, s_obj, current_note, db, key_suffix=f"cr_{f.id}_{c_def['id']}")
-                    elif len(involved_sections) > 1:
-                        tab_titles = [f"✏️ Section {c['id']} ({c['name']})" for c, _ in involved_sections]
-                        sec_tabs = st.tabs(tab_titles)
-                        for t_idx, (c_def, s_obj) in enumerate(involved_sections):
-                            with sec_tabs[t_idx]:
-                                render_inline_section_editor(c_def, s_obj, current_note, db, key_suffix=f"cr_{f.id}_{c_def['id']}")
-
-                    # Optional AI Assistant Helper (Toggled cleanly to avoid Streamlit nested expander exception)
-                    if not is_resolved and involved_sections:
-                        st.markdown("---")
-                        show_cr_ai = st.toggle("🤖 Need AI help updating a section based on your prompt?", key=f"toggle_cr_ai_{f.id}", value=False)
-                        if show_cr_ai:
-                            st.caption("Type your operational explanation below. AI will automatically incorporate your updates into the chosen section.")
-
-                            sec_labels = [f"Section {c['id']} ({c['name']})" for c, _ in involved_sections]
-                            sel_col1, sel_col2 = st.columns([1.5, 2.5])
-                            with sel_col1:
-                                target_sec_label = st.selectbox("Target Section to update:", sec_labels, key=f"cr_target_sec_{f.id}")
-                                chosen_idx = sec_labels.index(target_sec_label)
-                                chosen_cfg, chosen_sec_obj = involved_sections[chosen_idx]
-
-                            with sel_col2:
-                                cr_ans = st.text_area("Your response / clarification notes:", key=f"cr_ans_{f.id}", height=75, placeholder="e.g. Specify responsible roles, TAT, or step procedures...")
-
-                            if st.button(f"✨ Have AI Update Section {chosen_cfg['id']}", key=f"btn_apply_cr_{f.id}", type="primary"):
-                                if not cr_ans.strip():
-                                    st.warning("Please enter your clarification response.")
-                                else:
-                                    with st.spinner(f"AI is incorporating your explanation into Section {chosen_cfg['id']}..."):
-                                        from services.llm_service import get_llm_provider
-                                        llm = get_llm_provider()
-                                        target_sec = db.query(ProcessSection).filter(ProcessSection.process_note_id == current_note.id, ProcessSection.section_id == chosen_cfg['id']).first()
-                                        sec_type = chosen_cfg.get("type", "table")
-                                        curr_cont = target_sec.structured_data if sec_type == "table" else (target_sec.content if target_sec else "")
-                                        if target_sec:
-                                            updated_data = llm.resolve_clarification(chosen_cfg['id'], sec_type, curr_cont, display_cr_issue, cr_ans)
-                                            if sec_type == "table":
-                                                target_sec.structured_data = updated_data
-                                                flag_modified(target_sec, "structured_data")
-                                            else:
-                                                target_sec.content = updated_data
-                                            f.status = "PASS"
-                                            f.severity = "LOW"
-                                            f.issue = f"*(Resolved by Clarification)*\n\n{f.issue}"
-                                            db.commit()
-                                            st.success(f"✅ AI successfully updated Section {chosen_cfg['id']}! ⚠️ Click 'Run AI Validation' above to re-evaluate.")
-                                            st.rerun()
-        else:
-            st.success("✅ No cross-section gaps found. Business rules, KPIs, flowchart, and RACI are fully aligned with Process Description.")
+        findings = db.query(ValidationFinding).filter(ValidationFinding.validation_id == latest_run.id, ValidationFinding.is_cross_section == 0).all()
 
         def recompute_latest_run_score(run_obj, note_obj):
             all_f = db.query(ValidationFinding).filter(ValidationFinding.validation_id == run_obj.id).all()

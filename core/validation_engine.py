@@ -108,30 +108,16 @@ class ValidationEngine:
             results = list(executor.map(validate_single_section, note.sections))
             section_results.extend(results)
 
-        # 2. Run Cross-section validation
-        all_sections_dict = []
-        for s in note.sections:
-            all_sections_dict.append({
-                "section_id": s.section_id,
-                "content": s.content,
-                "structured_data": s.structured_data
-            })
+        # 2. Cross-section validation disabled to strictly adhere to standard format and guidelines
+        cross_section_issues = []
 
-        cross_section_issues = self.cross_validator.validate(all_sections_dict)
-
-        # 3. Aggregate scores
+        # 3. Aggregate scores strictly based on the 22 standard sections
         total_score = sum([res.score for res in section_results]) if section_results else 0
         raw_score = total_score / len(section_results) if section_results else 0
-
-        # Cross-section consistency issues are displayed as advisory alignment findings
-        # to motivate and guide the creator, without penalizing / deducting marks from the overall score.
         overall_score = max(0.0, round(raw_score, 1))
 
-        critical_section_issues = sum([1 for res in section_results if res.severity == "HIGH"])
-        critical_cross_issues = sum([1 for cr in cross_section_issues if cr.get("severity") == "HIGH"])
-        critical_issues = critical_section_issues + critical_cross_issues
-        warnings = sum([1 for res in section_results if res.severity == "MEDIUM" or res.status == "WARNING"]) + \
-                   sum([1 for cr in cross_section_issues])
+        critical_issues = sum([1 for res in section_results if res.severity == "HIGH"])
+        warnings = sum([1 for res in section_results if res.severity == "MEDIUM" or res.status == "WARNING"])
 
         sections_passed = sum([1 for res in section_results if res.status == "PASS"])
         sections_needing_revision = sum([1 for res in section_results if res.status == "NEEDS_REVISION"])
