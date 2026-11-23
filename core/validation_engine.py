@@ -92,6 +92,27 @@ class ValidationEngine:
                     if ai_result.score > 75:
                         ai_result.score = 75.0
 
+            # Inculcate standard activity coverage check directly inside Section 1.13 (RACI Matrix)
+            if section.section_id == "1.13":
+                desc_sec = next((s for s in note.sections if str(s.section_id).strip() == "1.12"), None)
+                if desc_sec and desc_sec.structured_data and section.structured_data:
+                    desc_activities = [str(r.get("Activity", "")).strip() for r in desc_sec.structured_data if r.get("Activity")]
+                    raci_activities = [str(r.get("Activity name", r.get("Activity", ""))).strip() for r in section.structured_data if r.get("Activity name") or r.get("Activity")]
+
+                    missing_major = []
+                    for act in desc_activities:
+                        if act and not any(act.lower() in r_act.lower() or r_act.lower() in act.lower() for r_act in raci_activities):
+                            missing_major.append(act)
+
+                    if missing_major:
+                        cov_note = f"Activity Coverage: Operational activities from Section 1.12 ({', '.join(missing_major[:3])}) are not mapped in this RACI table. Ensure primary process workflows have designated Responsible (R) and Accountable (A) roles."
+                        existing_issues = list(ai_result.issues or [])
+                        if not any("Activity Coverage" in iss or "missing from this RACI" in iss for iss in existing_issues):
+                            existing_issues.append(cov_note)
+                            ai_result.issues = existing_issues
+                        if not ai_result.recommendations:
+                            ai_result.recommendations = ["Add missing process activities from Section 1.12 to the RACI matrix to ensure every operational workflow has an assigned owner."]
+
             if ai_result.score >= 75:
                 ai_result.status = "PASS"
                 ai_result.severity = "LOW"

@@ -174,7 +174,7 @@ class RuleValidator:
                         issues.append(f"Row {idx}: Activity description is missing.")
                     else:
                         desc_words = len(desc.split())
-                        if desc_words < 15:
+                        if desc_words < 5:
                             issues.append(f"Row {idx} ('{act}'): Activity description is too brief ({desc_words} words). Sub-steps, tools, hand-offs, and verification checks must be clearly articulated.")
 
             # 1.13 RACI Matrix
@@ -199,7 +199,7 @@ class RuleValidator:
                     rule_text = get_field_val(row, ["Business Rules", "Business Rule", "Rule", "Rule Description"])
                     if not rule_text:
                         issues.append(f"Row {idx}: Business Rule entry is empty.")
-                    elif len(rule_text.split()) < 8:
+                    elif len(rule_text.split()) < 4:
                         issues.append(f"Row {idx}: Business Rule is too brief ('{rule_text}'). State the complete operational condition and enforcement boundary.")
 
             # 1.15 Exception & Deviation Management
