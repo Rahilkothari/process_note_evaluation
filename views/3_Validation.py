@@ -621,14 +621,28 @@ try:
             is_manual = "*(Marked as OK by User)*" in (f.issue or "") or "*(Resolved by Clarification)*" in (f.issue or "") or "*(Resolved by Auto-Correction)*" in (f.issue or "")
             display_issue = (f.issue or "").replace("*(Marked as OK by User)*\n\n", "").replace("*(Marked as OK by User)*", "").replace("*(Resolved by Clarification)*\n\n", "").replace("*(Resolved by Clarification)*", "").replace("*(Resolved by Auto-Correction)*\n\n", "").replace("*(Resolved by Auto-Correction)*", "")
 
-            badge_cls = "badge-pass" if f.status == "PASS" else ("badge-warning" if f.status == "WARNING" else "badge-fail")
-            badge_text = "PASS (Resolved)" if is_manual else f.status
-            badge_html = f"<span class='badge {badge_cls}'>{badge_text}</span>"
-
             if is_manual:
+                badge_cls = "badge-pass"
+                badge_text = "PASS (Resolved)"
                 status_emoji = "✅ PASS (Resolved)"
+            elif f.score >= 100.0:
+                badge_cls = "badge-pass"
+                badge_text = "PASS"
+                status_emoji = "✅ PASS"
+            elif f.score >= 75.0:
+                badge_cls = "badge-polish"
+                badge_text = "PASS (Minor Polish)"
+                status_emoji = "💡 PASS (Minor Polish)"
+            elif f.status == "WARNING" or f.score >= 50.0:
+                badge_cls = "badge-warning"
+                badge_text = "WARNING"
+                status_emoji = "⚠️ WARNING"
             else:
-                status_emoji = "✅ PASS" if f.status == "PASS" else ("⚠️ WARNING" if f.status == "WARNING" else "❌ NEEDS REVISION")
+                badge_cls = "badge-fail"
+                badge_text = "NEEDS REVISION"
+                status_emoji = "❌ NEEDS REVISION"
+
+            badge_html = f"<span class='badge {badge_cls}'>{status_emoji}</span>" 
 
             is_flagged_by_reviewer = f.section_id in flagged_review_sids
             if is_flagged_by_reviewer:

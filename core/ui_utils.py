@@ -384,6 +384,7 @@ def inject_custom_css():
             line-height: 1;
         }
         .badge-pass { color: #047857; background: #D1FAE5; border: 1px solid #10B981; }
+        .badge-polish { color: #0284C7; background: #E0F2FE; border: 1px solid #38BDF8; }
         .badge-warning { color: #B45309; background: #FEF3C7; border: 1px solid #F59E0B; }
         .badge-fail { color: #B91C1C; background: #FEE2E2; border: 1px solid #EF4444; }
         .badge-draft { color: #475569; background: #F1F5F9; border: 1px solid #CBD5E1; }
