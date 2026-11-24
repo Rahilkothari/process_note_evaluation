@@ -718,80 +718,176 @@ try:
 
             findings = db.query(ValidationFinding).filter(ValidationFinding.validation_id == latest_run.id).all()
 
-            # Filter to ONLY actual discrepancies (status != PASS and issue is not blank)
-            real_discrepancies = [
+            # Categorize findings into 3 distinct tiers: Warnings/Critical (<75), Minor Polish (75), and Fully Compliant (100)
+            warning_findings = [
                 f for f in findings
-                if (f.issue and f.issue.strip()) and (f.status in ["NEEDS_REVISION", "WARNING", "FAIL"] or "*(Marked as OK by User)*" in (f.issue or ""))
+                if (f.score < 75.0 or f.status in ["NEEDS_REVISION", "WARNING", "FAIL"]) and (f.issue and f.issue.strip()) and "*(Marked as OK by User)*" not in (f.issue or "")
             ]
 
-            pass_count = len([f for f in findings if f.status == "PASS" and (not f.issue or not f.issue.strip() or "*(Marked as OK by User)*" in (f.issue or ""))])
+            polish_findings = [
+                f for f in findings
+                if (f.score == 75.0 or (f.status == "PASS" and f.score < 100.0 and f.issue and f.issue.strip())) and "*(Marked as OK by User)*" not in (f.issue or "") and f not in warning_findings
+            ]
+
+            clean_findings = [
+                f for f in findings
+                if f not in warning_findings and f not in polish_findings
+            ]
+
+            crit_count = len([f for f in warning_findings if f.severity == "HIGH" or f.status in ["NEEDS_REVISION", "FAIL"]])
+            warn_count = len([f for f in warning_findings if f not in [x for x in warning_findings if x.severity == "HIGH" or x.status in ["NEEDS_REVISION", "FAIL"]]])
 
             st.markdown(f'''
             <div style="display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;">
                 <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 7px 14px; font-size: 13px; font-weight: 700; color: #166534;">
-                    ✅ {pass_count} Sections Fully Compliant
+                    ✅ {len(clean_findings)} Sections Fully Compliant
                 </div>
-                <div style="background: {'#FEF2F2' if any(f.severity == 'HIGH' or f.status == 'NEEDS_REVISION' for f in real_discrepancies) else '#F8FAFC'}; border: 1px solid {'#FECACA' if any(f.severity == 'HIGH' or f.status == 'NEEDS_REVISION' for f in real_discrepancies) else '#E2E8F0'}; border-radius: 8px; padding: 7px 14px; font-size: 13px; font-weight: 700; color: {'#991B1B' if any(f.severity == 'HIGH' or f.status == 'NEEDS_REVISION' for f in real_discrepancies) else '#64748B'};">
-                    🔴 {len([f for f in real_discrepancies if f.severity == 'HIGH' or f.status == 'NEEDS_REVISION'])} Critical Blockers
+                <div style="background: #E0F2FE; border: 1px solid #7DD3FC; border-radius: 8px; padding: 7px 14px; font-size: 13px; font-weight: 700; color: #0284C7;">
+                    💡 {len(polish_findings)} Minor Polish Items (Score 75)
                 </div>
-                <div style="background: {'#FFFBEB' if any(f.severity != 'HIGH' and f.status != 'NEEDS_REVISION' for f in real_discrepancies) else '#F8FAFC'}; border: 1px solid {'#FDE68A' if any(f.severity != 'HIGH' and f.status != 'NEEDS_REVISION' for f in real_discrepancies) else '#E2E8F0'}; border-radius: 8px; padding: 7px 14px; font-size: 13px; font-weight: 700; color: {'#92400E' if any(f.severity != 'HIGH' and f.status != 'NEEDS_REVISION' for f in real_discrepancies) else '#64748B'};">
-                    🟡 {len([f for f in real_discrepancies if f.severity != 'HIGH' and f.status != 'NEEDS_REVISION'])} Advisory Notices
+                <div style="background: {'#FFFBEB' if warn_count > 0 else '#F8FAFC'}; border: 1px solid {'#FDE68A' if warn_count > 0 else '#E2E8F0'}; border-radius: 8px; padding: 7px 14px; font-size: 13px; font-weight: 700; color: {'#92400E' if warn_count > 0 else '#64748B'};">
+                    🟡 {warn_count} Advisory Warnings
+                </div>
+                <div style="background: {'#FEF2F2' if crit_count > 0 else '#F8FAFC'}; border: 1px solid {'#FECACA' if crit_count > 0 else '#E2E8F0'}; border-radius: 8px; padding: 7px 14px; font-size: 13px; font-weight: 700; color: {'#991B1B' if crit_count > 0 else '#64748B'};">
+                    🔴 {crit_count} Critical Blockers
                 </div>
             </div>
             ''', unsafe_allow_html=True)
 
-            if not real_discrepancies:
-                st.success("🎉 Excellent! All 22 sections meet Business Excellence standards with 0 discrepancies detected.")
-            else:
-                for idx, f in enumerate(real_discrepancies, 1):
-                    is_ok_user = "*(Marked as OK by User)*" in (f.issue or "")
-                    clean_issue = (f.issue or "").replace("*(Marked as OK by User)*\n\n", "").replace("*(Marked as OK by User)*", "").strip()
+            sub_tab_warn, sub_tab_polish, sub_tab_clean = st.tabs([
+                f"⚠️ Warnings & Critical ({len(warning_findings)})",
+                f"💡 Minor Issues & Polish ({len(polish_findings)})",
+                f"✅ No Issues / Fully Compliant ({len(clean_findings)})"
+            ])
 
-                    is_critical = (f.severity == "HIGH" or f.status in ["NEEDS_REVISION", "FAIL"])
-                    status_badge = "🟢 Resolved by Creator" if is_ok_user else ("🔴 Critical Discrepancy" if is_critical else "🟡 Advisory Notice")
+            # -------------------------------------------------------------
+            # SUB-TAB 1: WARNINGS & CRITICAL
+            # -------------------------------------------------------------
+            with sub_tab_warn:
+                if not warning_findings:
+                    st.success("🎉 No critical discrepancies or operational warnings detected.")
+                else:
+                    for idx, f in enumerate(warning_findings, 1):
+                        is_ok_user = "*(Marked as OK by User)*" in (f.issue or "")
+                        clean_issue = (f.issue or "").replace("*(Marked as OK by User)*\n\n", "").replace("*(Marked as OK by User)*", "").strip()
+                        is_critical = (f.severity == "HIGH" or f.status in ["NEEDS_REVISION", "FAIL"])
+                        status_badge = "🟢 Resolved by Creator" if is_ok_user else ("🔴 Critical Discrepancy" if is_critical else "🟡 Advisory Notice")
 
-                    with st.expander(f"Discrepancy {idx}: {f.section_id or 'General Governance'} • {status_badge}", expanded=is_critical):
-                        # 1. Crisp 'What to Check' box (strictly clean, zero raw stars)
-                        crisp_info = simplify_discrepancy(clean_issue)
-                        clean_html_info = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', crisp_info)
-                        clean_html_info = clean_html_info.replace('*', '').replace(chr(10), '<br>')
+                        with st.expander(f"⚠️ {f.section_id or 'General Governance'} (Score: {f.score}) • {status_badge}", expanded=is_critical):
+                            crisp_info = simplify_discrepancy(clean_issue)
+                            clean_html_info = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', crisp_info).replace('*', '').replace(chr(10), '<br>')
 
-                        st.markdown(f"""
-                        <div style="background: {'#FEF2F2' if is_critical else '#FFFBEB'}; border-left: 4px solid {'#EF4444' if is_critical else '#F59E0B'}; padding: 12px 16px; border-radius: 6px; margin-bottom: 12px;">
-                            <div style="font-weight: 700; font-size: 12px; color: {'#991B1B' if is_critical else '#92400E'}; margin-bottom: 6px; letter-spacing: 0.04em; text-transform: uppercase;">
-                                🔍 What to Check & Verify:
-                            </div>
-                            <div style="color: #1E293B; font-size: 13.5px; line-height: 1.55;">
-                                {clean_html_info}
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-                        # Only show clean action guidance if any (never dump author essay questions on reviewer)
-                        clean_advice = (f.recommendation or "").split("**Clarification Questions")[0].strip()
-                        if clean_advice:
-                            clean_html_advice = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', clean_advice).replace('*', '').replace(chr(10), ' ')
                             st.markdown(f"""
-                            <div style="font-size: 12px; color: #475569; margin: -6px 0 10px 0; background: #F8FAFC; border-left: 3px solid #94A3B8; padding: 6px 12px; border-radius: 4px;">
-                                💡 <b>Guidance:</b> {clean_html_advice}
+                            <div style="background: {'#FEF2F2' if is_critical else '#FFFBEB'}; border-left: 4px solid {'#EF4444' if is_critical else '#F59E0B'}; padding: 12px 16px; border-radius: 6px; margin-bottom: 12px;">
+                                <div style="font-weight: 700; font-size: 12px; color: {'#991B1B' if is_critical else '#92400E'}; margin-bottom: 6px; letter-spacing: 0.04em; text-transform: uppercase;">
+                                    🔍 What to Check & Verify:
+                                </div>
+                                <div style="color: #1E293B; font-size: 13.5px; line-height: 1.55;">
+                                    {clean_html_info}
+                                </div>
                             </div>
                             """, unsafe_allow_html=True)
 
-                        # 2. Section Details & In-Line Reviewer Comments
-                        matched_sections = resolve_sections_for_finding(f, current_note.sections, sections_config)
+                            clean_advice = (f.recommendation or "").split("**Clarification Questions")[0].strip()
+                            if clean_advice:
+                                clean_html_advice = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', clean_advice).replace('*', '').replace(chr(10), ' ')
+                                st.markdown(f"""
+                                <div style="font-size: 12px; color: #475569; margin: -6px 0 10px 0; background: #F8FAFC; border-left: 3px solid #94A3B8; padding: 6px 12px; border-radius: 4px;">
+                                    💡 <b>Guidance:</b> {clean_html_advice}
+                                </div>
+                                """, unsafe_allow_html=True)
 
-                        if matched_sections:
-                            st.markdown("<div style='font-weight: 700; font-size: 13px; color: #1E293B; margin: 12px 0 6px 0;'>📋 Section Details & In-Line Feedback:</div>", unsafe_allow_html=True)
-                            if len(matched_sections) > 1:
-                                sec_tabs = st.tabs([f"Sec {m_cfg['id']} ({m_cfg['name']})" for m_cfg, _ in matched_sections])
-                                for t_idx, (m_cfg, m_sec_obj) in enumerate(matched_sections):
-                                    with sec_tabs[t_idx]:
-                                        render_inline_section_comment_ui(m_cfg, m_sec_obj, current_note, db, key_prefix=f"disc_{f.id}_{m_cfg['id']}")
+                            matched_sections = resolve_sections_for_finding(f, current_note.sections, sections_config)
+                            if matched_sections:
+                                st.markdown("<div style='font-weight: 700; font-size: 13px; color: #1E293B; margin: 12px 0 6px 0;'>📋 Section Details & In-Line Reviewer Comments:</div>", unsafe_allow_html=True)
+                                if len(matched_sections) > 1:
+                                    sec_tabs = st.tabs([f"Sec {m_cfg['id']} ({m_cfg['name']})" for m_cfg, _ in matched_sections])
+                                    for t_idx, (m_cfg, m_sec_obj) in enumerate(matched_sections):
+                                        with sec_tabs[t_idx]:
+                                            render_inline_section_comment_ui(m_cfg, m_sec_obj, current_note, db, key_prefix=f"warn_{f.id}_{m_cfg['id']}")
+                                else:
+                                    m_cfg, m_sec_obj = matched_sections[0]
+                                    render_inline_section_comment_ui(m_cfg, m_sec_obj, current_note, db, key_prefix=f"warn_{f.id}")
                             else:
-                                m_cfg, m_sec_obj = matched_sections[0]
-                                render_inline_section_comment_ui(m_cfg, m_sec_obj, current_note, db, key_prefix=f"disc_{f.id}")
-                        else:
-                            st.caption("ℹ️ Section content is currently empty.")
+                                st.caption("ℹ️ Section content is currently empty.")
+
+            # -------------------------------------------------------------
+            # SUB-TAB 2: MINOR POLISH ITEMS (SCORE 75)
+            # -------------------------------------------------------------
+            with sub_tab_polish:
+                if not polish_findings:
+                    st.success("🎉 No minor polish items identified.")
+                else:
+                    for idx, f in enumerate(polish_findings, 1):
+                        clean_issue = (f.issue or "").replace("*(Marked as OK by User)*\n\n", "").replace("*(Marked as OK by User)*", "").strip()
+
+                        with st.expander(f"💡 {f.section_id or 'General Governance'} (Score: {f.score}) • 💡 Minor Polish Tip", expanded=False):
+                            crisp_info = simplify_discrepancy(clean_issue)
+                            clean_html_info = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', crisp_info).replace('*', '').replace(chr(10), '<br>')
+
+                            st.markdown(f"""
+                            <div style="background: #F0F9FF; border-left: 4px solid #0284C7; padding: 12px 16px; border-radius: 6px; margin-bottom: 12px;">
+                                <div style="font-weight: 700; font-size: 12px; color: #0369A1; margin-bottom: 6px; letter-spacing: 0.04em; text-transform: uppercase;">
+                                    🔍 Minor Polish Observation:
+                                </div>
+                                <div style="color: #1E293B; font-size: 13.5px; line-height: 1.55;">
+                                    {clean_html_info}
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+
+                            clean_advice = (f.recommendation or "").split("**Clarification Questions")[0].strip()
+                            if clean_advice:
+                                clean_html_advice = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', clean_advice).replace('*', '').replace(chr(10), ' ')
+                                st.markdown(f"""
+                                <div style="font-size: 12px; color: #475569; margin: -6px 0 10px 0; background: #F8FAFC; border-left: 3px solid #38BDF8; padding: 6px 12px; border-radius: 4px;">
+                                    💡 <b>Recommended Fix:</b> {clean_html_advice}
+                                </div>
+                                """, unsafe_allow_html=True)
+
+                            matched_sections = resolve_sections_for_finding(f, current_note.sections, sections_config)
+                            if matched_sections:
+                                st.markdown("<div style='font-weight: 700; font-size: 13px; color: #1E293B; margin: 12px 0 6px 0;'>📋 Section Details & In-Line Reviewer Comments:</div>", unsafe_allow_html=True)
+                                if len(matched_sections) > 1:
+                                    sec_tabs = st.tabs([f"Sec {m_cfg['id']} ({m_cfg['name']})" for m_cfg, _ in matched_sections])
+                                    for t_idx, (m_cfg, m_sec_obj) in enumerate(matched_sections):
+                                        with sec_tabs[t_idx]:
+                                            render_inline_section_comment_ui(m_cfg, m_sec_obj, current_note, db, key_prefix=f"pol_{f.id}_{m_cfg['id']}")
+                                else:
+                                    m_cfg, m_sec_obj = matched_sections[0]
+                                    render_inline_section_comment_ui(m_cfg, m_sec_obj, current_note, db, key_prefix=f"pol_{f.id}")
+                            else:
+                                st.caption("ℹ️ Section content is currently empty.")
+
+            # -------------------------------------------------------------
+            # SUB-TAB 3: FULLY COMPLIANT / NO ISSUES (SCORE 100)
+            # -------------------------------------------------------------
+            with sub_tab_clean:
+                if not clean_findings:
+                    st.info("No fully compliant sections found.")
+                else:
+                    st.caption("ℹ️ These sections met all automated criteria with Score 100. As a reviewer, you can still inspect each section's live content below and add remarks or flag revisions if you spot any issues.")
+                    for idx, f in enumerate(clean_findings, 1):
+                        with st.expander(f"✅ {f.section_id or 'Section'} (Score: {f.score}) • Fully Compliant", expanded=False):
+                            st.markdown("""
+                            <div style="background: #F0FDF4; border-left: 4px solid #16A34A; padding: 10px 14px; border-radius: 6px; margin-bottom: 12px; color: #166534; font-size: 13px; font-weight: 600;">
+                                ✅ Fully Compliant: AI detected zero discrepancies against enterprise standards.
+                            </div>
+                            """, unsafe_allow_html=True)
+
+                            matched_sections = resolve_sections_for_finding(f, current_note.sections, sections_config)
+                            if matched_sections:
+                                st.markdown("<div style='font-weight: 700; font-size: 13px; color: #1E293B; margin: 12px 0 6px 0;'>📋 Section Details & In-Line Reviewer Comments:</div>", unsafe_allow_html=True)
+                                if len(matched_sections) > 1:
+                                    sec_tabs = st.tabs([f"Sec {m_cfg['id']} ({m_cfg['name']})" for m_cfg, _ in matched_sections])
+                                    for t_idx, (m_cfg, m_sec_obj) in enumerate(matched_sections):
+                                        with sec_tabs[t_idx]:
+                                            render_inline_section_comment_ui(m_cfg, m_sec_obj, current_note, db, key_prefix=f"clean_{f.id}_{m_cfg['id']}")
+                                else:
+                                    m_cfg, m_sec_obj = matched_sections[0]
+                                    render_inline_section_comment_ui(m_cfg, m_sec_obj, current_note, db, key_prefix=f"clean_{f.id}")
+                            else:
+                                st.caption("ℹ️ Section content is currently empty.")
 
 
     # -------------------------------------------------------------
