@@ -8,7 +8,7 @@ st.set_page_config(
 )
 
 from models.database import init_db
-from core.auth import render_login_page, logout, render_sidebar_user_profile, sync_user_to_db
+from core.auth import render_login_page, logout, render_sidebar_user_profile, sync_user_to_db, restore_session_from_cookie
 from core.ui_utils import inject_custom_css
 from core.notifications import render_notifications_sidebar
 
@@ -45,7 +45,8 @@ def main():
         "Institutional Repository": [view_all_page, version_history_page],
     }
 
-    # 4. Handle unauthenticated state cleanly without triggering 'Page not found' modal
+    # 4. Handle unauthenticated state cleanly (persistent session check across browser reloads)
+    restore_session_from_cookie()
     is_authenticated = "user" in st.session_state and st.session_state.user is not None
 
     if not is_authenticated:

@@ -62,12 +62,96 @@ def render_sidebar_user_profile():
             logout()
 
 import os
+import hmac
+import hashlib
+import json
+import base64
+import time
 import streamlit as st
 from supabase import create_client, Client
 from supabase.client import ClientOptions
 import httpx
 from models.database import SessionLocal, User
 from dotenv import load_dotenv
+from streamlit_cookies_controller import CookieController
+
+SESSION_COOKIE_NAME = "kef_auth_session_token"
+AUTH_SECRET = os.getenv("SUPABASE_KEY") or "kef_process_note_secret_key_2026"
+
+class SessionUser:
+    def __init__(self, email, id=None):
+        self.email = email
+        self.id = id or email
+
+def create_session_token(email: str, name: str = None) -> str:
+    payload = {
+        "email": email.lower().strip(),
+        "name": name or email.split("@")[0],
+        "iat": int(time.time()),
+        "exp": int(time.time()) + (30 * 24 * 3600)  # 30 days persistence
+    }
+    payload_json = json.dumps(payload, separators=(',', ':'))
+    payload_b64 = base64.urlsafe_b64encode(payload_json.encode()).decode()
+    sig = hmac.new(AUTH_SECRET.encode(), payload_b64.encode(), hashlib.sha256).hexdigest()
+    return f"{payload_b64}.{sig}"
+
+def verify_session_token(token: str) -> dict:
+    if not token or "." not in token:
+        return None
+    try:
+        payload_b64, sig = token.rsplit(".", 1)
+        expected_sig = hmac.new(AUTH_SECRET.encode(), payload_b64.encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(sig, expected_sig):
+            return None
+        payload_json = base64.urlsafe_b64decode(payload_b64.encode()).decode()
+        payload = json.loads(payload_json)
+        if payload.get("exp") and time.time() > payload["exp"]:
+            return None
+        return payload
+    except Exception:
+        return None
+
+def restore_session_from_cookie() -> bool:
+    if "user" in st.session_state and st.session_state.user is not None:
+        return True
+
+    token = None
+    # 1. Read from st.context.cookies (instant HTTP headers)
+    try:
+        if hasattr(st, "context") and hasattr(st.context, "cookies"):
+            token = st.context.cookies.get(SESSION_COOKIE_NAME)
+    except Exception:
+        pass
+
+    # 2. Read from CookieController
+    if not token:
+        try:
+            cookie_ctrl = CookieController()
+            token = cookie_ctrl.get(SESSION_COOKIE_NAME)
+        except Exception:
+            pass
+
+    # 3. Read from query_params as synchronous fallback
+    if not token:
+        try:
+            token = st.query_params.get("auth_token")
+        except Exception:
+            pass
+
+    if token:
+        payload = verify_session_token(token)
+        if payload and payload.get("email"):
+            email = payload["email"]
+            name = payload.get("name")
+            st.session_state.user = SessionUser(email)
+            try:
+                sync_user_to_db(email, name=name)
+                st.session_state.synced_user_email = email
+            except Exception:
+                pass
+            return True
+
+    return False
 
 load_dotenv()
 
@@ -222,6 +306,19 @@ def render_login_page():
                             response = sb.auth.sign_in_with_password({"email": clean_login_email, "password": password})
                             st.session_state.user = response.user
                             sync_user_to_db(response.user.email)
+
+                            # Persist session token in cookie and query_params across browser reloads
+                            token = create_session_token(response.user.email, name=st.session_state.get("current_user_name"))
+                            try:
+                                cookie_ctrl = CookieController()
+                                cookie_ctrl.set(SESSION_COOKIE_NAME, token, max_age=30*24*3600, path="/")
+                            except Exception:
+                                pass
+                            try:
+                                st.query_params["auth_token"] = token
+                            except Exception:
+                                pass
+
                             st.session_state.pop("show_signup_success", None)
                             st.session_state.pop("just_signed_up_email", None)
                             st.rerun()
@@ -337,10 +434,20 @@ def logout():
     except Exception:
         pass
 
+    try:
+        cookie_ctrl = CookieController()
+        cookie_ctrl.remove(SESSION_COOKIE_NAME, path="/")
+    except Exception:
+        pass
+
+    try:
+        st.query_params.clear()
+    except Exception:
+        pass
+
     # Reset app state safely without destroying Streamlit SessionInfo
     for k in list(st.session_state.keys()):
         if not k.startswith("_"):
             st.session_state.pop(k, None)
     st.session_state.user = None
-    st.query_params.clear()
     st.rerun()
