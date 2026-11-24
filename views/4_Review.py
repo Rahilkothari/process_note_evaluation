@@ -398,35 +398,53 @@ try:
         st.markdown("<div style='font-weight: 700; font-size: 15px; color: #1E293B; margin-bottom: 8px;'>Managerial Determination:</div>", unsafe_allow_html=True)
 
         if current_note.status in ["UNDER_REVIEW", "NEEDS_REVISION", "WARNING", "DRAFT", "PASS"]:
-            with st.form(f"review_action_form_{current_note.id}"):
-                c_act1, c_act2 = st.columns([1, 1])
-                with c_act1:
-                    decision = st.radio(
-                        "Select Review Decision:",
-                        ["✅ Approve & Officially Release Process Note", "🔄 Request Revisions & Return to Creator"],
-                        index=0
-                    )
-                with c_act2:
+            c_act1, c_act2 = st.columns([1, 1])
+            with c_act1:
+                decision = st.radio(
+                    "Select Review Decision:",
+                    ["✅ Approve & Officially Release Process Note", "🔄 Request Revisions & Return to Creator"],
+                    index=0,
+                    key=f"decision_radio_{current_note.id}"
+                )
+            with c_act2:
+                if "approve" in decision.lower():
                     st.markdown("""
-                    <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px 14px; font-size: 12.5px; color: #475569;">
-                        <b>Governance Guidelines:</b><br>
-                        • <b>Approve:</b> Formally seals the note as institutional SOP. Ingests into RAG and clears internal review marks.<br>
-                        • <b>Request Revisions:</b> Generates a revised version draft (e.g., v1.1) and returns to creator with your specific notes.
+                    <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 10px 14px; font-size: 12.5px; color: #166534;">
+                        <b>Approval Action:</b><br>
+                        • Formally seals the note as institutional SOP.<br>
+                        • Ingests approved text into the organizational knowledge repository.
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    try:
+                        v_num_preview = float(current_note.version)
+                        next_v_preview = f"{v_num_preview + 0.1:.1f}"
+                    except Exception:
+                        next_v_preview = str(current_note.version) + "_revised"
+
+                    st.markdown(f"""
+                    <div style="background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px; padding: 10px 14px; font-size: 12.5px; color: #92400E;">
+                        <b>Return for Revisions:</b><br>
+                        • Note status will change to <b>NEEDS REVISION</b>.<br>
+                        • A new draft version (<b>v{next_v_preview}</b>) will be generated and returned to creator.
                     </div>
                     """, unsafe_allow_html=True)
 
-                reviewer_comments = st.text_area(
-                    "Reviewer Comments & Executive Guidance for the Creator:",
-                    placeholder="e.g., Process looks solid. Approved with minor clarification on Turnaround Time targets in Section 1.5.",
-                    height=150
-                )
+            reviewer_comments = st.text_area(
+                "Reviewer Comments & Executive Guidance for the Creator:",
+                placeholder="e.g., Please address the calculation formula in Section 1.5 and clarify RACI ownership in Section 1.13 before final sign-off.",
+                height=130,
+                key=f"txt_rev_comments_{current_note.id}"
+            )
 
-                submit_decision = st.form_submit_button("🚀 Submit Final Decision", type="primary", use_container_width=True)
+            is_approve_chosen = "approve" in decision.lower()
+            btn_label = "✅ Submit Decision: Formally Approve & Release Note" if is_approve_chosen else "🔄 Submit Decision: Return to Creator for Revisions"
 
-                if submit_decision:
-                    reviewer_name = st.session_state.get("current_user_name") or user_email.split("@")[0].title() or "Designated Reviewer"
+            if st.button(btn_label, key=f"btn_submit_decision_{current_note.id}", type="primary", use_container_width=True):
+                reviewer_name = st.session_state.get("current_user_name") or user_email.split("@")[0].title() or "Designated Reviewer"
 
-                    if "approve" in decision.lower():
+                try:
+                    if is_approve_chosen:
                         current_note.status = "APPROVED"
                         action_val = "APPROVED"
 
@@ -488,7 +506,7 @@ try:
                             v_num = float(current_note.version)
                             new_v = f"{v_num + 0.1:.1f}"
                         except Exception:
-                            new_v = current_note.version + "_revised"
+                            new_v = str(current_note.version) + "_revised"
 
                         new_note = ProcessNote(
                             document_id=current_note.document_id,
@@ -560,7 +578,7 @@ try:
                         # Extract section comments from final_sent_back_comments and record them directly on new_note
                         parsed_from_text = re.findall(r'(?:•\s*)?\[Section\s+(1\.\d+)[^\]]*\]:\s*(.*?)(?=(?:\n\s*(?:•\s*)?\[Section|\Z))', final_sent_back_comments, re.DOTALL)
                         for psid, pcomm in parsed_from_text:
-                            sec_cfg_item = next((s for s in config.get("sections", []) if s["id"] == psid), None)
+                            sec_cfg_item = next((s for s in sections_config if str(s.get("id")) == str(psid)), None)
                             sname_item = sec_cfg_item["name"] if sec_cfg_item else ""
                             db.add(ReviewHistory(
                                 process_note_id=new_note.id,
@@ -569,9 +587,6 @@ try:
                                 action="COMMENTED",
                                 comments=f"[Section {psid} - {sname_item}]: {pcomm.strip()}"
                             ))
-
-                        if auto_comments_key in st.session_state:
-                            st.session_state[auto_comments_key] = ""
 
                         db.commit()
 
@@ -582,6 +597,10 @@ try:
                         st.success(f"✅ Revisions requested! Draft version {new_v} has been created and sent back to the creator.")
                         st.cache_data.clear()
                         st.rerun()
+
+                except Exception as e:
+                    db.rollback()
+                    st.error(f"❌ Error submitting decision: {e}")
 
         elif current_note.status == "APPROVED":
             st.markdown("""
