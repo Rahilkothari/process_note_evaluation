@@ -311,9 +311,7 @@ try:
     # Top Status Filter: Reviewers only see notes given for review or approved
     filter_opts = [
         "Pending Review (Under Review)",
-        "In Revision (Returned to Creator)",
-        "Approved Notes",
-        "All Process Notes"
+        "Approved Notes"
     ]
     default_filter_idx = 0
     if "review_queue_filter_status" in st.session_state and st.session_state.review_queue_filter_status in filter_opts:
@@ -332,19 +330,24 @@ try:
 
     if filter_status == "Pending Review (Under Review)":
         query_statuses = ["UNDER_REVIEW"]
-    elif filter_status == "In Revision (Returned to Creator)":
-        query_statuses = ["NEEDS_REVISION"]
-    elif filter_status == "Approved Notes":
-        query_statuses = ["APPROVED"]
     else:
-        query_statuses = ["UNDER_REVIEW", "NEEDS_REVISION", "APPROVED"]
+        query_statuses = ["APPROVED"]
 
     notes = db.query(ProcessNote).filter(ProcessNote.status.in_(query_statuses)).order_by(ProcessNote.updated_at.desc()).all()
 
     if not notes:
-        st.info(f"ℹ️ No process notes found matching filter: **{filter_status}**.")
         if filter_status == "Pending Review (Under Review)":
-            st.caption("💡 Tip: Select 'In Revision' or 'All Process Notes' above to check notes returned for revision or previous releases.")
+            st.markdown("""
+            <div style="background: #F8FAFC; border: 1.5px dashed #CBD5E1; border-radius: 12px; padding: 36px 20px; text-align: center; margin-top: 15px;">
+                <span style="font-size: 32px;">🎉</span>
+                <div style="font-size: 17px; font-weight: 700; color: #1E293B; margin-top: 8px;">All Caught Up! No Process Notes Pending Review</div>
+                <div style="font-size: 13px; color: #64748B; margin-top: 4px; max-width: 520px; margin-left: auto; margin-right: auto;">
+                    There are currently no process notes waiting for review. Any notes returned for revisions have been sent back to creators and will reappear here once resubmitted.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.info(f"ℹ️ No process notes found matching filter: **{filter_status}**.")
         st.stop()
 
     note_options = {
@@ -434,15 +437,7 @@ try:
     with tab1:
         st.markdown("<div style='font-weight: 700; font-size: 15px; color: #1E293B; margin-bottom: 8px;'>Managerial Determination & Action:</div>", unsafe_allow_html=True)
 
-        if current_note.status == "NEEDS_REVISION":
-            st.markdown(f"""
-            <div style="background: #FFFBEB; border: 1.5px solid #FCD34D; border-radius: 10px; padding: 14px 18px; margin-bottom: 18px; color: #92400E;">
-                <div style="font-weight: 700; font-size: 14px; margin-bottom: 4px;">📝 Currently with Creator for Revisions</div>
-                <div style="font-size: 13px;">This process note (v{current_note.version}) has already been returned to the creator. It is currently being updated to address reviewer feedback. Once the creator completes revisions and re-submits, it will reappear in your <b>Pending Review</b> queue for final approval.</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-        elif current_note.status in ["UNDER_REVIEW", "WARNING", "DRAFT", "PASS"]:
+        if current_note.status in ["UNDER_REVIEW", "WARNING", "DRAFT", "PASS"]:
             st.markdown("""
             <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px 14px; font-size: 12.5px; color: #475569; margin-bottom: 14px;">
                 <b>Reviewer Determination Guide:</b><br>
@@ -582,10 +577,11 @@ try:
 
                     st.session_state["review_action_flash"] = {
                         "type": "success",
-                        "message": f"🎉 Process Note '{current_note.process_name}' has been successfully returned to the creator! Draft version {new_v} has been created and sent back with your comments."
+                        "message": f"📤 **Successfully Returned to Creator!** Process Note '{current_note.process_name}' has been sent back for revisions. It has been removed from your reviewer queue and returned to the creator's workspace."
                     }
-                    st.session_state["review_queue_filter_status"] = "In Revision (Returned to Creator)"
-                    st.session_state["selected_note_id"] = new_note.id
+                    st.session_state["review_queue_filter_status"] = "Pending Review (Under Review)"
+                    st.session_state.pop("selected_note_id", None)
+                    st.session_state.pop("review_hub_note_select", None)
                     st.cache_data.clear()
                     st.rerun()
 
