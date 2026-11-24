@@ -105,7 +105,8 @@ def get_role_for_email(email: str) -> str:
         "rahilkko+07@gmail.com",
         "jayati.kapadia@kotakeducationfoundation.org",
         "tanvi.parulekar@kotakeducationfoundation.org",
-        "karishma.agrawal@kotakeducationfoundation.org"
+        "karishma.agrawal@kotakeducationfoundation.org",
+        "anushka.chopdekar@kotakeducationfoundation.org"
     ]
 
     if email in reviewer_emails:
