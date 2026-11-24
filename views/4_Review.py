@@ -297,32 +297,54 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+if "review_action_flash" in st.session_state:
+    flash_info = st.session_state.pop("review_action_flash")
+    if flash_info.get("type") == "success":
+        st.success(flash_info.get("message"))
+    elif flash_info.get("type") == "error":
+        st.error(flash_info.get("message"))
+    else:
+        st.info(flash_info.get("message"))
+
 db: Session = SessionLocal()
 try:
     # Top Status Filter: Reviewers only see notes given for review or approved
-    col_f1, col_f2 = st.columns([2.5, 7.5])
+    filter_opts = [
+        "Pending Review (Under Review)",
+        "In Revision (Returned to Creator)",
+        "Approved Notes",
+        "All Process Notes"
+    ]
+    default_filter_idx = 0
+    if "review_queue_filter_status" in st.session_state and st.session_state.review_queue_filter_status in filter_opts:
+        default_filter_idx = filter_opts.index(st.session_state.review_queue_filter_status)
+
+    col_f1, col_f2 = st.columns([3, 7])
     with col_f1:
         filter_status = st.selectbox(
             "Filter Queue",
-            ["Pending Review (Under Review)", "Approved Notes", "All Reviewed Notes"],
-            index=0,
+            filter_opts,
+            index=default_filter_idx,
+            key="review_queue_filter_select",
             label_visibility="collapsed"
         )
+        st.session_state.review_queue_filter_status = filter_status
 
-    # Query notes based on filter - Reviewers NEVER see unsubmitted drafts
     if filter_status == "Pending Review (Under Review)":
         query_statuses = ["UNDER_REVIEW"]
+    elif filter_status == "In Revision (Returned to Creator)":
+        query_statuses = ["NEEDS_REVISION"]
     elif filter_status == "Approved Notes":
         query_statuses = ["APPROVED"]
     else:
-        query_statuses = ["UNDER_REVIEW", "APPROVED"]
+        query_statuses = ["UNDER_REVIEW", "NEEDS_REVISION", "APPROVED"]
 
     notes = db.query(ProcessNote).filter(ProcessNote.status.in_(query_statuses)).order_by(ProcessNote.updated_at.desc()).all()
 
     if not notes:
         st.info(f"ℹ️ No process notes found matching filter: **{filter_status}**.")
         if filter_status == "Pending Review (Under Review)":
-            st.caption("💡 Tip: Select 'Active Notes' or 'All Notes' above to review draft process notes or previous releases.")
+            st.caption("💡 Tip: Select 'In Revision' or 'All Process Notes' above to check notes returned for revision or previous releases.")
         st.stop()
 
     note_options = {
@@ -330,7 +352,6 @@ try:
         for n in notes
     }
 
-    # Pre-select note if in session
     note_keys = list(note_options.keys())
     default_idx = 0
     if "selected_note_id" in st.session_state:
@@ -339,8 +360,24 @@ try:
                 default_idx = idx
                 break
 
+    if "review_hub_note_select" in st.session_state:
+        if st.session_state.review_hub_note_select not in note_options:
+            st.session_state.pop("review_hub_note_select", None)
+
+    def on_review_note_change():
+        sel_lbl = st.session_state.get("review_hub_note_select")
+        if sel_lbl and sel_lbl in note_options:
+            st.session_state.selected_note_id = note_options[sel_lbl]
+
     with col_f2:
-        selected_label = st.selectbox("Select Process Note to Review", note_keys, index=default_idx, label_visibility="collapsed")
+        selected_label = st.selectbox(
+            "Select Process Note to Review",
+            note_keys,
+            index=default_idx,
+            key="review_hub_note_select",
+            on_change=on_review_note_change,
+            label_visibility="collapsed"
+        )
         selected_id = note_options[selected_label]
         st.session_state.selected_note_id = selected_id
 
@@ -395,212 +432,225 @@ try:
     # TAB 1: REVIEWER SIGN-OFF & ACTIONS
     # -------------------------------------------------------------
     with tab1:
-        st.markdown("<div style='font-weight: 700; font-size: 15px; color: #1E293B; margin-bottom: 8px;'>Managerial Determination:</div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-weight: 700; font-size: 15px; color: #1E293B; margin-bottom: 8px;'>Managerial Determination & Action:</div>", unsafe_allow_html=True)
 
-        if current_note.status in ["UNDER_REVIEW", "NEEDS_REVISION", "WARNING", "DRAFT", "PASS"]:
-            c_act1, c_act2 = st.columns([1, 1])
-            with c_act1:
-                decision = st.radio(
-                    "Select Review Decision:",
-                    ["✅ Approve & Officially Release Process Note", "🔄 Request Revisions & Return to Creator"],
-                    index=0,
-                    key=f"decision_radio_{current_note.id}"
-                )
-            with c_act2:
-                if "approve" in decision.lower():
-                    st.markdown("""
-                    <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 10px 14px; font-size: 12.5px; color: #166534;">
-                        <b>Approval Action:</b><br>
-                        • Formally seals the note as institutional SOP.<br>
-                        • Ingests approved text into the organizational knowledge repository.
-                    </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    try:
-                        v_num_preview = float(current_note.version)
-                        next_v_preview = f"{v_num_preview + 0.1:.1f}"
-                    except Exception:
-                        next_v_preview = str(current_note.version) + "_revised"
+        if current_note.status == "NEEDS_REVISION":
+            st.markdown(f"""
+            <div style="background: #FFFBEB; border: 1.5px solid #FCD34D; border-radius: 10px; padding: 14px 18px; margin-bottom: 18px; color: #92400E;">
+                <div style="font-weight: 700; font-size: 14px; margin-bottom: 4px;">📝 Currently with Creator for Revisions</div>
+                <div style="font-size: 13px;">This process note (v{current_note.version}) has already been returned to the creator. It is currently being updated to address reviewer feedback. Once the creator completes revisions and re-submits, it will reappear in your <b>Pending Review</b> queue for final approval.</div>
+            </div>
+            """, unsafe_allow_html=True)
 
-                    st.markdown(f"""
-                    <div style="background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px; padding: 10px 14px; font-size: 12.5px; color: #92400E;">
-                        <b>Return for Revisions:</b><br>
-                        • Note status will change to <b>NEEDS REVISION</b>.<br>
-                        • A new draft version (<b>v{next_v_preview}</b>) will be generated and returned to creator.
-                    </div>
-                    """, unsafe_allow_html=True)
+        elif current_note.status in ["UNDER_REVIEW", "WARNING", "DRAFT", "PASS"]:
+            st.markdown("""
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px 14px; font-size: 12.5px; color: #475569; margin-bottom: 14px;">
+                <b>Reviewer Determination Guide:</b><br>
+                • <b>Return to Creator for Revisions:</b> Immediately creates a revised draft (e.g. v1.1) and returns to creator with your remarks.<br>
+                • <b>Formally Approve & Release Note:</b> Formally seals the note as institutional SOP, ingests into knowledge base, and notifies the creator.
+            </div>
+            """, unsafe_allow_html=True)
 
             reviewer_comments = st.text_area(
                 "Reviewer Comments & Executive Guidance for the Creator:",
-                placeholder="e.g., Please address the calculation formula in Section 1.5 and clarify RACI ownership in Section 1.13 before final sign-off.",
+                placeholder="Specify required revisions, missing details, or approval remarks for the creator...",
                 height=130,
                 key=f"txt_rev_comments_{current_note.id}"
             )
 
-            is_approve_chosen = "approve" in decision.lower()
-            btn_label = "✅ Submit Decision: Formally Approve & Release Note" if is_approve_chosen else "🔄 Submit Decision: Return to Creator for Revisions"
+            try:
+                v_num_preview = float(current_note.version)
+                next_v_preview = f"{v_num_preview + 0.1:.1f}"
+            except Exception:
+                next_v_preview = str(current_note.version) + "_revised"
 
-            if st.button(btn_label, key=f"btn_submit_decision_{current_note.id}", type="primary", use_container_width=True):
-                reviewer_name = st.session_state.get("current_user_name") or user_email.split("@")[0].title() or "Designated Reviewer"
+            col_btn_ret, col_btn_app = st.columns([1, 1])
 
+            with col_btn_ret:
+                btn_return = st.button(
+                    f"🔄 Return to Creator for Revisions (Draft v{next_v_preview})",
+                    key=f"btn_return_creator_{current_note.id}",
+                    use_container_width=True,
+                    help="Creates a new working draft and returns the note to creator with your remarks."
+                )
+
+            with col_btn_app:
+                btn_approve = st.button(
+                    "✅ Formally Approve & Release Note",
+                    key=f"btn_approve_note_{current_note.id}",
+                    type="primary",
+                    use_container_width=True,
+                    help="Officially releases the process note as organizational SOP."
+                )
+
+            reviewer_name = st.session_state.get("current_user_name") or user_email.split("@")[0].title() or "Designated Reviewer"
+
+            if btn_return:
                 try:
-                    if is_approve_chosen:
-                        current_note.status = "APPROVED"
-                        action_val = "APPROVED"
+                    if not current_note.document_id:
+                        current_note.document_id = str(uuid.uuid4())
 
-                        # Clear internal reviewer draft comments upon formal approval
-                        for s in current_note.sections:
-                            if s.structured_data:
-                                mod = False
-                                for row in s.structured_data:
-                                    if "Reviewer Comment" in row:
-                                        del row["Reviewer Comment"]
-                                        mod = True
-                                if mod:
-                                    flag_modified(s, "structured_data")
-                                    db.add(s)
+                    current_note.status = "ARCHIVED"
+                    new_v = next_v_preview
 
-                        # Background RAG ingestion
-                        def ingest_rag_bg(n_id, team_str, sec_list):
-                            from services.rag_service import rag_service
-                            for s_id, s_cont in sec_list:
-                                try:
-                                    rag_service.ingest_section(note_id=n_id, team=team_str, section_id=s_id, content=s_cont)
-                                except Exception:
-                                    pass
+                    new_note = ProcessNote(
+                        document_id=current_note.document_id,
+                        process_name=current_note.process_name,
+                        team=current_note.team,
+                        version=new_v,
+                        status="NEEDS_REVISION",
+                        document_type=getattr(current_note, 'document_type', 'PROCESS_NOTE'),
+                        subject_matter_expert=current_note.subject_matter_expert,
+                        process_owner=current_note.process_owner,
+                        process_champion=current_note.process_champion,
+                        process_reviewer=current_note.process_reviewer,
+                        process_approver=current_note.process_approver,
+                        effective_date=current_note.effective_date,
+                        next_review_date=current_note.next_review_date,
+                        created_by=current_note.created_by
+                    )
 
-                        import threading, json
-                        secs_to_ingest = []
-                        for s in current_note.sections:
-                            cont = s.content or (json.dumps(s.structured_data) if s.structured_data else "")
-                            if cont and cont != "[]":
-                                secs_to_ingest.append((s.section_id, cont))
-                        threading.Thread(target=ingest_rag_bg, args=(current_note.id, current_note.team, secs_to_ingest)).start()
-
-                        # Record History
-                        rev_rec = ReviewHistory(
-                            process_note_id=current_note.id,
-                            process_name=current_note.process_name,
-                            reviewer=reviewer_name,
-                            action=action_val,
-                            comments=reviewer_comments or "Formally approved by reviewer."
+                    new_sections = []
+                    for s in current_note.sections:
+                        ns = ProcessSection(
+                            process_name=new_note.process_name,
+                            section_id=s.section_id,
+                            content=s.content,
+                            structured_data=copy.deepcopy(s.structured_data) if s.structured_data else None
                         )
-                        db.add(rev_rec)
-                        db.commit()
+                        new_sections.append(ns)
+                    new_note.sections = new_sections
+                    db.add(new_note)
+                    db.flush()
 
-                        from core.notifications import create_notification
-                        if current_note.created_by:
-                            create_notification(db, current_note.created_by, f"🎉 Congratulations! Reviewer {reviewer_name} has officially APPROVED your process note '{current_note.process_name}'.", current_note.id)
+                    final_sent_back_comments = (reviewer_comments if (reviewer_comments and reviewer_comments.strip()) else (
+                        "\n".join([f"• {h.comments}" for h in db.query(ReviewHistory).filter(ReviewHistory.process_note_id == current_note.id, ReviewHistory.action == "COMMENTED").all() if h.comments]) or "Revisions requested by reviewer."
+                    ))
 
-                        st.success(f"🎉 Process Note '{current_note.process_name}' has been officially APPROVED!")
-                        st.cache_data.clear()
-                        st.rerun()
+                    # Record History on both current note and new note
+                    rev_rec_old = ReviewHistory(
+                        process_note_id=current_note.id,
+                        process_name=current_note.process_name,
+                        reviewer=reviewer_name,
+                        action="SENT_BACK",
+                        comments=final_sent_back_comments
+                    )
+                    db.add(rev_rec_old)
 
-                    else:
-                        # Send back for revision: create new version draft
-                        if not current_note.document_id:
-                            current_note.document_id = str(uuid.uuid4())
+                    rev_rec_new = ReviewHistory(
+                        process_note_id=new_note.id,
+                        process_name=new_note.process_name,
+                        reviewer=reviewer_name,
+                        action="SENT_BACK",
+                        comments=final_sent_back_comments
+                    )
+                    db.add(rev_rec_new)
 
-                        current_note.status = "ARCHIVED"
-                        try:
-                            v_num = float(current_note.version)
-                            new_v = f"{v_num + 0.1:.1f}"
-                        except Exception:
-                            new_v = str(current_note.version) + "_revised"
-
-                        new_note = ProcessNote(
-                            document_id=current_note.document_id,
-                            process_name=current_note.process_name,
-                            team=current_note.team,
-                            version=new_v,
-                            status="NEEDS_REVISION",
-                            subject_matter_expert=current_note.subject_matter_expert,
-                            process_owner=current_note.process_owner,
-                            process_champion=current_note.process_champion,
-                            process_reviewer=current_note.process_reviewer,
-                            process_approver=current_note.process_approver,
-                            effective_date=current_note.effective_date,
-                            next_review_date=current_note.next_review_date,
-                            created_by=current_note.created_by
-                        )
-
-                        new_sections = []
-                        for s in current_note.sections:
-                            ns = ProcessSection(
-                                process_name=new_note.process_name,
-                                section_id=s.section_id,
-                                content=s.content,
-                                structured_data=copy.deepcopy(s.structured_data) if s.structured_data else None
-                            )
-                            new_sections.append(ns)
-                        new_note.sections = new_sections
-                        db.add(new_note)
-                        db.flush()
-
-                        final_sent_back_comments = (reviewer_comments if (reviewer_comments and reviewer_comments.strip()) else (
-                            "\n".join([f"• {h.comments}" for h in db.query(ReviewHistory).filter(ReviewHistory.process_note_id == current_note.id, ReviewHistory.action == "COMMENTED").all() if h.comments]) or "Revisions requested by reviewer."
+                    # Forward previous section remarks to the new note
+                    commented_records = db.query(ReviewHistory).filter(
+                        ReviewHistory.process_note_id == current_note.id,
+                        ReviewHistory.action == "COMMENTED"
+                    ).all()
+                    for cr in commented_records:
+                        db.add(ReviewHistory(
+                            process_note_id=new_note.id,
+                            process_name=new_note.process_name,
+                            reviewer=cr.reviewer,
+                            action=cr.action,
+                            comments=cr.comments,
+                            timestamp=cr.timestamp
                         ))
 
-                        # Record History on both current note and new note
-                        rev_rec_old = ReviewHistory(
-                            process_note_id=current_note.id,
-                            process_name=current_note.process_name,
-                            reviewer=reviewer_name,
-                            action="SENT_BACK",
-                            comments=final_sent_back_comments
-                        )
-                        db.add(rev_rec_old)
-
-                        rev_rec_new = ReviewHistory(
+                    # Extract section comments from final_sent_back_comments and record them directly on new_note
+                    parsed_from_text = re.findall(r'(?:•\s*)?\[Section\s+(1\.\d+)[^\]]*\]:\s*(.*?)(?=(?:\n\s*(?:•\s*)?\[Section|\Z))', final_sent_back_comments, re.DOTALL)
+                    for psid, pcomm in parsed_from_text:
+                        sec_cfg_item = next((s for s in sections_config if str(s.get("id")) == str(psid)), None)
+                        sname_item = sec_cfg_item["name"] if sec_cfg_item else ""
+                        db.add(ReviewHistory(
                             process_note_id=new_note.id,
                             process_name=new_note.process_name,
                             reviewer=reviewer_name,
-                            action="SENT_BACK",
-                            comments=final_sent_back_comments
-                        )
-                        db.add(rev_rec_new)
+                            action="COMMENTED",
+                            comments=f"[Section {psid} - {sname_item}]: {pcomm.strip()}"
+                        ))
 
-                        # Forward previous section remarks to the new note
-                        commented_records = db.query(ReviewHistory).filter(
-                            ReviewHistory.process_note_id == current_note.id,
-                            ReviewHistory.action == "COMMENTED"
-                        ).all()
-                        for cr in commented_records:
-                            db.add(ReviewHistory(
-                                process_note_id=new_note.id,
-                                process_name=new_note.process_name,
-                                reviewer=cr.reviewer,
-                                action=cr.action,
-                                comments=cr.comments,
-                                timestamp=cr.timestamp
-                            ))
+                    db.commit()
 
-                        # Extract section comments from final_sent_back_comments and record them directly on new_note
-                        parsed_from_text = re.findall(r'(?:•\s*)?\[Section\s+(1\.\d+)[^\]]*\]:\s*(.*?)(?=(?:\n\s*(?:•\s*)?\[Section|\Z))', final_sent_back_comments, re.DOTALL)
-                        for psid, pcomm in parsed_from_text:
-                            sec_cfg_item = next((s for s in sections_config if str(s.get("id")) == str(psid)), None)
-                            sname_item = sec_cfg_item["name"] if sec_cfg_item else ""
-                            db.add(ReviewHistory(
-                                process_note_id=new_note.id,
-                                process_name=new_note.process_name,
-                                reviewer=reviewer_name,
-                                action="COMMENTED",
-                                comments=f"[Section {psid} - {sname_item}]: {pcomm.strip()}"
-                            ))
+                    from core.notifications import create_notification
+                    if current_note.created_by:
+                        create_notification(db, current_note.created_by, f"📝 Reviewer {reviewer_name} requested revisions on '{current_note.process_name}'. A new draft (v{new_v}) is ready for your updates.", new_note.id)
 
-                        db.commit()
-
-                        from core.notifications import create_notification
-                        if current_note.created_by:
-                            create_notification(db, current_note.created_by, f"📝 Reviewer {reviewer_name} requested revisions on '{current_note.process_name}'. A new draft (v{new_v}) is ready for your updates.", new_note.id)
-
-                        st.success(f"✅ Revisions requested! Draft version {new_v} has been created and sent back to the creator.")
-                        st.cache_data.clear()
-                        st.rerun()
+                    st.session_state["review_action_flash"] = {
+                        "type": "success",
+                        "message": f"🎉 Process Note '{current_note.process_name}' has been successfully returned to the creator! Draft version {new_v} has been created and sent back with your comments."
+                    }
+                    st.session_state["review_queue_filter_status"] = "In Revision (Returned to Creator)"
+                    st.session_state["selected_note_id"] = new_note.id
+                    st.cache_data.clear()
+                    st.rerun()
 
                 except Exception as e:
                     db.rollback()
-                    st.error(f"❌ Error submitting decision: {e}")
+                    st.error(f"❌ Error returning note for revisions: {e}")
+
+            elif btn_approve:
+                try:
+                    current_note.status = "APPROVED"
+
+                    # Clear internal reviewer draft comments upon formal approval
+                    for s in current_note.sections:
+                        if s.structured_data:
+                            mod = False
+                            for row in s.structured_data:
+                                if "Reviewer Comment" in row:
+                                    del row["Reviewer Comment"]
+                                    mod = True
+                            if mod:
+                                flag_modified(s, "structured_data")
+                                db.add(s)
+
+                    # Background RAG ingestion
+                    def ingest_rag_bg(n_id, team_str, sec_list):
+                        from services.rag_service import rag_service
+                        for s_id, s_cont in sec_list:
+                            try:
+                                rag_service.ingest_section(note_id=n_id, team=team_str, section_id=s_id, content=s_cont)
+                            except Exception:
+                                pass
+
+                    import threading, json
+                    secs_to_ingest = []
+                    for s in current_note.sections:
+                        cont = s.content or (json.dumps(s.structured_data) if s.structured_data else "")
+                        if cont and cont != "[]":
+                            secs_to_ingest.append((s.section_id, cont))
+                    threading.Thread(target=ingest_rag_bg, args=(current_note.id, current_note.team, secs_to_ingest)).start()
+
+                    rev_rec = ReviewHistory(
+                        process_note_id=current_note.id,
+                        process_name=current_note.process_name,
+                        reviewer=reviewer_name,
+                        action="APPROVED",
+                        comments=reviewer_comments or "Formally approved by reviewer."
+                    )
+                    db.add(rev_rec)
+                    db.commit()
+
+                    from core.notifications import create_notification
+                    if current_note.created_by:
+                        create_notification(db, current_note.created_by, f"🎉 Congratulations! Reviewer {reviewer_name} has officially APPROVED your process note '{current_note.process_name}'.", current_note.id)
+
+                    st.session_state["review_action_flash"] = {
+                        "type": "success",
+                        "message": f"🎉 Process Note '{current_note.process_name}' has been officially APPROVED and released!"
+                    }
+                    st.session_state["review_queue_filter_status"] = "Approved Notes"
+                    st.cache_data.clear()
+                    st.rerun()
+
+                except Exception as e:
+                    db.rollback()
+                    st.error(f"❌ Error approving process note: {e}")
 
         elif current_note.status == "APPROVED":
             st.markdown("""
