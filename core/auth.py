@@ -112,6 +112,9 @@ def verify_session_token(token: str) -> dict:
         return None
 
 def restore_session_from_cookie() -> bool:
+    if st.session_state.get("logged_out"):
+        return False
+
     if "user" in st.session_state and st.session_state.user is not None:
         return True
 
@@ -222,6 +225,29 @@ def sync_user_to_db(email: str, name: str = None):
         db.close()
 
 def render_login_page():
+    # If explicitly logged out, ensure client cookie is wiped
+    if st.session_state.get("logged_out"):
+        try:
+            cookie_ctrl = CookieController()
+            cookie_ctrl.remove(SESSION_COOKIE_NAME, path="/")
+        except Exception:
+            pass
+
+    import streamlit.components.v1 as components
+    components.html(
+        f"""<script>
+        document.cookie = "{SESSION_COOKIE_NAME}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0;";
+        try {{
+            if (window.parent && window.parent.location.search.includes('auth_token')) {{
+                const url = new URL(window.parent.location.href);
+                url.searchParams.delete('auth_token');
+                window.parent.history.replaceState({{}}, document.title, url.pathname);
+            }}
+        }} catch(e) {{}}
+        </script>""",
+        height=0
+    )
+
     st.markdown("""
     <style>
         [data-testid="stSidebar"] {
@@ -299,7 +325,7 @@ def render_login_page():
                     else:
                         try:
                             # Clean user state before login without breaking Streamlit SessionInfo
-                            for k in ["user", "current_user_id", "current_user_role", "current_user_name"]:
+                            for k in ["user", "current_user_id", "current_user_role", "current_user_name", "logged_out"]:
                                 st.session_state.pop(k, None)
 
                             sb = get_supabase_client()
@@ -450,4 +476,5 @@ def logout():
         if not k.startswith("_"):
             st.session_state.pop(k, None)
     st.session_state.user = None
+    st.session_state["logged_out"] = True
     st.rerun()
